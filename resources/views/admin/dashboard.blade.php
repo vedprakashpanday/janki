@@ -1,4 +1,4 @@
-@extends('admin.layout.app')
+@extends('layout.app')
 
 @section('content')
 <div class="container-fluid p-0">
@@ -61,6 +61,8 @@
     </div>
 
 </div>
+
+
 @endsection
 
 @push('scripts')
@@ -70,6 +72,8 @@
         if (!token) {
             window.location.href = '/admin/login'; 
         }
+
+        
     });
 </script>
 @endpush

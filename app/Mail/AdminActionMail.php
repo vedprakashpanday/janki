@@ -8,7 +8,7 @@ use Illuminate\Queue\SerializesModels;
 class AdminActionMail extends Mailable
 {
     use Queueable, SerializesModels;
-
+ 
     public $actionName;
     public $userEmail;
     public $approveUrl;

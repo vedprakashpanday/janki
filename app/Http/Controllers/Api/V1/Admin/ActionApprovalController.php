@@ -9,49 +9,41 @@ use App\Events\LoginApprovedEvent;
 
 class ActionApprovalController extends Controller
 {
-    public function approve(Request $request, $id)
+   public function approve(Request $request, $id)
     {
-        // 1. Signature check (Security ki link valid hai)
         if (! $request->hasValidSignature()) {
             return response("This link has expired or is invalid.", 401);
         }
 
         $action = DB::table('pending_actions')->where('id', $id)->first();
 
-        // 2. Check if already processed
         if(!$action || $action->status !== 'pending') {
-            return response("This action has already been processed.", 400);
+            return view('admin.action_response', [
+                'status' => 'rejected',
+                'message' => 'This action has already been processed or is no longer valid.'
+            ]);
         }
 
-        // 3. Mark as Approved
         DB::table('pending_actions')->where('id', $id)->update(['status' => 'approved']);
-
         $payload = json_decode($action->payload);
 
-        // 4. Agar action Admin Login ka tha
         if($action->action_type === 'admin_login') {
-            $user = User::find($action->user_id);
-            $token = $user->createToken('admin_auth_token')->plainTextToken;
+            $user = \App\Models\User::find($action->user_id);
+            
+            // NAYA: Purane tokens delete nahi karenge! 
+            // Token ka naam wahi rakhenge jo payload se aayega
+            $deviceName = $payload->device_info ?? 'Unknown Device';
+            $token = $user->createToken($deviceName)->plainTextToken;
 
-           if($action->action_type === 'admin_login') {
-    $user = User::find($action->user_id);
-    $token = $user->createToken('admin_auth_token')->plainTextToken;
+            // SessionId ke through WebSocket par token bhejenge
+            $sessionId = $payload->session_id;
+            broadcast(new \App\Events\LoginApprovedEvent($sessionId, 'approved', $token));
+        }
 
-    // Payload se sessionId nikalna
-    $payload = json_decode($action->payload);
-    $sessionId = $payload->session_id;
-
-    // Reverb ko signal bhejo!
-    broadcast(new LoginApprovedEvent($sessionId, 'approved', $token));
-
-    return response("<h3>Approved!</h3><p>User is being redirected...</p>");
-}
-
-       return view('admin.action_response', [
-    'status' => 'approved',
-    'message' => 'Login request successfully approved. User is being redirected.'
-]);
-    }
+        return view('admin.action_response', [
+            'status' => 'approved',
+            'message' => 'Login request successfully approved. The user is being redirected to the dashboard.'
+        ]);
     }
 
   public function reject(Request $request, $id)

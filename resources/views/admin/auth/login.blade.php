@@ -38,9 +38,9 @@
         }
 
         .brand-icon {
-            width: 60px;
-            height: 60px;
-            background: #0d6efd;
+            width: 300px;
+            height: 80px;
+            /* background: #0d6efd; */
             color: white;
             border-radius: 15px;
             display: flex;
@@ -88,13 +88,10 @@
 
     <div class="login-card mx-3">
         <div class="brand-icon">
-            <i class="fas fa-building"></i>
+           <img src="{{asset('uploads/harihomes1-logo.png')}}" alt="" style="width: 250px; height: 70px;">
         </div>
         
-        <div class="text-center mb-4">
-            <h3 class="text-dark fw-bold mb-1">JankiVilla</h3>
-            <p class="text-muted small">Admin Portal Access</p>
-        </div>
+        
         
         <form id="loginForm">
             <div class="mb-3">

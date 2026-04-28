@@ -1,0 +1,324 @@
+@extends('layout.app')
+
+@section('content')
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css" rel="stylesheet">
+
+<style>
+    .table-custom th { background-color: var(--sidebar-bg); color: #fff; font-size: 13px; border: none; padding: 12px 15px;}
+    .table-custom td { font-size: 13px; vertical-align: middle; padding: 12px 15px;}
+    .mobile-item { background: #fff; border-radius: 12px; border: 1px solid var(--border-color); padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px var(--shadow-color); }
+</style>
+
+<div class="container-fluid p-0">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Letterhead Management</h4>
+        <button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: var(--brand-primary);" onclick="openModal('add')">
+            <i class="fas fa-plus-circle me-1"></i> Create Letterhead
+        </button>
+    </div>
+
+    <div class="d-flex d-md-none gap-2 mb-3">
+        <input type="text" id="mobileSearch" class="form-control shadow-sm" placeholder="Search Letterhead...">
+        <button type="button" class="btn text-white shadow-sm" style="background-color: #10b981;" onclick="$('.buttons-excel').click()">
+            <i class="fas fa-file-excel"></i>
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4 d-none d-md-block">
+        <div class="card-body p-4 table-responsive">
+            <table id="lhTable" class="table table-hover table-custom w-100">
+                <thead>
+                    <tr>
+                        <th>Ref No</th>
+                        <th>Date</th>
+                        <th>Assigned To</th>
+                        <th>Subject</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="mobileCardsContainer" class="d-block d-md-none"></div>
+</div>
+
+<div class="modal fade" id="lhModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-bottom-0">
+                <h5 class="modal-title fw-bold" id="modalTitle" style="color: var(--sidebar-bg);">Create Letterhead</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="lhForm" class="row g-3">
+                    <input type="hidden" id="edit_id">
+
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Select Branch <span class="text-danger">*</span></label>
+                        <select name="branch_id" id="f_branch" class="form-select" required></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Reference Year <span class="text-danger">*</span></label>
+                        <input type="number" name="ref_year" id="f_year" class="form-control" value="{{ date('Y') }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Letter Date <span class="text-danger">*</span></label>
+                        <input type="date" name="letter_date" id="f_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Employee ID (or 'All')</label>
+                        <input type="text" name="emp_code" id="f_emp" class="form-control" placeholder="Search ID or type All" list="staffList" autocomplete="off">
+                        <datalist id="staffList"></datalist>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Subject</label>
+                        <input type="text" name="subject" id="f_sub" class="form-control">
+                    </div>
+                    {{-- <div class="col-md-4">
+                        <label class="form-label small fw-bold">Paid To (Optional)</label>
+                        <input type="text" name="paid_to" id="f_paid" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Paid To Address (Optional)</label>
+                        <input type="text" name="paid_to_address" id="f_paid_addr" class="form-control">
+                    </div> --}}
+
+                    <div class="col-12 mt-3">
+                        <label class="form-label fw-bold text-primary"><i class="fas fa-edit me-1"></i> Letter Content</label>
+                        <textarea name="message" id="summernote" required></textarea>
+                    </div>
+
+                    <div class="col-12 text-end mt-4 pt-3 border-top">
+                        <button type="button" class="btn btn-secondary px-4 me-2" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn text-white px-5 shadow-sm fw-medium" style="background-color: var(--brand-primary);" id="saveBtn">Save Letterhead</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="printModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" style="color: var(--sidebar-bg);"><i class="fas fa-file-pdf me-2 text-danger"></i> Print Preview</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 70vh;">
+                <iframe id="printFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success px-4 shadow-sm" onclick="document.getElementById('printFrame').contentWindow.print()">
+                    <i class="fas fa-print me-2"></i> Print Document
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@endsection
+
+@push('scripts')
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    const apiToken = localStorage.getItem('admin_token');
+    let mode = 'add'; 
+
+    // === 1. SUMMERNOTE SETUP (AJAX IMAGE UPLOAD FOR SMALL SIZE) ===
+    $('#summernote').summernote({
+        placeholder: 'Draft your letter here...',
+        tabsize: 2,
+        height: 300,
+        toolbar: [
+            ['style', ['style']],
+            ['font', ['bold', 'underline', 'clear']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['table', ['table']],
+            ['insert', ['link', 'picture']],
+            ['view', ['fullscreen', 'codeview', 'help']]
+        ],
+        callbacks: {
+            onImageUpload: function(files) {
+                let data = new FormData();
+                data.append("file", files[0]);
+                $.ajax({
+                    url: "/api/v1/admin/letterheads/upload-image",
+                    type: "POST",
+                    headers: { 'Authorization': 'Bearer ' + apiToken },
+                    data: data,
+                    contentType: false,
+                    processData: false,
+                    success: function(url) {
+                        $('#summernote').summernote('insertImage', url);
+                    },
+                    error: function() { alert("Image upload failed. Size too large?"); }
+                });
+            }
+        }
+    });
+
+    // === 2. INITIALIZE DATATABLE ===
+    let table = $('#lhTable').DataTable({
+        ajax: { 
+            url: '/api/v1/admin/letterheads', 
+            headers: { 'Authorization': 'Bearer ' + apiToken },
+            dataSrc: function(json) { renderMobileCards(json.data); return json.data; }
+        },
+        dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
+        buttons: [{ extend: 'excelHtml5', text: '<i class="fas fa-file-excel me-1"></i> Export', className: 'btn btn-success btn-sm shadow-sm' }],
+        columns: [
+            { data: 'ref_no', render: d => `<span class="fw-bold text-primary">${d}</span>` },
+            { data: 'letter_date' },
+            { data: 'emp_code', render: d => `<span class="badge bg-secondary">${d||'N/A'}</span>` },
+            { data: 'subject', render: d => d || '-' },
+            { data: 'id', render: d => `
+                <div class="text-end">
+                    <button class="btn btn-sm btn-light text-success me-1 print-btn" data-id="${d}"><i class="fas fa-print"></i></button>
+                    <button class="btn btn-sm btn-light text-primary me-1 edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
+                </div>`
+            }
+        ]
+    });
+
+    // === 3. MOBILE CARDS ===
+    function renderMobileCards(data) {
+        let html = '';
+        data.forEach(item => {
+            html += `
+                <div class="mobile-item lh-card">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="fw-bold text-primary mb-0">${item.ref_no}</h6>
+                            <small class="text-muted"><i class="far fa-calendar-alt"></i> ${item.letter_date}</small>
+                        </div>
+                        <span class="badge bg-secondary">${item.emp_code || 'N/A'}</span>
+                    </div>
+                    <div class="small text-dark mb-3"><b>Sub:</b> ${item.subject || '-'}</div>
+                    <div class="pt-2 border-top d-flex gap-2">
+                        <button class="btn btn-sm btn-light text-success fw-bold flex-fill print-btn" data-id="${item.id}"><i class="fas fa-print"></i> Print</button>
+                        <button class="btn btn-sm btn-light text-primary fw-bold flex-fill edit-btn" data-id="${item.id}"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn btn-sm btn-light text-danger fw-bold flex-fill delete-btn" data-id="${item.id}"><i class="fas fa-trash"></i> Delete</button>
+                    </div>
+                </div>
+            `;
+        });
+        $('#mobileCardsContainer').html(html || '<p class="text-center text-muted">No Letterheads found.</p>');
+    }
+
+    $('#mobileSearch').on('keyup', function() {
+        let val = $(this).val().toLowerCase();
+        $(".lh-card").filter(function() { $(this).toggle($(this).text().toLowerCase().indexOf(val) > -1) });
+    });
+
+    // === 4. MODALS AND FORM ===
+    function loadDependencies() {
+        $.ajax({
+            url: '/api/v1/admin/branches', headers: { 'Authorization': 'Bearer ' + apiToken },
+            success: function(res) {
+                let options = '<option value="">-- Choose Branch --</option>';
+                res.data.forEach(b => { options += `<option value="${b.id}">${b.branch_name}</option>`; });
+                $('#f_branch').html(options);
+            }
+        });
+        
+        // Auto suggestion list
+        $.get({
+            url: '/api/v1/admin/employees', headers: { 'Authorization': 'Bearer ' + apiToken },
+            success: function(res) {
+                let dlHtml = '<option value="All">All Staff</option>';
+                res.data.forEach(e => dlHtml += `<option value="${e.member_id}">${e.full_name}</option>`);
+                $('#staffList').html(dlHtml);
+            }
+        });
+    }
+    loadDependencies();
+
+    window.openModal = function(type, id = null) {
+        mode = type;
+        $('#lhForm')[0].reset();
+        $('#summernote').summernote('code', ''); // Reset editor
+        $('#modalTitle').text(type === 'add' ? 'Create Letterhead' : 'Edit Letterhead');
+
+        if(type === 'edit') {
+            $.get({
+                url: `/api/v1/admin/letterheads/${id}`,
+                headers: { 'Authorization': 'Bearer ' + apiToken },
+                success: function(res) {
+                    let d = res.data;
+                    $('#edit_id').val(d.id);
+                    $('#f_branch').val(d.branch_id);
+                    $('#f_year').val(d.ref_year);
+                    $('#f_date').val(d.letter_date);
+                    $('#f_emp').val(d.emp_code);
+                    $('#f_sub').val(d.subject);
+                    $('#f_paid').val(d.paid_to);
+                    $('#f_paid_addr').val(d.paid_to_address);
+                    $('#summernote').summernote('code', d.message);
+                }
+            });
+        }
+        $('#lhModal').modal('show');
+    };
+
+    $(document).on('click', '.edit-btn', function() { openModal('edit', $(this).data('id')); });
+
+    $('#lhForm').submit(function(e) {
+        e.preventDefault();
+        let id = $('#edit_id').val();
+        let url = mode === 'add' ? '/api/v1/admin/letterheads' : `/api/v1/admin/letterheads/${id}`;
+        let type = mode === 'add' ? 'POST' : 'PUT';
+        
+        let btn = $('#saveBtn');
+        btn.prop('disabled', true).text('Saving...');
+
+        $.ajax({
+            url: url, type: type,
+            headers: { 'Authorization': 'Bearer ' + apiToken },
+            data: $(this).serialize(),
+            success: function(res) {
+                alert(res.message);
+                $('#lhModal').modal('hide');
+                table.ajax.reload(null, false);
+            },
+            error: function(err) { alert(err.responseJSON.message || "Error occurred."); },
+            complete: function() { btn.prop('disabled', false).text('Save Letterhead'); }
+        });
+    });
+
+    $(document).on('click', '.delete-btn', function() {
+        if(confirm("Are you sure?")) {
+            $.ajax({
+                url: `/api/v1/admin/letterheads/${$(this).data('id')}`,
+                type: 'DELETE', headers: { 'Authorization': 'Bearer ' + apiToken },
+                success: function() { table.ajax.reload(null, false); }
+            });
+        }
+    });
+
+    // === 5. A4 EXACT PRINT LOGIC (USING IFRAME & BLADE VIEW) ===
+    $(document).on('click', '.print-btn', function() {
+        let id = $(this).data('id');
+        // Iframe ka source update karein
+        $('#printFrame').attr('src', `/admin/letterheads/print/${id}`);
+        // Modal open karein
+        $('#printModal').modal('show');
+    });
+});
+</script>
+@endpush

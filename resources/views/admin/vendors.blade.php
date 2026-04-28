@@ -1,0 +1,953 @@
+@extends('layout.app')
+
+@section('content')
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+
+    <style>
+        .table-custom th {
+            background-color: var(--sidebar-bg);
+            color: #fff;
+            font-size: 13px;
+            border: none;
+            padding: 12px 15px;
+        }
+
+        .table-custom td {
+            font-size: 13px;
+            vertical-align: middle;
+            padding: 12px 15px;
+        }
+
+        .mobile-item {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px var(--shadow-color);
+        }
+
+        .nav-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .nav-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tabs .nav-link {
+            font-weight: 600;
+            color: #6b7280;
+            border: none;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--brand-primary);
+            border-bottom: 3px solid var(--brand-primary);
+            background: transparent;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #4b5563;
+        }
+
+        /* File Preview Styling */
+        .file-preview-wrapper {
+            display: none;
+            position: relative;
+            margin-top: 10px;
+            padding: 12px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            background: #f8fafc;
+            width: fit-content;
+            transition: all 0.3s ease;
+        }
+
+        .remove-preview-btn {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+
+    <div class="container-fluid p-0">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Vendor Details</h4>
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: var(--brand-primary);"
+                onclick="openModal('add')">
+                <i class="fas fa-plus me-1"></i> Register Vendor
+            </button>
+        </div>
+
+        <div class="d-flex d-md-none gap-2 mb-3">
+            <input type="text" id="mobileSearch" class="form-control shadow-sm" placeholder="Search Vendor...">
+            <button type="button" class="btn text-white shadow-sm" style="background-color: #10b981;"
+                id="mobileExcelBtn"><i class="fas fa-file-excel"></i></button>
+        </div>
+
+        <div class="card border-0 shadow-sm d-none d-md-block">
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table id="vendorTable" class="table table-hover table-custom w-100">
+                        <thead>
+                            <tr>
+                                <th>VENDOR ID</th>
+                                <th>Branch</th>
+                                <th>Name</th>
+                                <th>Vendor Type</th>
+                                <th>Mobile</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobileCardsContainer" class="d-block d-md-none"></div>
+    </div>
+
+    <div class="modal fade" id="viewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" style="color: var(--sidebar-bg);"><i
+                            class="fas fa-eye me-2 text-info"></i> Vendor Overview</h5>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded bg-light">
+                                <h6 class="fw-bold text-primary mb-3">Login Credentials</h6>
+                                <p class="mb-1"><strong>Vendor ID:</strong> <span id="v_vendor_id"
+                                        class="text-dark"></span></p>
+                                <p class="mb-0"><strong>Password:</strong> <span id="v_password"
+                                        class="text-danger fw-bold"></span></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <h6 class="fw-bold text-primary mb-3">Professional Info</h6>
+                                <p class="mb-1"><strong>Branch:</strong> <span id="v_branch" class="text-dark"></span>
+                                </p>
+                                <p class="mb-1"><strong>Vendor Type:</strong> <span id="v_type"
+                                        class="text-dark"></span></p>
+                                <p class="mb-0 mt-2"><strong>Status:</strong> <span id="v_status"
+                                        class="badge bg-success"></span></p>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <h6 class="fw-bold text-secondary border-bottom pb-2">Personal Information</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Full Name</p>
+                            <h6 class="fw-bold" id="v_name"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Mobile Number</p>
+                            <h6 class="fw-bold" id="v_mobile"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Email</p>
+                            <h6 class="fw-bold" id="v_email"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Aadhar No.</p>
+                            <h6 class="fw-bold" id="v_aadhar"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">PAN No.</p>
+                            <h6 class="fw-bold text-uppercase" id="v_pan"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">GSTIN.</p>
+                            <h6 class="fw-bold text-uppercase" id="v_gstin"></h6>
+                        </div>
+
+                        <div class="col-12 mt-3">
+                            <h6 class="fw-bold text-secondary border-bottom pb-2">Nominee Info</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Nominee Name</p>
+                            <h6 class="fw-bold" id="v_nom_name"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Relation</p>
+                            <h6 class="fw-bold" id="v_nom_rel"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Nominee Mobile</p>
+                            <h6 class="fw-bold" id="v_nom_mob"></h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="vendorModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light border-bottom-0">
+                    <h5 class="modal-title fw-bold" id="modalTitle" style="color: var(--sidebar-bg);"><i
+                            class="fas fa-user-plus me-2 text-primary"></i> Register Vendor</h5>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <form id="vendorForm" enctype="multipart/form-data">
+                        <input type="hidden" id="edit_id">
+
+                        <ul class="nav nav-tabs px-4 pt-3 bg-light" role="tablist">
+                            <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab"
+                                    data-bs-target="#tab-personal" type="button"><i class="fas fa-user me-1"></i>
+                                    Personal Info</button></li>
+                            <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab"
+                                    data-bs-target="#tab-bank" type="button"><i class="fas fa-university me-1"></i> Bank
+                                    Details</button></li>
+                            <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab"
+                                    data-bs-target="#tab-nominee" type="button"><i class="fas fa-user-shield me-1"></i>
+                                    Nominee Info</button></li>
+                            <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab"
+                                    data-bs-target="#tab-docs" type="button"><i class="fas fa-file-upload me-1"></i>
+                                    Documents</button></li>
+                        </ul>
+
+                        <div class="tab-content p-4">
+
+                            <div class="tab-pane fade show active" id="tab-personal">
+
+                                <div class="row g-3 mb-4 pb-3 border-bottom">
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Select Branch <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" name="branch_id" class="form-control" id="f_branch"
+                                            list="branchList" placeholder="Search Branch..." required autocomplete="off">
+                                        <datalist id="branchList"></datalist>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Vendor Type</label>
+                                        <input type="text" name="vendor_type" class="form-control" id="f_vtype"
+                                            placeholder="e.g. Supplier">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Vendor GSTIN</label>
+                                        <input type="text" name="vendor_gstin" class="form-control" id="f_gstin">
+                                    </div>
+                                    <div class="col-md-4 password-div" style="display:none;">
+                                        <label class="form-label text-secondary small">Password</label>
+                                        <input type="text" name="password" class="form-control" id="f_password">
+                                    </div>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Name in Full
+                                            <span class="text-danger">*</span></label><input type="text"
+                                            name="full_name" class="form-control" id="f_name" required></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">S/o, D/o,
+                                            Spouse's Name</label><input type="text" name="father_spouse_name"
+                                            class="form-control" id="f_sodowo"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Mother's
+                                            Name</label><input type="text" name="mother_name" class="form-control"
+                                            id="f_mother"></div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Blood Group</label>
+                                        <select name="blood_group" class="form-select" id="f_blood">
+                                            <option value="">-- Select --</option>
+                                            <option value="A+">A+</option>
+                                            <option value="A-">A-</option>
+                                            <option value="B+">B+</option>
+                                            <option value="B-">B-</option>
+                                            <option value="O+">O+</option>
+                                            <option value="O-">O-</option>
+                                            <option value="AB+">AB+</option>
+                                            <option value="AB-">AB-</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Gender</label>
+                                        <div class="d-flex mt-1">
+                                            <div class="form-check me-3"><input class="form-check-input" type="radio"
+                                                    name="gender" value="Male" id="g_m"><label
+                                                    class="form-check-label" for="g_m">Male</label></div>
+                                            <div class="form-check me-3"><input class="form-check-input" type="radio"
+                                                    name="gender" value="Female" id="g_f"><label
+                                                    class="form-check-label" for="g_f">Female</label></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Marital
+                                            Status</label>
+                                        <div class="d-flex mt-1">
+                                            <div class="form-check me-3"><input class="form-check-input" type="radio"
+                                                    name="marital_status" value="Married" id="ms_m"><label
+                                                    class="form-check-label" for="ms_m">Married</label></div>
+                                            <div class="form-check me-3"><input class="form-check-input" type="radio"
+                                                    name="marital_status" value="Unmarried" id="ms_u"><label
+                                                    class="form-check-label" for="ms_u">Unmarried</label></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">Nationality</label><input
+                                            type="text" name="nationality" class="form-control" value="Indian"
+                                            readonly></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Date of
+                                            Birth</label><input type="date" name="dob" class="form-control"
+                                            id="f_dob"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Anniversary
+                                            Date</label><input type="date" name="anniversary_date"
+                                            class="form-control" id="f_doa"></div>
+
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Contact No. <span
+                                                class="text-danger">*</span></label><input type="text"
+                                            name="contact_no" class="form-control" id="f_mob" maxlength="10"
+                                            required></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Alternate
+                                            No.</label><input type="text" name="alternate_no" class="form-control"
+                                            id="f_alt" maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Email
+                                            ID</label><input type="email" name="email" class="form-control"
+                                            id="f_email"></div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Aadhar Card No.<span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" name="aadhar_no" class="form-control" id="f_aadhar"
+                                            maxlength="12" required>
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">PAN
+                                            No.</label><input type="text" name="pan_no"
+                                            class="form-control text-uppercase" id="f_pan" maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Native
+                                            Place</label><input type="text" name="native_place" class="form-control"
+                                            id="f_native"></div>
+
+                                    <div class="col-md-8"><label class="form-label text-secondary small">Communication
+                                            Address</label><input type="text" name="communication_address"
+                                            class="form-control" id="f_address"></div>
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">City/Town/Village</label><input
+                                            type="text" name="city" class="form-control" id="f_city"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Pin
+                                            Code</label><input type="text" name="pin_code" class="form-control"
+                                            id="f_pin" maxlength="6"></div>
+                                </div>
+
+                                <div class="row g-3 mt-4 pt-3 border-top bg-light rounded p-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small fw-bold">Vendor Status</label>
+                                        <select name="vendor_status" id="f_status" class="form-select">
+                                            <option value="active">Active</option>
+                                            <option value="inactive">In-Active</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4 leave-fields d-none">
+                                        <label class="form-label text-secondary small fw-bold">Date of Leaving</label>
+                                        <input type="date" name="d_o_l" class="form-control" id="f_dol">
+                                    </div>
+                                    <div class="col-md-4 leave-fields d-none">
+                                        <label class="form-label text-secondary small fw-bold">Leaving Remarks</label>
+                                        <input type="text" name="leaving_remarks" class="form-control"
+                                            id="f_remarks">
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="tab-pane fade" id="tab-bank">
+                                <div class="row g-3">
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Account Holder
+                                            Name</label><input type="text" name="account_name" class="form-control"
+                                            id="f_acc_name"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Bank A/c
+                                            No.</label><input type="text" name="account_no" class="form-control"
+                                            id="f_acc_no"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Account
+                                            Type</label>
+                                        <select class="form-select" name="account_type" id="f_acc_type">
+                                            <option value="">-- Select --</option>
+                                            <option value="saving">Saving</option>
+                                            <option value="current">Current</option>
+                                            <option value="cc">CC</option>
+                                            <option value="od">OD</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Bank
+                                            Name</label><input type="text" name="bank_name" class="form-control"
+                                            id="f_bank_name"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Branch
+                                            Name</label><input type="text" name="bank_branch" class="form-control"
+                                            id="f_bank_branch"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">IFSC
+                                            Code</label><input type="text" name="ifsc_code"
+                                            class="form-control text-uppercase" id="f_ifsc"></div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="tab-nominee">
+                                <div class="row g-3">
+                                    <div class="col-md-3"><label class="form-label text-secondary small">Nominee
+                                            Name</label><input type="text" name="nominee_name" class="form-control"
+                                            id="f_n_name"></div>
+                                    <div class="col-md-3"><label
+                                            class="form-label text-secondary small">Relation</label><input type="text"
+                                            name="nominee_relation" class="form-control" id="f_n_rel"></div>
+                                    <div class="col-md-3"><label class="form-label text-secondary small">S/o, D/o,
+                                            W/o</label><input type="text" name="nominee_so_do_wo" class="form-control"
+                                            id="f_n_so"></div>
+                                    <div class="col-md-3"><label class="form-label text-secondary small">Date of
+                                            Birth</label><input type="date" name="nominee_dob" class="form-control"
+                                            id="f_n_dob"></div>
+
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Mobile
+                                            No</label><input type="text" name="nominee_mobile" class="form-control"
+                                            id="f_n_mob" maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Alt. Mobile
+                                            No</label><input type="text" name="nominee_alternate_mobile"
+                                            class="form-control" id="f_n_alt" maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Email
+                                            Id</label><input type="email" name="nominee_email" class="form-control"
+                                            id="f_n_email"></div>
+
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">Aadhar</label><input type="text"
+                                            name="nominee_aadhar" class="form-control" id="f_n_aadhar" maxlength="12">
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">PAN</label><input
+                                            type="text" name="nominee_pan" class="form-control text-uppercase"
+                                            id="f_n_pan" maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">PIN
+                                            Code</label><input type="text" name="nominee_pincode" class="form-control"
+                                            id="f_n_pin" maxlength="6"></div>
+
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">State</label><input type="text"
+                                            name="nominee_state" class="form-control" id="f_n_state"></div>
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">District</label><input type="text"
+                                            name="nominee_district" class="form-control" id="f_n_dist"></div>
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">Address</label><input type="text"
+                                            name="nominee_address" class="form-control" id="f_n_addr"></div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="tab-docs">
+                                <h6 class="text-primary fw-bold border-bottom pb-2 mb-3"><i
+                                        class="fas fa-user-circle me-1"></i> Vendor Documents</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Aadhar Card
+                                            (.pdf)</label><input type="file" name="aadhar_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">PAN Card
+                                            (.pdf)</label><input type="file" name="pan_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Bank Passbook
+                                            (.pdf)</label><input type="file" name="bank_passbook_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Driving License
+                                            (.pdf)</label><input type="file" name="driving_license_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                       
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Passport
+                                            (.pdf)</label><input type="file" name="passport_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                      
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Passport Photo
+                                            (Img)</label><input type="file" name="passport_photo"
+                                            class="form-control form-control-sm" accept="image/*">
+                                       
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Other Docs
+                                            (.pdf)</label><input type="file" name="other_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                </div>
+
+                                <h6 class="text-primary fw-bold border-bottom pb-2 mb-3"><i
+                                        class="fas fa-user-shield me-1"></i> Nominee Documents</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Aadhar
+                                            (.pdf)</label><input type="file" name="nom_aadhar_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee PAN
+                                            (.pdf)</label><input type="file" name="nom_pan_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Bank
+                                            Passbook</label><input type="file" name="nom_bank_passbook_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Driving
+                                            License</label><input type="file" name="nom_driving_license_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Passport
+                                            (.pdf)</label><input type="file" name="nom_passport_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Photo
+                                            (Img)</label><input type="file" name="nom_passport_photo"
+                                            class="form-control form-control-sm" accept="image/*">
+                                        
+                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Other
+                                            Docs</label><input type="file" name="nom_other_pdf"
+                                            class="form-control form-control-sm" accept=".pdf">
+                                       
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="modal-footer bg-light border-top-0">
+                            <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn text-white px-5 shadow-sm fw-medium"
+                                style="background-color: var(--brand-primary);" id="saveBtn">Save Vendor
+                                Details</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('scripts')
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            const apiToken = localStorage.getItem('admin_token');
+            let mode = 'add';
+
+            const docFields = [
+                'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf',
+                'passport_photo', 'other_pdf',
+                'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf',
+                'nom_passport_pdf', 'nom_passport_photo', 'nom_other_pdf'
+            ];
+
+            // 1. DataTables
+            let table = $('#vendorTable').DataTable({
+                ajax: {
+                    url: '/api/v1/admin/vendors',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    }
+                },
+                dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
+                buttons: [{
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
+                    className: 'btn btn-success btn-sm shadow-sm rounded-3'
+                }],
+                columns: [{
+                        data: 'vendor_id',
+                        render: d => `<span class="fw-bold text-primary">${d}</span>`
+                    },
+                    {
+                        data: 'branch_id',
+                        render: (d, t, row) =>
+                            `<span class="badge bg-light text-dark border"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${row.branch ? row.branch.branch_name : 'N/A'}</span>`
+                    },
+                    {
+                        data: 'full_name'
+                    },
+                    {
+                        data: 'vendor_type',
+                        render: d => d ? d : '-'
+                    },
+                    {
+                        data: 'contact_no'
+                    },
+                    {
+                        data: 'vendor_status',
+                        render: d => d === 'active' ? `<span class="badge bg-success">Active</span>` :
+                            `<span class="badge bg-danger">In-Active</span>`
+                    },
+                    {
+    data: 'id',
+    className: 'text-end text-nowrap', // <-- Ye column ko tootne (wrap hone) se rokega
+    render: d => `
+    <div class="d-flex justify-content-end flex-nowrap gap-1">
+        <button type="button" class="btn btn-sm btn-light text-info view-btn" title="View" data-id="${d}"><i class="fas fa-eye"></i></button>
+        <button type="button" class="btn btn-sm btn-light text-primary edit-btn" title="Edit" data-id="${d}"><i class="fas fa-edit"></i></button>
+        <button type="button" class="btn btn-sm btn-light text-danger delete-btn" title="Delete" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
+    </div>`
+}
+                ]
+            });
+
+            // 2. Mobile Cards
+            function loadMobile() {
+                $.ajax({
+                    url: '/api/v1/admin/vendors',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        let html = '';
+                        res.data.forEach(d => {
+                            let st = d.vendor_status === 'active' ?
+                                `<span class="badge bg-success">Active</span>` :
+                                `<span class="badge bg-danger">In-Active</span>`;
+                            html += `<div class="mobile-item">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div><h6 class="fw-bold text-dark mb-0">${d.full_name}</h6><span class="text-primary small fw-bold">${d.vendor_id}</span></div>
+                            ${st}
+                        </div>
+                        <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.contact_no}</div>
+                        <div class="mt-2 pt-2 border-top d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
+                            <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>
+                            <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>
+                        </div>
+                    </div>`;
+                        });
+                        $('#mobileCardsContainer').html(html);
+                    }
+                });
+            }
+            loadMobile();
+
+            $('#mobileSearch').on('keyup', function() {
+                let v = $(this).val().toLowerCase();
+                $('.mobile-item').filter(function() {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(v) > -1)
+                });
+            });
+            $('#mobileExcelBtn').click(() => $('.buttons-excel').click());
+
+            // 3. Status Toggle Logic
+            $('#f_status').on('change', function() {
+                if ($(this).val() === 'inactive') {
+                    $('.leave-fields').removeClass('d-none');
+                } else {
+                    $('.leave-fields').addClass('d-none');
+                    $('#f_dol, #f_remarks').val('');
+                }
+            });
+
+            // 4. Modals
+            window.openModal = function(type, id = null) {
+                mode = type;
+                $('#vendorForm')[0].reset();
+                $('.file-preview-wrapper').hide().find('.preview-content').empty();
+                $('#modalTitle').text(type === 'add' ? 'Register Vendor' : 'Edit Vendor');
+                $('.nav-tabs button:first').tab('show');
+                $('#f_status').trigger('change');
+
+                if (type === 'add') {
+                    $('.password-div').hide();
+                    docFields.forEach(field => $(`#link_${field}`).empty());
+                }
+
+                $.ajax({
+                    url: '/api/v1/admin/branches',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        let options = '';
+                        res.data.forEach(b => options +=
+                            `<option value="${b.id}">${b.branch_name} (${b.branch_id})</option>`
+                        );
+                        $('#branchList').html(options);
+
+                        if (type === 'edit') {
+                            $.get({
+                                url: `/api/v1/admin/vendors/${id}`,
+                                headers: {
+                                    'Authorization': 'Bearer ' + apiToken
+                                },
+                                success: function(res) {
+                                    let d = res.data;
+                                    $('#edit_id').val(d.id);
+                                    $('#f_branch').val(d.branch_id);
+
+                                    $('.password-div').show();
+                                    $('#f_password').val(d.password);
+
+                                    $('#f_name').val(d.full_name);
+                                    $('#f_vtype').val(d.vendor_type);
+                                    $('#f_gstin').val(d.vendor_gstin);
+                                    $('#f_sodowo').val(d.father_spouse_name);
+                                    $('#f_mother').val(d.mother_name);
+                                    $('#f_blood').val(d.blood_group);
+                                    $('#f_dob').val(d.dob);
+                                    $('#f_doa').val(d.anniversary_date);
+                                    $('#f_mob').val(d.contact_no);
+                                    $('#f_alt').val(d.alternate_no);
+                                    $('#f_email').val(d.email);
+                                    $('#f_aadhar').val(d.aadhar_no);
+                                    $('#f_pan').val(d.pan_no);
+                                    $('#f_native').val(d.native_place);
+                                    $('#f_address').val(d.communication_address);
+                                    $('#f_city').val(d.city);
+                                    $('#f_pin').val(d.pin_code);
+
+                                    $('input[name="gender"]').prop('checked', false);
+                                    if (d.gender) {
+                                        $(`input[name="gender"][value="${d.gender}"]`)
+                                            .prop('checked', true);
+                                    }
+
+                                    $('input[name="marital_status"]').prop('checked',
+                                        false);
+                                    if (d.marital_status) {
+                                        $(`input[name="marital_status"][value="${d.marital_status}"]`)
+                                            .prop('checked', true);
+                                    }
+
+                                    $('#f_status').val(d.vendor_status).trigger(
+                                        'change');
+                                    $('#f_dol').val(d.d_o_l);
+                                    $('#f_remarks').val(d.leaving_remarks);
+
+                                    $('#f_acc_name').val(d.account_name);
+                                    $('#f_acc_no').val(d.account_no);
+                                    $('#f_acc_type').val(d.account_type);
+                                    $('#f_bank_name').val(d.bank_name);
+                                    $('#f_bank_branch').val(d.bank_branch);
+                                    $('#f_ifsc').val(d.ifsc_code);
+
+                                    $('#f_n_name').val(d.nominee_name);
+                                    $('#f_n_rel').val(d.nominee_relation);
+                                    $('#f_n_so').val(d.nominee_so_do_wo);
+                                    $('#f_n_dob').val(d.nominee_dob);
+                                    $('#f_n_mob').val(d.nominee_mobile);
+                                    $('#f_n_alt').val(d.nominee_alternate_mobile);
+                                    $('#f_n_email').val(d.nominee_email);
+                                    $('#f_n_aadhar').val(d.nominee_aadhar);
+                                    $('#f_n_pan').val(d.nominee_pan);
+                                    $('#f_n_pin').val(d.nominee_pincode);
+                                    $('#f_n_state').val(d.nominee_state);
+                                    $('#f_n_dist').val(d.nominee_district);
+                                    $('#f_n_addr').val(d.nominee_address);
+
+
+                                    // ====== EXISTING FILES PREVIEW LOGIC ======
+let vendorFiles = [
+    'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 
+    'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf',
+    'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 
+    'nom_passport_pdf', 'nom_other_pdf', 'passport_photo', 'nom_passport_photo'
+];
+
+vendorFiles.forEach(field => {
+    let filePath = d[field];
+    let input = $(`#vendorForm [name="${field}"]`);
+    if(input.length && filePath) {
+        let wrapper = input.next('.file-preview-wrapper');
+        let content = wrapper.find('.preview-content');
+        let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
+        let ext = filePath.split('.').pop().toLowerCase();
+        let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
+
+        if(imageExts.includes(ext)) {
+            content.html(`<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`);
+        } else {
+            content.html(`<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`);
+        }
+        wrapper.show();
+    }
+});
+
+                                    // Existing Documents Links
+                                    docFields.forEach(field => {
+                                        if (d[field]) {
+                                            $(`#link_${field}`).html(`
+                                        <a href="/${d[field]}" target="_blank" class="d-inline-block small mt-1 text-primary fw-bold text-decoration-none">
+                                            <i class="fas fa-external-link-alt"></i> View Uploaded File
+                                        </a>
+                                    `);
+                                        } else {
+                                            $(`#link_${field}`).empty();
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    }
+                });
+                $('#vendorModal').modal('show');
+            };
+
+            $(document).on('click', '.edit-btn', function() {
+                openModal('edit', $(this).data('id'));
+            });
+
+            // 5. Form Submit
+            $('#vendorForm').submit(function(e) {
+                e.preventDefault();
+                let formData = new FormData(this);
+                let id = $('#edit_id').val();
+                let url = mode === 'add' ? '/api/v1/admin/vendors' : `/api/v1/admin/vendors/${id}`;
+                if (mode === 'edit') formData.append('_method', 'PUT');
+
+                let btn = $('#saveBtn');
+                btn.prop('disabled', true).text('Saving...');
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        alert(res.message);
+                        $('#vendorModal').modal('hide');
+                        table.ajax.reload(null, false);
+                        loadMobile();
+                    },
+                    error: function(err) {
+                        alert('Error saving data!');
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).text('Save Vendor Details');
+                    }
+                });
+            });
+
+            // 6. View & Delete
+            $(document).on('click', '.view-btn', function() {
+                $.get({
+                    url: `/api/v1/admin/vendors/${$(this).data('id')}`,
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        let d = res.data;
+                        $('#v_vendor_id').text(d.vendor_id || 'N/A');
+                        $('#v_password').text(d.password || 'N/A');
+                        $('#v_branch').text(d.branch ? d.branch.branch_name : 'N/A');
+                        $('#v_type').text(d.vendor_type || 'N/A');
+
+                        if (d.vendor_status === 'active') {
+                            $('#v_status').text('Active').attr('class', 'badge bg-success');
+                        } else {
+                            $('#v_status').text(`In-Active (Left: ${d.d_o_l})`).attr('class',
+                                'badge bg-danger');
+                        }
+
+                        $('#v_name').text(d.full_name || 'N/A');
+                        $('#v_mobile').text(d.contact_no || 'N/A');
+                        $('#v_email').text(d.email || 'N/A');
+                        $('#v_aadhar').text(d.aadhar_no || 'N/A');
+                        $('#v_pan').text(d.pan_no || 'N/A');
+                        $('#v_gstin').text(d.vendor_gstin || 'N/A');
+
+                        $('#v_nom_name').text(d.nominee_name || 'N/A');
+                        $('#v_nom_rel').text(d.nominee_relation || 'N/A');
+                        $('#v_nom_mob').text(d.nominee_mobile || 'N/A');
+
+                        $('#viewModal').modal('show');
+                    }
+                });
+            });
+
+            $(document).on('click', '.delete-btn', function() {
+                if (confirm("Delete Vendor?")) {
+                    $.ajax({
+                        url: `/api/v1/admin/vendors/${$(this).data('id')}`,
+                        type: 'DELETE',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        success: function() {
+                            table.ajax.reload(null, false);
+                            loadMobile();
+                        }
+                    });
+                }
+            });
+
+// 1. Har file input ke neeche Preview Container add karein
+    $('input[type="file"]').each(function() {
+        if ($(this).next('.file-preview-wrapper').length === 0) {
+            $(this).after(`
+                <div class="file-preview-wrapper">
+                    <button type="button" class="btn btn-danger remove-preview-btn" title="Remove File"><i class="fas fa-times"></i></button>
+                    <div class="preview-content text-center"></div>
+                </div>
+            `);
+        }
+    });
+
+    // 2. File Select karne par Preview dikhayein
+    $(document).on('change', 'input[type="file"]', function() {
+        let file = this.files[0];
+        let wrapper = $(this).next('.file-preview-wrapper');
+        let content = wrapper.find('.preview-content');
+
+        if (file) {
+            if (file.type.startsWith('image/')) {
+                let reader = new FileReader();
+                reader.onload = e => { content.html(`<img src="${e.target.result}" style="max-height:80px; border-radius:6px;">`); wrapper.slideDown(); }
+                reader.readAsDataURL(file);
+            } else {
+                content.html(`<div class="p-2 small fw-bold text-dark"><i class="fas fa-file-alt text-primary me-2"></i>${file.name}</div>`);
+                wrapper.slideDown();
+            }
+        }
+    });
+
+    // 3. Remove Button (X) se file hatayein
+    $(document).on('click', '.remove-preview-btn', function() {
+        let wrapper = $(this).closest('.file-preview-wrapper');
+        wrapper.prev('input[type="file"]').val('');
+        wrapper.slideUp();
+    });
+
+
+        });
+    </script>
+@endpush
