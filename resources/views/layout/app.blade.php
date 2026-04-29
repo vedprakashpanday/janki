@@ -178,7 +178,7 @@
                 <li>
                     <a href="#"><i class="fas fa-file-invoice"></i> Vouchers <i class="fas fa-chevron-down ms-1" style="font-size: 10px;"></i></a>
                     <div class="desktop-dropdown">
-                        <a href="{{ url('/admin/debit_vouchers/create') }}"><i class="fas fa-arrow-circle-up"></i> Debit Vouchers</a>
+                        <a href="{{ url('/admin/debit_vouchers') }}"><i class="fas fa-arrow-circle-up"></i> Debit Vouchers</a>
                         <a href="{{ url('/admin/give-access') }}"><i class="fas fa-arrow-circle-down"></i> Receipt Vouchers</a>
                     </div>
                 </li>
@@ -274,8 +274,21 @@
                 <a href="#" class="nav-item-sub"><i class="fas fa-users me-2"></i> Client Database</a>
             </div>
             
-            <div class="nav-label">Financials</div>
+           <div class="nav-label">Financials & Vouchers</div>
             
+            <a href="#vouchersMenuMobile" data-bs-toggle="collapse" class="nav-item-custom {{ request()->is('admin/debit_vouchers*') ? 'active' : '' }}" aria-expanded="{{ request()->is('admin/debit_vouchers*') ? 'true' : 'false' }}">
+                <div><i class="fas fa-file-invoice menu-icon"></i> Vouchers</div>
+                <i class="fas fa-chevron-down dropdown-caret"></i>
+            </a>
+            <div class="collapse nav-sub-menu {{ request()->is('admin/debit_vouchers*') ? 'show' : '' }}" id="vouchersMenuMobile">
+                <a href="{{ route('admin.debit_vouchers.index') }}" class="nav-item-sub {{ request()->is('admin/debit_vouchers*') ? 'active' : '' }}">
+                    <i class="fas fa-arrow-circle-up me-2"></i> Debit Vouchers
+                </a>
+                <a href="#" class="nav-item-sub">
+                    <i class="fas fa-arrow-circle-down me-2"></i> Receipt Vouchers
+                </a>
+            </div>
+
             <a href="#" class="nav-item-custom">
                 <div><i class="fas fa-file-invoice-dollar menu-icon"></i> Invoices</div>
             </a>

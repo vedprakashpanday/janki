@@ -16,7 +16,7 @@ use App\Http\Controllers\Api\V1\Admin\MemberDesignationController;
 use App\Http\Controllers\Api\V1\Admin\SalaryController;
 use App\Http\Controllers\Api\V1\Admin\VendorController;
 use App\Http\Controllers\Api\V1\User\UserApiController;
-
+use App\Http\Controllers\Api\V1\Admin\DebitVoucherApiController;
 
 
 /*
@@ -108,6 +108,19 @@ Route::apiResource('interested-customers', \App\Http\Controllers\Api\V1\Admin\In
     Route::get('telecaller-access', [\App\Http\Controllers\Api\V1\Admin\TelecallerAccessController::class, 'index']);
 Route::post('telecaller-access/toggle', [\App\Http\Controllers\Api\V1\Admin\TelecallerAccessController::class, 'toggleAccess']);
 
+// Store API
+  Route::apiResource('debit_vouchers', \App\Http\Controllers\Api\V1\Admin\DebitVoucherApiController::class);
+  Route::get('/get-member-bank', [DebitVoucherApiController::class, 'getMemberBankDetails']);
+
+// Ye routes v1/admin group ke andar jayenge
+Route::get('/get-branches', [DebitVoucherApiController::class, 'getBranches']);
+Route::get('/get-ledgers', [DebitVoucherApiController::class, 'getLedgers']);
+Route::get('/get-paid-to-list', [DebitVoucherApiController::class, 'getPaidToList']);
+Route::get('/check-dv-no', [DebitVoucherApiController::class, 'checkDvNo']);
+Route::get('/get-member-bank', [DebitVoucherApiController::class, 'getMemberBankDetails']);
+Route::get('/get-sender-bank', [DebitVoucherApiController::class, 'getSenderBankDetails']);
+
+Route::get('/get-next-dv-no', [DebitVoucherApiController::class, 'getNextDvNo']);
 
 });
 

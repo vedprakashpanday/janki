@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\User\DashboardController;
-
+use App\Http\Controllers\Admin\DebitVoucherWebController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes (User Interface)
@@ -93,7 +93,12 @@ Route::get('/id-cards/print/{type}/{id}', [\App\Http\Controllers\Api\V1\Admin\Id
     ->where('id', '.*');
 
 
+// List Page
+    Route::get('/debit_vouchers', [DebitVoucherWebController::class, 'index'])->name('admin.debit_vouchers.index');
+    // Create Form Page
+    Route::get('/debit_vouchers/create', [DebitVoucherWebController::class, 'create'])->name('admin.debit_vouchers.create');
 
+    Route::get('/debit_vouchers/print/{id}', [App\Http\Controllers\Admin\DebitVoucherWebController::class, 'print'])->name('admin.debit_vouchers.print');
 
 });
 
@@ -101,4 +106,6 @@ Route::get('/id-cards/print/{type}/{id}', [\App\Http\Controllers\Api\V1\Admin\Id
 // Route::middleware(['auth'])->prefix('user')->name('user.')->group(function () {
     Route::get('user/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     // Baki routes: profile, my-properties, etc.
+
+
 // });
