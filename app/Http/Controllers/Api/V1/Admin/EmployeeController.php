@@ -31,7 +31,7 @@ class EmployeeController extends Controller
 
     // Helper: File Upload & WebP Conversion
 
-// Helper: File Upload & WebP Conversion
+ 
     private function uploadFile($file, $prefix)
     {
         if (!$file) return null;
