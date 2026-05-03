@@ -215,6 +215,7 @@
                         <a href="{{ url('/admin/designations') }}"><i class="fas fa-user-tag"></i> Employee Designations</a>
                         <a href="{{ url('/admin/salaries') }}"><i class="fas fa-money-bill-wave"></i> Employee Salaries</a>
                         <div class="nav-section-title mt-2">Operations</div>
+                        <a href="{{ url('admin/companies') }}"><i class="fas fa-industry"></i> Companies</a>
                         <a href="{{ url('admin/branches') }}"><i class="fas fa-building"></i> Branches</a>
                         <a href="/admin/ledgers"><i class="fas fa-book"></i> Ledgers</a>
                         <a href="/admin/letterheads"><i class="fas fa-file-signature"></i> LetterHeads</a>
@@ -281,7 +282,7 @@
                 <i class="fas fa-chevron-down dropdown-caret"></i>
             </a>
             <div class="collapse nav-sub-menu {{ request()->is('admin/debit_vouchers*') ? 'show' : '' }}" id="vouchersMenuMobile">
-                <a href="{{ route('admin.debit_vouchers.index') }}" class="nav-item-sub {{ request()->is('admin/debit_vouchers*') ? 'active' : '' }}">
+                <a href="{{ url('/admin/debit_vouchers') }}" class="nav-item-sub {{ request()->is('admin/debit_vouchers*') ? 'active' : '' }}">
                     <i class="fas fa-arrow-circle-up me-2"></i> Debit Vouchers
                 </a>
                 <a href="#" class="nav-item-sub">
@@ -298,6 +299,10 @@
             
             <div class="nav-label">Administration & CRM</div>
             
+            <a href="{{ url('admin/companies') }}" class="nav-item-custom {{ request()->is('admin/companies*') ? 'active' : '' }}">
+                <div><i class="fas fa-industry menu-icon"></i> Companies</div>
+            </a>
+
             <a href="{{ url('admin/branches') }}" class="nav-item-custom {{ request()->is('admin/branches*') ? 'active' : '' }}">
                 <div><i class="fas fa-building menu-icon"></i> Branches</div>
             </a>

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\User\DashboardController;
 use App\Http\Controllers\Admin\DebitVoucherWebController;
+use App\Http\Controllers\Admin\CompanyWebController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes (User Interface)
@@ -102,6 +103,7 @@ Route::get('/id-cards/print/{type}/{id}', [\App\Http\Controllers\Api\V1\Admin\Id
 
 });
 
+Route::get('/admin/companies', [CompanyWebController::class, 'index'])->name('admin.companies.index');
 
 // Route::middleware(['auth'])->prefix('user')->name('user.')->group(function () {
     Route::get('user/dashboard', [DashboardController::class, 'index'])->name('dashboard');

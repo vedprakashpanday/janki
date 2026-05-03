@@ -8,16 +8,21 @@ class Branch extends Model
 {
     use HasFactory;
 
-   protected $fillable = [
+    protected $fillable = [
+        'company_id',        // Ye naya field allow kiya
         'branch_id', 
         'branch_name', 
-        'branch_state',      // Naya field
-        'branch_district',   // Naya field
-        'opening_date',      // Naya field
+        'branch_state',      
+        'branch_district',   
+        'opening_date',      
         'branch_location', 
         'branch_map', 
         'branch_status'
     ];
 
-  
+    // Branch belongs to a Company
+    public function company()
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
 }

@@ -17,7 +17,7 @@ use App\Http\Controllers\Api\V1\Admin\SalaryController;
 use App\Http\Controllers\Api\V1\Admin\VendorController;
 use App\Http\Controllers\Api\V1\User\UserApiController;
 use App\Http\Controllers\Api\V1\Admin\DebitVoucherApiController;
-
+use App\Http\Controllers\Api\V1\Admin\CompanyApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -121,6 +121,12 @@ Route::get('/get-member-bank', [DebitVoucherApiController::class, 'getMemberBank
 Route::get('/get-sender-bank', [DebitVoucherApiController::class, 'getSenderBankDetails']);
 
 Route::get('/get-next-dv-no', [DebitVoucherApiController::class, 'getNextDvNo']);
+
+// Naya Dropdown Fetcher API
+    Route::get('/get-active-companies', [CompanyApiController::class, 'getActiveCompanies']);
+    
+    // Resource Route (Ye automatically index, store, show, update, destroy sab map kar dega)
+    Route::apiResource('companies', CompanyApiController::class);
 
 });
 
