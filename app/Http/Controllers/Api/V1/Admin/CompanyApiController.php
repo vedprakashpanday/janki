@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 
 class CompanyApiController extends Controller
 {
@@ -52,28 +53,58 @@ class CompanyApiController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+   public function store(Request $request)
     {
         $request->validate([
             'company_name' => 'required|string|max:255',
-            'company_code' => 'required|string|max:10|unique:companies,company_code', // Validation add kiya
+            'company_code' => 'required|string|max:10|unique:companies,company_code',
+            'cin_no'       => 'required|string|max:255',
+            'company_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp,svg|max:2048' // Max 2MB
         ]);
 
-        $company = Company::create([
-            'company_name' => $request->company_name,
-            'company_code' => strtoupper($request->company_code), // Always uppercase
-            'parent_id' => $request->parent_id ?: null,
-            'phone' => $request->phone,
-            'email' => $request->email,
-            'state' => $request->state,
-            'district' => $request->district,
-            'address' => $request->address,
-            'gst_no' => $request->gst_no,
-            'status' => $request->status ?? 'active'
+        $logoPath = null;
+
+        // 🔥 LOGO UPLOAD LOGIC 🔥
+        if ($request->hasFile('company_logo')) {
+            $companyCode = strtoupper($request->company_code);
+            $folderPath = public_path('company_logos/' . $companyCode);
+
+            // Check agar folder nahi hai toh banayein + Permission dein (0775)
+            if (!File::exists($folderPath)) {
+                File::makeDirectory($folderPath, 0775, true, true);
+            }
+
+            $file = $request->file('company_logo');
+            $fileName = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+            
+            // move_uploaded_file ka Laravel equivalent
+            $file->move($folderPath, $fileName);
+            
+            $logoPath = 'company_logos/' . $companyCode . '/' . $fileName;
+        }
+
+        Company::create([
+            'company_name'  => $request->company_name,
+            'company_code'  => strtoupper($request->company_code),
+            'company_logo'  => $logoPath, // Save path to DB
+            'cin_no'        => strtoupper($request->cin_no),
+            'iso_no'        => $request->iso_no,
+            'trademark'     => $request->trademark,
+            'logo_reg_no'   => $request->logo_reg_no,
+            'parent_id'     => $request->parent_id ?: null,
+            'phone'         => $request->phone,
+            'email'         => $request->email,
+            'state'         => $request->state,
+            'district'      => $request->district,
+            'address'       => $request->address,
+            'gst_no'        => $request->gst_no,
+            'status'        => $request->status ?? 'active'
         ]);
 
         return response()->json(['status' => 'success', 'message' => 'Company Created Successfully!']);
     }
+
+
 public function show($id)
     {
         // Yahan with('parent') lagana zaroori tha taaki parent company ka naam aa sake
@@ -85,59 +116,71 @@ public function show($id)
         return response()->json(['status' => 'success', 'data' => $company]);
     }
 
- // 4. UPDATE RECORD
-    public function update(Request $request, $id)
+// 4. UPDATE RECORD
+public function update(Request $request, $id)
     {
         $company = Company::find($id);
         
         $request->validate([
             'company_name' => 'required|string|max:255',
             'company_code' => 'required|string|max:10|unique:companies,company_code,' . $id,
+            'cin_no'       => 'required|string|max:255',
+            'company_logo' => 'nullable|mimes:jpeg,png,jpg,gif,webp,svg|max:2048'
         ]);
+
+        $logoPath = $company->company_logo; // Pehle purana path store kar liya
+
+        // 🔥 LOGO UPDATE LOGIC 🔥
+        if ($request->hasFile('company_logo')) {
+            $companyCode = strtoupper($request->company_code);
+            $folderPath = public_path('company_logos/' . $companyCode);
+
+            if (!File::exists($folderPath)) {
+                File::makeDirectory($folderPath, 0775, true, true);
+            }
+
+            $file = $request->file('company_logo');
+            $fileName = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+            $file->move($folderPath, $fileName);
+            
+            // Purani image ko delete kar sakte hain yahan if you want
+            if ($logoPath && File::exists(public_path($logoPath))) {
+                File::delete(public_path($logoPath));
+            }
+
+            $logoPath = 'company_logos/' . $companyCode . '/' . $fileName;
+        }
 
         if ($request->parent_id == $id) {
             return response()->json(['status' => 'error', 'message' => 'A company cannot be its own parent!'], 400);
         }
 
-        // UPDATE HONE SE PEHLE PURANA STATUS STORE KAR LIYA
         $oldStatus = $company->status;
         $newStatus = $request->status ?? 'active';
 
         $company->update([
-            'company_name' => $request->company_name,
-            'company_code' => strtoupper($request->company_code),
-            'parent_id' => $request->parent_id ?: null,
-            'phone' => $request->phone,
-            'email' => $request->email,
-            'state' => $request->state,
-            'district' => $request->district,
-            'address' => $request->address,
-            'gst_no' => $request->gst_no,
-            'status' => $newStatus
-        ]);
+            'company_name'  => $request->company_name,
+            'company_code'  => strtoupper($request->company_code),
+            'cin_no'        => strtoupper($request->cin_no),
+            'iso_no'        => $request->iso_no,
+            'trademark'     => $request->trademark,
+            'logo_reg_no'   => $request->logo_reg_no,
+            'parent_id'     => $request->parent_id ?: null,
+            'phone'         => $request->phone,
+            'email'         => $request->email,
+            'state'         => $request->state,
+            'district'      => $request->district,
+            'address'       => $request->address,
+            'gst_no'        => $request->gst_no,
+            'status'        => $newStatus  ,
+            'company_logo'  => $logoPath,      ]);
 
-        // 🔥 CASCADING LOGIC: Agar Company Inactive hui hai, toh sabko Inactive kar do 🔥
         if ($oldStatus === 'active' && $newStatus === 'inactive') {
-            
-            // 1. Saari Sub-Companies (Children) ko inactive karein
             Company::where('parent_id', $id)->update(['status' => 'inactive']);
-            
-            // 2. Is Company ki saari Branches ko inactive karein
             \App\Models\Branch::where('company_id', $id)->update(['branch_status' => 'inactive']);
-            
-            /* 
-               👇 FUTURE REFERENCE: Aage chalkar jab aap Employee aur Worker banayenge, 
-               toh unka code bas yahan add karte jaana hai:
-               
-               \App\Models\Employee::where('company_id', $id)->update(['status' => 'inactive']);
-               \App\Models\Customer::where('company_id', $id)->update(['status' => 'inactive']);
-            */
         }
 
-        // Agar Company wapas Active hui, toh hum automatically branches active nahi karte (Business Logic). 
-        // User ko manual jaakar branch active karni chahiye.
-
-        return response()->json(['status' => 'success', 'message' => 'Company Updated & Relational Status Applied!']);
+        return response()->json(['status' => 'success', 'message' => 'Company Updated Successfully!']);
     }
 
     public function destroy($id)
