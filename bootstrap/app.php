@@ -20,7 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Yahan apna naya middleware alias add karein
         $middleware->alias([
             'is_admin' => \App\Http\Middleware\IsAdmin::class,
+            'time.bound' => \App\Http\Middleware\CheckTimeBoundAccess::class,
+            'is_developer' => \App\Http\Middleware\IsDeveloper::class,
+        'is_employee' => \App\Http\Middleware\IsEmployee::class,
         ]);
+
+        
         
     })
     ->withExceptions(function (Exceptions $exceptions): void {

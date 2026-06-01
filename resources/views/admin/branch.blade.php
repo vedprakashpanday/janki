@@ -76,19 +76,17 @@
                 <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Branch Management</h4>
                 <p class="text-secondary small mb-0">Manage all your corporate and local branches</p>
             </div>
-            <button class="btn text-white px-4 py-2 shadow-sm" style="background-color: var(--brand-primary);"
-                data-bs-toggle="modal" data-bs-target="#addBranchModal">
-                <i class="fas fa-plus-circle me-2"></i> Add New Branch
-            </button>
+            <button class="btn text-white px-4 py-2 shadow-sm secured-item" data-permission="branch_add" style="background-color: var(--brand-primary);" data-bs-toggle="modal" data-bs-target="#addBranchModal">
+    <i class="fas fa-plus-circle me-2"></i> Add New Branch
+</button>
         </div>
 
         <div class="d-block d-md-none mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold m-0" style="color: var(--sidebar-bg);">Branches</h5>
-                <button class="btn btn-sm text-white px-3 shadow-sm" style="background-color: var(--brand-primary);"
-                    data-bs-toggle="modal" data-bs-target="#addBranchModal">
-                    <i class="fas fa-plus"></i> Add
-                </button>
+                <button class="btn btn-sm text-white px-3 shadow-sm secured-item" data-permission="branch_add" style="background-color: var(--brand-primary);" data-bs-toggle="modal" data-bs-target="#addBranchModal">
+    <i class="fas fa-plus"></i> Add
+</button>
             </div>
             <div class="d-flex gap-2">
                 <div class="input-group shadow-sm">
@@ -339,7 +337,7 @@
                 order: [], 
                 pageLength: 10,
                 ajax: {
-                    url: '/api/v1/admin/branches',
+                    url: '/api/v1/branches',
                     type: 'GET',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
@@ -395,8 +393,8 @@
         return `
             <div class="text-end">
                <button class="btn btn-sm btn-light text-info me-1 shadow-sm view-btn" data-id="${data}" title="View"><i class="fas fa-eye"></i></button>
-                <button class="btn btn-sm btn-light text-primary me-1 shadow-sm edit-btn" data-id="${data}"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-sm btn-light text-danger shadow-sm delete-btn" data-id="${data}"><i class="fas fa-trash-alt"></i></button>
+               <button class="btn btn-sm btn-light text-primary me-1 shadow-sm edit-btn secured-item" data-permission="branch_edit" data-id="${data}"><i class="fas fa-edit"></i></button>
+<button class="btn btn-sm btn-light text-danger shadow-sm delete-btn secured-item" data-permission="branch_delete" data-id="${data}"><i class="fas fa-trash-alt"></i></button>
             </div>`;
     }}
                 ]
@@ -405,7 +403,7 @@
             // 2. Fetch and Render Mobile Cards
             function loadMobileCards() {
                 $.ajax({
-                    url: '/api/v1/admin/branches',
+                    url: '/api/v1/branches',
                     type: 'GET',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
@@ -432,8 +430,8 @@
 
                    <div class="d-flex gap-2 border-top pt-2 mt-2">
       <button class="btn btn-sm btn-light text-info flex-fill fw-medium view-btn" data-id="${branch.id}"><i class="fas fa-eye me-1"></i> View</button>
-        <button class="btn btn-sm btn-light text-primary flex-fill fw-medium edit-btn" data-id="${branch.id}"><i class="fas fa-edit me-1"></i> Edit</button>
-        <button class="btn btn-sm btn-light text-danger flex-fill fw-medium delete-btn" data-id="${branch.id}"><i class="fas fa-trash-alt me-1"></i> Delete</button>
+        <button class="btn btn-sm btn-light text-primary flex-fill fw-medium edit-btn secured-item" data-permission="branch_edit" data-id="${branch.id}"><i class="fas fa-edit me-1"></i> Edit</button>
+<button class="btn btn-sm btn-light text-danger flex-fill fw-medium delete-btn secured-item" data-permission="branch_delete" data-id="${branch.id}"><i class="fas fa-trash-alt me-1"></i> Delete</button>
     </div>
                 </div>`;
                         });
@@ -482,7 +480,7 @@
                 btn.html('<i class="fas fa-spinner fa-spin me-2"></i> Saving...').prop('disabled', true);
 
                 $.ajax({
-                    url: '/api/v1/admin/branches',
+                    url: '/api/v1/branches',
                     type: 'POST',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
@@ -514,7 +512,7 @@
                 let id = $(this).data('id');
 
                 $.ajax({
-                    url: `/api/v1/admin/branches/${id}`,
+                    url: `/api/v1/branches/${id}`,
                     type: 'GET',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
@@ -556,7 +554,7 @@
                 btn.html('<i class="fas fa-spinner fa-spin"></i> Updating...').prop('disabled', true);
 
                 $.ajax({
-                    url: `/api/v1/admin/branches/${id}`,
+                    url: `/api/v1/branches/${id}`,
                     type: 'PUT', // Resource controller ka update method PUT/PATCH use karta hai
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
@@ -583,7 +581,7 @@
 
                 if (confirm('Do You Want to Delete This Branch?')) {
                     $.ajax({
-                        url: `/api/v1/admin/branches/${id}`,
+                        url: `/api/v1/branches/${id}`,
                         type: 'DELETE',
                         headers: {
                             'Authorization': 'Bearer ' + apiToken
@@ -610,7 +608,7 @@
 
 function loadCompaniesForDropdown() {
         $.ajax({
-            url: '/api/v1/admin/get-active-companies', // Humne pichle step me banaya tha
+            url: '/api/v1/get-active-companies', // Humne pichle step me banaya tha
             type: 'GET',
             headers: { 'Authorization': 'Bearer ' + apiToken },
             success: function(res) {
@@ -632,7 +630,7 @@ function loadCompaniesForDropdown() {
         let id = $(this).data('id');
         
         $.ajax({
-            url: `/api/v1/admin/branches/${id}`,
+            url: `/api/v1/branches/${id}`,
             type: 'GET',
             headers: { 'Authorization': 'Bearer ' + apiToken },
             success: function(res) {

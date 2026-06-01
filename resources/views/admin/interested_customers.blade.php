@@ -54,8 +54,8 @@
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Interested Customers</h4>
-            <button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: var(--brand-primary);"
-                onclick="openModal('add')">
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" data-permission="lead_add"
+                style="background-color: var(--brand-primary);" onclick="openModal('add')">
                 <i class="fas fa-plus me-1"></i> Add Customer
             </button>
         </div>
@@ -87,8 +87,8 @@
                         <input type="number" id="a_to" class="form-control" min="1" required>
                     </div>
                     <div class="col-md-2">
-                        <button type="submit" class="btn text-white w-100 fw-medium"
-                            style="background-color: var(--sidebar-bg);">Assign Data</button>
+                        <button type="submit" class="btn text-white w-100 fw-medium secured-item"
+                            data-permission="lead_assign" style="background-color: var(--sidebar-bg);">Assign Data</button>
                     </div>
                 </form>
             </div>
@@ -126,7 +126,8 @@
                                 </select>
                             </div>
                             <div class="col-md-2"><label class="form-label">Refer By</label><input type="text"
-                                    id="r_refer" class="form-control" list="staffDataList" placeholder="Search Refer By">
+                                    id="r_refer" class="form-control" list="staffDataList"
+                                    placeholder="Search Refer By">
                             </div>
                             <div class="col-md-2"><label class="form-label">Budget From</label><input type="number"
                                     id="r_bfrom" class="form-control" placeholder="Min"></div>
@@ -464,13 +465,10 @@
                 }]
             });
 
-            // Load Branches First
+            // Load Branches First (API Updated)
             function loadBranches() {
                 $.ajax({
-                    url: '/api/v1/admin/branches',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: '/api/v1/branches', // Changed from /admin/
                     success: function(res) {
                         let options = '<option value="">-- Choose Branch --</option>';
                         res.data.forEach(b => options +=
@@ -483,24 +481,23 @@
 
             function loadAllData() {
                 $.ajax({
-                    url: '/api/v1/admin/interested-customers',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: '/api/v1/interested-customers', // Changed from /admin/
                     success: function(res) {
                         intData = res.interested;
                         genData = res.general;
 
-                      // Bind Global Datalist
-                let dlHtml = '';
-                res.staff_list.forEach(s => dlHtml += `<option value="${s.staff_id}">${s.name} (${s.role})</option>`);
-                $('#staffDataList').html(dlHtml);
+                        // Bind Global Datalist
+                        let dlHtml = '';
+                        res.staff_list.forEach(s => dlHtml +=
+                            `<option value="${s.staff_id}">${s.name} (${s.role})</option>`);
+                        $('#staffDataList').html(dlHtml);
 
                         intTable.clear();
                         intData.forEach(d => {
                             let bName = d.branch ? d.branch.branch_name : '-';
+                            // 🛡️ SECURED: Edit and Delete buttons
                             let actions =
-                                `<button class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d.id}"><i class="fas fa-eye"></i></button><button class="btn btn-sm btn-light text-primary me-1 edit-btn" data-id="${d.id}"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-light text-danger delete-btn" data-id="${d.id}"><i class="fas fa-trash"></i></button>`;
+                                `<button class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d.id}"><i class="fas fa-eye"></i></button><button class="btn btn-sm btn-light text-primary me-1 edit-btn secured-item" data-permission="lead_edit" data-id="${d.id}"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="lead_delete" data-id="${d.id}"><i class="fas fa-trash"></i></button>`;
                             intTable.row.add([bName, d.cust_name, d.mobile, d.interested_for ||
                                 '-', d.budget || '-', d.assigned_telecaller || '-',
                                 `<span class="badge bg-info">${d.status}</span>`,
@@ -512,8 +509,9 @@
                         genTable.clear();
                         genData.forEach(d => {
                             let bName = d.branch ? d.branch.branch_name : '-';
+                            // 🛡️ SECURED: Edit and Delete buttons
                             let actions =
-                                `<button class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d.id}"><i class="fas fa-eye"></i></button><button class="btn btn-sm btn-light text-primary me-1 edit-btn" data-id="${d.id}"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-light text-danger delete-btn" data-id="${d.id}"><i class="fas fa-trash"></i></button>`;
+                                `<button class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d.id}"><i class="fas fa-eye"></i></button><button class="btn btn-sm btn-light text-primary me-1 edit-btn secured-item" data-permission="lead_edit" data-id="${d.id}"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="lead_delete" data-id="${d.id}"><i class="fas fa-trash"></i></button>`;
                             genTable.row.add([bName, d.cust_name, d.mobile, d.required_for ||
                                 '-', d.refer_by || '-', d.assigned_telecaller || '-',
                                 `<span class="badge bg-secondary">${d.status}</span>`,
@@ -529,6 +527,9 @@
                         $('#mGenContainer').empty();
                         renderMobileInt();
                         renderMobileGen();
+
+                        // 🛡️ RE-APPLY PERMISSIONS: Kyunki table data AJAX se fetch hokar manually add hua hai
+                        if (typeof window.applyPermissions === 'function') window.applyPermissions();
                     }
                 });
             }
@@ -548,8 +549,8 @@
                 <div class="small text-muted mb-2"><b>Interested:</b> ${d.interested_for||'-'} | <b>Next:</b> ${d.followup_date||'-'}</div>
                 <div class="d-flex gap-2 border-top pt-2 mt-2">
                     <button class="btn btn-sm btn-light text-info flex-fill fw-bold view-btn" data-id="${d.id}"><i class="fas fa-eye"></i> View</button>
-                    <button class="btn btn-sm btn-light text-primary flex-fill fw-bold edit-btn" data-id="${d.id}"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="btn btn-sm btn-light text-danger flex-fill fw-bold delete-btn" data-id="${d.id}"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn btn-sm btn-light text-primary flex-fill fw-bold edit-btn secured-item" data-permission="lead_edit" data-id="${d.id}"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn btn-sm btn-light text-danger flex-fill fw-bold delete-btn secured-item" data-permission="lead_delete" data-id="${d.id}"><i class="fas fa-trash"></i> Delete</button>
                 </div>
             </div>`;
                 });
@@ -557,6 +558,9 @@
                 intIndex += CHUNK;
                 if (intIndex >= intData.length) $('#btnLoadInt').removeClass('d-block').addClass('d-none');
                 else $('#btnLoadInt').removeClass('d-none').addClass('d-block');
+
+                // 🛡️ RE-APPLY PERMISSIONS
+                if (typeof window.applyPermissions === 'function') window.applyPermissions();
             }
 
             function renderMobileGen() {
@@ -571,8 +575,8 @@
                 <div class="small text-muted mb-2"><i class="fas fa-phone me-1"></i> ${d.mobile} | Tele: ${d.assigned_telecaller||'N/A'}</div>
                 <div class="d-flex gap-2 border-top pt-2 mt-2">
                     <button class="btn btn-sm btn-light text-info flex-fill fw-bold view-btn" data-id="${d.id}"><i class="fas fa-eye"></i> View</button>
-                    <button class="btn btn-sm btn-light text-primary flex-fill fw-bold edit-btn" data-id="${d.id}"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="btn btn-sm btn-light text-danger flex-fill fw-bold delete-btn" data-id="${d.id}"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn btn-sm btn-light text-primary flex-fill fw-bold edit-btn secured-item" data-permission="lead_edit" data-id="${d.id}"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn btn-sm btn-light text-danger flex-fill fw-bold delete-btn secured-item" data-permission="lead_delete" data-id="${d.id}"><i class="fas fa-trash"></i> Delete</button>
                 </div>
             </div>`;
                 });
@@ -580,6 +584,9 @@
                 genIndex += CHUNK;
                 if (genIndex >= genData.length) $('#btnLoadGen').removeClass('d-block').addClass('d-none');
                 else $('#btnLoadGen').removeClass('d-none').addClass('d-block');
+
+                // 🛡️ RE-APPLY PERMISSIONS
+                if (typeof window.applyPermissions === 'function') window.applyPermissions();
             }
 
             $('#btnLoadInt').click(() => renderMobileInt());
@@ -601,10 +608,7 @@
 
                 if (type === 'edit') {
                     $.get({
-                        url: `/api/v1/admin/interested-customers/${id}`,
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
+                        url: `/api/v1/interested-customers/${id}`, // Changed from /admin/
                         success: function(res) {
                             let d = res.data;
                             $('#edit_id').val(d.id);
@@ -639,10 +643,7 @@
             $(document).on('click', '.view-btn', function() {
                 let id = $(this).data('id');
                 $.get({
-                    url: `/api/v1/admin/interested-customers/${id}`,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: `/api/v1/interested-customers/${id}`, // Changed from /admin/
                     success: function(res) {
                         let d = res.data;
                         $('#v_branch').text(d.branch ? d.branch.branch_name : 'N/A');
@@ -679,11 +680,8 @@
             $(document).on('click', '.delete-btn', function() {
                 if (confirm("Delete this customer permanently?")) {
                     $.ajax({
-                        url: `/api/v1/admin/interested-customers/${$(this).data('id')}`,
+                        url: `/api/v1/interested-customers/${$(this).data('id')}`, // Changed from /admin/
                         type: 'DELETE',
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
                         success: function(res) {
                             loadAllData();
                         }
@@ -695,16 +693,13 @@
             $('#custForm').submit(function(e) {
                 e.preventDefault();
                 let id = $('#edit_id').val();
-                let url = mode === 'add' ? '/api/v1/admin/interested-customers' :
-                    `/api/v1/admin/interested-customers/${id}`;
+                let url = mode === 'add' ? '/api/v1/interested-customers' : // Changed from /admin/
+                    `/api/v1/interested-customers/${id}`;
                 let type = mode === 'add' ? 'POST' : 'PUT';
 
                 $.ajax({
                     url: url,
                     type: type,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     data: $(this).serialize(),
                     success: function(res) {
                         alert(res.message);
@@ -718,11 +713,8 @@
             $('#assignForm').submit(function(e) {
                 e.preventDefault();
                 $.ajax({
-                    url: '/api/v1/admin/interested-customers/assign-telecaller',
+                    url: '/api/v1/interested-customers/assign-telecaller', // Changed from /admin/
                     type: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     data: {
                         telecaller: $('#a_telecaller').val(),
                         status: $('#a_status').val(),
@@ -748,10 +740,7 @@
                 };
 
                 $.post({
-                    url: '/api/v1/admin/interested-customers/filter-reports',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: '/api/v1/interested-customers/filter-reports', // Changed from /admin/
                     data: filters,
                     success: function(res) {
                         if (res.data.length === 0) {
@@ -777,7 +766,7 @@
                             });
                             XLSX.writeFile(wb,
                                 `Customer_Report_${new Date().toISOString().split('T')[0]}.xlsx`
-                                );
+                            );
                             $('#printArea').empty();
                         } else if (actionType === 'print') {
                             let win = window.open('', '', 'width=1000,height=700');

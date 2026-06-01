@@ -9,7 +9,7 @@
             <p class="text-secondary small mb-0">Track your real-time business metrics here.</p>
         </div>
         <div class="d-none d-md-block">
-            <button class="btn btn-primary btn-sm px-3"><i class="fas fa-download me-2"></i> Export Report</button>
+            <button class="btn btn-primary btn-sm px-3 secured-item" data-permission="dashboard_export"><i class="fas fa-download me-2"></i> Export Report</button>
         </div>
     </div>
 

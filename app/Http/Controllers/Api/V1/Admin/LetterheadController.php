@@ -11,8 +11,21 @@ class LetterheadController extends Controller
 {
     public function index()
     {
-        $letterheads = Letterhead::with('branch')->orderBy('id', 'desc')->get();
-        return response()->json(['status' => 'success', 'data' => $letterheads]);
+        $query = Letterhead::with('branch')->orderBy('id', 'desc');
+
+        // ==========================================
+        // 🛡️ 1. DATA FILTER LOGIC
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            // Employee ko sirf apni branch ke letterheads dikhenge
+            $query->where('branch_id', $user->branch_id);
+        }
+        // ==========================================
+
+        return response()->json(['status' => 'success', 'data' => $query->get()]);
     }
 
     public function uploadImage(Request $request)
@@ -43,7 +56,21 @@ class LetterheadController extends Controller
 
         // === NAYA AUTO REF NO GENERATOR (ABDPL/ST/DIST/01/2026) ===
         $branch = Branch::findOrFail($request->branch_id);
-        $branchParts = explode('/', $branch->branch_id); 
+
+        // ==========================================
+        // 🛡️ 2. STORE OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($branch->id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You can only generate letterheads for your own branch.'], 403);
+            }
+        }
+        // ==========================================
+
+        $branchParts = explode('/', $branch->branch_id);
         $stateCode = $branchParts[1] ?? 'ST';
         $distCode  = $branchParts[2] ?? 'DIST';
         $year = $request->ref_year;
@@ -72,6 +99,19 @@ class LetterheadController extends Controller
 
     public function show($id)
     {
+        $letterhead = Letterhead::findOrFail($id); // (Ya with('branch') wala line)
+
+        // ==========================================
+        // 🛡️ 3. OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($letterhead->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot access letterheads of another branch.'], 403);
+            }
+        }
+
         return response()->json(['status' => 'success', 'data' => Letterhead::with('branch')->findOrFail($id)]);
     }
 
@@ -83,13 +123,35 @@ class LetterheadController extends Controller
             $data['emp_code'] = 'All';
         }
 
-        Letterhead::findOrFail($id)->update($data);
+       $letterhead = Letterhead::findOrFail($id); // (Ya with('branch') wala line)
+
+        // ==========================================
+        // 🛡️ 3. OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($letterhead->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot access letterheads of another branch.'], 403);
+            }
+        }
         return response()->json(['status' => 'success', 'message' => 'Letterhead Updated Successfully']);
     }
 
     public function destroy($id)
     {
-        Letterhead::findOrFail($id)->delete();
+      $letterhead = Letterhead::findOrFail($id); // (Ya with('branch') wala line)
+
+        // ==========================================
+        // 🛡️ 3. OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($letterhead->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot access letterheads of another branch.'], 403);
+            }
+        }
         return response()->json(['status' => 'success', 'message' => 'Deleted successfully']);
     }
 
@@ -100,6 +162,19 @@ class LetterheadController extends Controller
     {
         $letterhead = \App\Models\Letterhead::with('branch')->findOrFail($id);
         
+        // ==========================================
+        // 🛡️ 4. PRINT OWNERSHIP CHECK (Web Route)
+        // ==========================================
+        $authUser = auth('sanctum')->user() ?? auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if ($authUser && !$authUser->hasRole(['CEO', 'Director']) && !in_array($authUser->email, $developerEmails)) {
+            if ($letterhead->branch_id != $authUser->branch_id) {
+                abort(403, 'Strict Security: You are not authorized to view or print letterheads of other branches.');
+            }
+        }
+        // ==========================================
+
         $empCode = $letterhead->emp_code;
         
         // Variables initialize kar rahe hain

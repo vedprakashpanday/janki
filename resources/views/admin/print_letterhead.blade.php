@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Payment Receipt</title>
+    <title>{{ $records['letter_title'] ?? 'Letterhead Print' }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,7 +16,7 @@
         }
 
         /* =======================================================
-           A4 PERFECT SIZE (SCREEN VIEW) 
+           A4 PERFECT SIZE (SCREEN VIEW)
            ======================================================= */
         .voucher-box {
             width: 210mm;
@@ -115,7 +115,7 @@
         }
 
         /* =======================================================
-           🔥 PROFESSIONAL "TO" TABLE FIX 
+           🔥 PROFESSIONAL "TO" TABLE FIX
            ======================================================= */
         .info-table {
             width: 100%;
@@ -201,9 +201,10 @@
             border-collapse: collapse;
             border: none;
         }
-        .main-print-table > thead > tr > td,
-        .main-print-table > tbody > tr > td,
-        .main-print-table > tfoot > tr > td {
+
+        .main-print-table>thead>tr>td,
+        .main-print-table>tbody>tr>td,
+        .main-print-table>tfoot>tr>td {
             border: none;
             padding: 0;
             background: transparent;
@@ -211,7 +212,7 @@
 
         /* 🔥 FOOTER SPACER: Yeh har page ke niche 100px ki khali jagah banayega 🔥 */
         .footer-spacer {
-            height: 100px; 
+            height: 100px;
         }
 
         /* FOOTER NOTE (Screen View) */
@@ -233,7 +234,8 @@
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 12mm 10mm 15mm 10mm !important; /* Top, Right, Bottom, Left */
+                margin: 12mm 10mm 15mm 10mm !important;
+                /* Top, Right, Bottom, Left */
             }
 
             body {
@@ -247,7 +249,7 @@
             .no-print {
                 display: none !important;
             }
-            
+
             .logo-image {
                 width: 140px;
                 height: auto;
@@ -298,8 +300,8 @@
             }
 
             /* 🔥 FIX 1: Prevent lines/text from slicing horizontally 🔥 */
-            .summernote-content p, 
-            .summernote-content li, 
+            .summernote-content p,
+            .summernote-content li,
             .summernote-content tr,
             .summernote-content h1,
             .summernote-content h2,
@@ -323,8 +325,10 @@
                 bottom: 0 !important;
                 left: 0 !important;
                 right: 0 !important;
-                height: 60px !important; /* Fixing height to fit inside the 100px spacer */
-                background: #fff !important; /* White background to overlap any stray element */
+                height: 60px !important;
+                /* Fixing height to fit inside the 100px spacer */
+                background: #fff !important;
+                /* White background to overlap any stray element */
                 padding-top: 5px !important;
                 border-top: 1.5px solid #000 !important;
                 z-index: 9999 !important;
@@ -334,7 +338,6 @@
 </head>
 
 <body>
-
 
     <div class="voucher-box">
         <div class="watermark"><img id="Img" src="{{ asset('uploads/harihomes1-logo.png') }}" class="mr-2" />
@@ -378,20 +381,21 @@
             </div>
         @else
             <b>To,</b>
-            <table class="table table-bordered border-dark mt-2 mb-3">
+            <table class="info-table mt-2">
                 <tr>
-                    <th width="10%">Name</th>
-                    <td width="23%">{{ $records['paid_to_name'] }}</td>
+                    <th>Name</th>
+                    <td>{{ $records['paid_to_name'] }}</td>
 
-                    <th width="10%">Code</th>
-                    <td width="22%">{{ $records['paid_to_id'] }}</td>
+                    <th>Code</th>
+                    <td>{{ $records['paid_to_id'] }}</td>
 
-                    <th width="15%">Designation</th>
-                    <td width="20%">{{ $records['paid_to_designation'] }}</td>
+                    <th>Designation</th>
+                    <td>{{ $records['paid_to_designation'] }}</td>
                 </tr>
                 <tr>
                     <th>Doj</th>
-                    <td>{{ $records['paid_to_doj'] !== '-' ? date('d/m/Y', strtotime($records['paid_to_doj'])) : '-' }}</td>
+                    <td>{{ $records['paid_to_doj'] !== '-' ? date('d/m/Y', strtotime($records['paid_to_doj'])) : '-' }}
+                    </td>
 
                     <th>Mobile</th>
                     <td>{{ $records['paid_to_mobile'] }}</td>
@@ -405,27 +409,30 @@
                 </tr>
             </table>
         @endif
-        <table class="layout-table" style="width: 100%; border: none; border-collapse: collapse;">
-            <thead style="border: none;">
+
+        <!-- 🔥 FIX: HTML table class matched with CSS (.main-print-table) 🔥 -->
+        <table class="main-print-table">
+            <thead>
                 <tr>
-                    <td style="border: none; padding: 0;">
+                    <td>
                         <div style="height: 15px;"></div>
                     </td>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td style="border: none; padding: 0;">
+                    <td>
                         <div class="summernote-content">
                             {!! $records['message'] !!}
                         </div>
                     </td>
                 </tr>
             </tbody>
-            <tfoot style="border: none;">
+            <tfoot>
                 <tr>
-                    <td style="border: none; padding: 0;">
-                        <div style="height: 50px;"></div>
+                    <td>
+                        <!-- 🔥 FIX: Applied the CSS spacer class exactly as defined 🔥 -->
+                        <div class="footer-spacer"></div>
                     </td>
                 </tr>
             </tfoot>

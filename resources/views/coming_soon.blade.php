@@ -3,155 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JankiVilla | Coming Soon</title>
+    <title>Premium Residences | Coming Soon</title>
+    
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Google Fonts for Premium Look (Playfair Display & Montserrat) -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        :root {
-            --royal-gold: #B8860B;
-            --deep-text: #1a1a1a;
-        }
-
-        /* Sabse pehle screen ka jhamela khatam karte hain */
-        * {
-            box-sizing: border-box;
-        }
-
-        body, html {
-            height: 100%;
-            margin: 0;
-            padding: 0;
+        body, html { 
+            height: 100%; 
+            margin: 0; 
             font-family: 'Montserrat', sans-serif;
-            background-color: #f4f4f4;
-            /* Scroll allow karenge agar content mobile par bada ho jaye */
-            overflow-x: hidden; 
+            background-color: #111;
         }
-
-        /* Hero Section: Har device par full screen dikhega */
-        .hero-section {
-            position: relative;
-            min-height: 100vh;
-            width: 100%;
-            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), 
-                        url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80');
+        
+        .premium-bg {
+            /* Dark gradient overlay with a luxury real estate background image */
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.4)), 
+                        url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
             background-size: cover;
             background-position: center;
-            background-repeat: no-repeat;
+            height: 100vh;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 15px; /* Mobile par screen se chipkega nahi */
+            flex-direction: column;
+            justify-content: space-between;
+            color: #fff;
         }
 
-        /* Premium Card: Isko responsive banaya hai */
-        .premium-card {
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-radius: 40px 5px 40px 5px;
-            padding: 3rem 2rem;
-            width: 100%;
-            max-width: 700px; /* Desktop par size limit */
-            text-align: center;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-            margin: auto;
+        h1, .brand-name {
+            font-family: 'Playfair Display', serif;
         }
 
-        .brand-logo {
-            width: 100%;
-            max-width: 200px; /* Mobile par logo size */
-            height: auto;
-            margin-bottom: 1.5rem;
+        .text-gold {
+            color: #D4AF37; /* Luxury Gold Color */
         }
 
-        .status-badge {
-            font-size: 0.7rem;
-            letter-spacing: 4px;
+        .border-gold {
+            border-color: #D4AF37 !important;
+        }
+
+        .letter-spacing {
+            letter-spacing: 3px;
             text-transform: uppercase;
-            color: var(--royal-gold);
-            font-weight: 700;
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        h1 {
-            font-family: 'Cinzel', serif;
-            /* Fluid Typography: Screen ke hisab se scale hoga */
-            font-size: calc(1rem + 1.5vw); 
-            color: var(--deep-text);
-            font-weight: 800;
-            margin-bottom: 1rem;
-            line-height: 1.2;
-        }
-
-        .gold-divider {
-            width: 60px;
-            height: 3px;
-            background: var(--royal-gold);
-            margin: 1.2rem auto;
-        }
-
-        .lead-text {
-            color: #333;
+            font-size: 0.85rem;
             font-weight: 500;
-            line-height: 1.6;
-            font-size: calc(0.95rem + 0.2vw);
-            margin-bottom: 0;
         }
 
-        .footer-info {
-            margin-top: 2.5rem;
-            font-size: 0.75rem;
-            color: #666;
-            letter-spacing: 2px;
-            font-weight: 600;
+        .contact-info {
+            font-weight: 300;
+            font-size: 0.95rem;
         }
 
-        /* Mobile Specific Tweaks */
-        @media (max-width: 576px) {
-            .premium-card {
-                padding: 2.5rem 1.2rem;
-                border-radius: 30px 5px 30px 5px;
-            }
-            .brand-logo {
-                max-width: 160px;
-            }
-            .hero-section {
-                padding: 10px;
-            }
+        .social-icons a {
+            color: #fff;
+            font-size: 1.2rem;
+            transition: 0.3s ease;
+        }
+
+        .social-icons a:hover {
+            color: #D4AF37;
+            transform: translateY(-3px);
+        }
+
+        /* Subtle Fade-in Animation */
+        .fade-in {
+            animation: fadeIn ease 2s;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
 <body>
 
-    <section class="hero-section">
-        <div class="container d-flex justify-content-center">
-            
-            <div class="premium-card">
-                <span class="status-badge">Grand Unveiling</span>
-                
-                <div class="logo-container">
-                    <img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="JankiVilla Logo" class="brand-logo">
-                </div>
+<div class="premium-bg fade-in">
+    
+    <!-- Header / Brand Area -->
+    <header class="p-4 p-md-5 d-flex justify-content-between align-items-center">
+        <!-- Aap yahan Apna Logo laga sakte hain -->
+        <div class="brand-name fs-2 fw-bold text-gold">JankiVilla</div>
+        <div class="letter-spacing d-none d-md-block text-white-50">Exclusive Residences</div>
+    </header>
 
-                <h1>Excellence In Every Detail</h1>
-                
-                <div class="gold-divider"></div>
-
-                <p class="lead-text">
-                    A warm and heartfelt welcome to the <strong>JankiVilla Family</strong>. <br class="d-none d-md-block">
-                    Something extraordinary is being crafted for you. Our digital home will be ready to welcome you soon.
+    <!-- Main Content Area -->
+    <main class="container text-center text-md-start px-4 px-md-5 mb-auto mt-auto">
+        <div class="row">
+            <div class="col-lg-8 col-xl-7">
+                <p class="letter-spacing text-gold mb-3"><i class="fas fa-key me-2"></i> Arriving Soon</p>
+                <h1 class="display-3 fw-bold mb-4">Redefining Luxury Living.</h1>
+                <p class="lead fw-light mb-5 text-white-50" style="max-width: 600px; line-height: 1.8;">
+                    An exclusive collection of premium spaces designed for those who appreciate the finer things in life. Architectural brilliance meets unmatched comfort.
                 </p>
-
-                <div class="footer-info">
-                    &copy; 2026 JANKIVILLA &bull; PREMIUM LIVING
-                </div>
+                
+                <!-- Information / Contact (No Forms) -->
+                {{-- <div class="contact-info mt-5 border-start border-gold border-3 ps-4 py-2">
+                    <p class="mb-2"><i class="fas fa-phone-alt text-gold me-3"></i> +91 98765 43210</p>
+                    <p class="mb-2"><i class="fas fa-envelope text-gold me-3"></i> info@jankivilla.com</p>
+                    <p class="mb-0"><i class="fas fa-map-marker-alt text-gold me-3"></i> Prime Location, City Name</p>
+                </div> --}}
             </div>
-
         </div>
-    </section>
+    </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Footer Area -->
+    {{-- <footer class="p-4 p-md-5 mt-auto d-flex flex-column flex-md-row justify-content-between align-items-center" style="background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);">
+        <p class="mb-3 mb-md-0 contact-info text-white-50">
+            &copy; {{ date('Y') }} JankiVilla. All Rights Reserved.
+        </p>
+        <div class="social-icons">
+            <a href="#" class="me-4"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" class="me-4"><i class="fab fa-instagram"></i></a>
+            <a href="#"><i class="fab fa-linkedin-in"></i></a>
+        </div>
+    </footer> --}}
+
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

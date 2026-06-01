@@ -9,13 +9,56 @@ use Illuminate\Http\Request;
 
 class LandownerController extends Controller
 {
-    public function index()
+   // ==========================================
+    // 1. GET: Server-Side Data Load (10-10 Records)
+    // ==========================================
+    public function index(Request $request)
     {
-        // Agent ka naam dikhane ke liye aap agent model ko link kar sakte hain, abhi branch bhej rahe hain
-        $landowners = Landowner::with('branch')->orderBy('id', 'desc')->get();
-        return response()->json(['status' => 'success', 'data' => $landowners]);
+        $query = Landowner::with(['branch.company']);
+
+        // ==========================================
+        // 🛡️ 1. DATA FILTER LOGIC
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            // Employee/Manager ko sirf apni branch ke landowners dikhenge
+            $query->where('branch_id', $user->branch_id);
+        }
+        // ==========================================
+
+        if ($request->has('search') && $request->input('search.value')) {
+            $search = $request->input('search.value');
+            $query->where('land_owner_name', 'LIKE', "%{$search}%")
+                  ->orWhere('land_owner_id', 'LIKE', "%{$search}%")
+                  ->orWhere('land_id', 'LIKE', "%{$search}%")
+                  ->orWhere('mobile1', 'LIKE', "%{$search}%");
+        }
+
+        $totalData = Landowner::count();
+        $totalFiltered = $query->count();
+        
+        $start = $request->input('start', 0);
+        $length = $request->input('length', 10);
+
+        if ($length != -1) {
+            $query->offset($start)->limit($length);
+        }
+
+        $landowners = $query->orderBy('id', 'desc')->get();
+
+        return response()->json([
+            "draw" => intval($request->input('draw')),
+            "recordsTotal" => $totalData,
+            "recordsFiltered" => $totalFiltered,
+            "data" => $landowners
+        ]);
     }
 
+    // ==========================================
+    // 2. STORE: Smart ID Generation (LO/LI) & Company
+    // ==========================================
     public function store(Request $request)
     {
         $request->validate([
@@ -26,25 +69,58 @@ class LandownerController extends Controller
 
         $data = $request->except(['_token']);
 
-        // 1. Generate IDs (LO = Land Owner, LI = Land ID)
-        $branch = Branch::findOrFail($request->branch_id);
+        // 1. Fetch Branch & Company
+        $branch = Branch::with('company')->findOrFail($request->branch_id);
+
+
+        // ==========================================
+        // 🛡️ 2. STORE OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($branch->id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You can only add landowners to your own branch.'], 403);
+            }
+        }
+        // ==========================================
+
+
+
+        $companyPrefix = $branch->company ? $branch->company->company_code : 'CMP';
+        $data['company_id'] = $branch->company_id;
+
+        // 2. Format Branch Code (e.g. DAR/01)
         $branchParts = explode('/', $branch->branch_id); 
         $stateCode = $branchParts[1] ?? 'ST';
-        $distCode  = $branchParts[2] ?? 'DIST';
+        $rawBranchCode = $branchParts[2] ?? 'DIST';
+        
+        $distCode = preg_replace('/[^a-zA-Z]/', '', $rawBranchCode); 
+        $branchNum = preg_replace('/[^0-9]/', '', $rawBranchCode);   
+        if (empty($branchNum)) { $branchNum = '1'; }
+        $formattedBranchNum = str_pad($branchNum, 2, '0', STR_PAD_LEFT);
+
         $year = date('Y');
 
+        // 3. Generate Sequence
         $lastLO = Landowner::where('branch_id', $branch->id)->orderBy('id', 'desc')->first();
-        $nextSeq = 1;
         if ($lastLO && $lastLO->land_owner_id) {
             $lastIdParts = explode('/', $lastLO->land_owner_id);
-            $nextSeq = ((int) ($lastIdParts[3] ?? 0)) + 1;
+            // Dynamic sequence pickup (Second last part)
+            $lastSeqStr = $lastIdParts[count($lastIdParts) - 2] ?? '0';
+            $nextSeq = ((int) $lastSeqStr) + 1;
+        } else {
+            $nextSeq = 1;
         }
 
-        $sequence = str_pad($nextSeq, 2, '0', STR_PAD_LEFT);
-        $data['land_owner_id'] = "LO/{$stateCode}/{$distCode}/{$sequence}/{$year}";
-        $data['land_id']       = "LI/{$stateCode}/{$distCode}/{$sequence}/{$year}";
+        $sequence = str_pad($nextSeq, 3, '0', STR_PAD_LEFT);
+        
+        // 4. Final IDs (ABD/BIH/DAR/01/LO/001/2026 aur LI)
+        $data['land_owner_id'] = "{$companyPrefix}/{$stateCode}/{$distCode}/{$formattedBranchNum}/LO/{$sequence}/{$year}";
+        $data['land_id']       = "{$companyPrefix}/{$stateCode}/{$distCode}/{$formattedBranchNum}/LI/{$sequence}/{$year}";
 
-        // 2. File Uploads (20 Docs)
+        // File Uploads (20 Docs)
         $fileFields = [
             'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'passport_photo', 'sign',
             'khatiyaan_pdf', 'jamabandi_pdf', 'lo_agreement_pdf', 'registry_deed_pdf', 'link_deed_pdf', 'final_deed_pdf', 'other_pdf',
@@ -53,7 +129,6 @@ class LandownerController extends Controller
 
         foreach ($fileFields as $field) {
             if ($request->hasFile($field)) {
-                /** @var \Illuminate\Http\UploadedFile $file */
                 $file = $request->file($field);
                 $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                 $file->move(public_path('uploads/landowners'), $filename);
@@ -65,14 +140,38 @@ class LandownerController extends Controller
         return response()->json(['status' => 'success', 'message' => "Landowner saved! ID: {$landowner->land_owner_id}"]);
     }
 
-    public function show($id)
+    // ==========================================
+    // 3. SHOW: Include Company in Branch
+    // ==========================================
+  public function show($id)
     {
-        return response()->json(['status' => 'success', 'data' => Landowner::with('branch')->findOrFail($id)]);
+        $landowner = Landowner::with(['branch.company'])->findOrFail($id);
+
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($landowner->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
+            }
+        }
+
+        return response()->json(['status' => 'success', 'data' => $landowner]);
     }
 
     public function update(Request $request, $id)
     {
-        $landowner = Landowner::findOrFail($id);
+       $landowner = Landowner::findOrFail($id);
+
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($landowner->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
+            }
+        }
+
         $data = $request->except(['_token', 'land_owner_id', 'land_id', '_method']);
 
         $fileFields = [ /* Same 20 files */
@@ -97,7 +196,18 @@ class LandownerController extends Controller
 
     public function destroy($id)
     {
-        Landowner::findOrFail($id)->delete();
+        
+
+        $landowner = Landowner::findOrFail($id);
+
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($landowner->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
+            }
+        }
         return response()->json(['status' => 'success', 'message' => 'Deleted successfully']);
     }
 }

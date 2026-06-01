@@ -8,26 +8,37 @@ use Illuminate\Support\Facades\DB;
 
 class IdCardController extends Controller
 {
-    // API: Dropdown me Datalist ke liye
     public function getStaffList()
     {
-        // 1. Employees (adm_regist)
-        $employees = DB::table('adm_regist')
+        // Queries ko pehle builder mein rakhein
+        $empQuery = DB::table('adm_regist')
             ->select('member_id as id', 'full_name as name', DB::raw("'Employee' as type"))
-            ->where('emp_status', 'active')
-            ->get();
+            ->where('emp_status', 'active');
 
-        // 2. Members (members)
-        $members = DB::table('members')
+        $memQuery = DB::table('members')
             ->select('member_id as id', 'member_name as name', DB::raw("'Member' as type"))
-            ->where('status', 'active')
-            ->get();
+            ->where('status', 'active');
+
+        // ==========================================
+        // 🛡️ 1. DATA FILTER LOGIC
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if ($user && !$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            // Employee/Manager ko sirf apni branch ke log dikhenge
+            $empQuery->where('branch_id', $user->branch_id);
+            $memQuery->where('branch_id', $user->branch_id);
+        }
+        // ==========================================
+
+        $employees = $empQuery->get();
+        $members = $memQuery->get();
 
         $staff = $employees->merge($members)->sortBy('name')->values();
 
         return response()->json(['status' => 'success', 'data' => $staff]);
     }
-
     // WEB: Print View Render karne ke liye
     public function printPreview($type, $id)
     {
@@ -42,6 +53,21 @@ class IdCardController extends Controller
         if (!$user) {
             abort(404, 'Staff Member Not Found!');
         }
+
+        // ==========================================
+        // 🛡️ 2. PRINT OWNERSHIP CHECK
+        // ==========================================
+        // Web route hai isliye sanctum guard check kar rahe hain
+        $authUser = auth('sanctum')->user() ?? auth()->user(); 
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+
+        if ($authUser && !$authUser->hasRole(['CEO', 'Director']) && !in_array($authUser->email, $developerEmails)) {
+            // Check if the requested user's branch matches the logged-in user's branch
+            if (isset($user->branch_id) && $user->branch_id != $authUser->branch_id) {
+                abort(403, 'Strict Security: You are not authorized to view or print ID Cards for other branches.');
+            }
+        }
+        // ==========================================
 
         // Safe Data Mapping (Taaki column name mismatch ka error na aaye)
         $userArr = (array) $user;

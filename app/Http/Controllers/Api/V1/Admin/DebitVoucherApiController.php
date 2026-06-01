@@ -16,6 +16,18 @@ class DebitVoucherApiController extends Controller
     {
         $query = DebitVoucher::query();
 
+        // ==========================================
+        // 🛡️ 1. DATA FILTER LOGIC (Role Based)
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            // Employee ko sirf apni branch ke vouchers dikhenge (Agar DB mein company_id hai to wo daal dein)
+            $query->where('branch_id', $user->branch_id); 
+        }
+        // ==========================================
+
         // Search logic
         if ($request->has('search') && $request->input('search.value')) {
             $search = $request->input('search.value');
@@ -87,6 +99,20 @@ class DebitVoucherApiController extends Controller
     public function show($id)
     {
         $voucher = DebitVoucher::find($id);
+
+        // ==========================================
+        // 🛡️ 2. OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($voucher->branch_id != $user->branch_id) { // (Ya company_id)
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You cannot access vouchers of another branch.'], 403);
+            }
+        }
+
+
         if (!$voucher) {
             return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
         }
@@ -97,6 +123,21 @@ class DebitVoucherApiController extends Controller
     public function update(Request $request, $id)
     {
         $voucher = DebitVoucher::find($id);
+
+        // ==========================================
+        // 🛡️ 2. OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($voucher->branch_id != $user->branch_id) { // (Ya company_id)
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You cannot access vouchers of another branch.'], 403);
+            }
+        }
+
+
+
         $request->validate([
             'dv_no' => 'required|unique:debit_vouchers,dv_no,'.$id,
             'voucher_date' => 'required|date',
@@ -110,7 +151,21 @@ class DebitVoucherApiController extends Controller
     // 5. DELETE RECORD
     public function destroy($id)
     {
-        DebitVoucher::destroy($id);
+         $voucher = DebitVoucher::destroy($id);
+
+        // ==========================================
+        // 🛡️ 2. OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($voucher->branch_id != $user->branch_id) { // (Ya company_id)
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You cannot access vouchers of another branch.'], 403);
+            }
+        }
+
+
         return response()->json(['status' => 'success', 'message' => 'Deleted Successfully']);
     }
 
@@ -141,9 +196,21 @@ public function getMemberBankDetails(Request $request) {
         ]);
     }
 }
-// 2. Load Active Branches
+
+
 public function getBranches() {
-    $branches = DB::table('branches')->where('branch_status', 'active')->get();
+    $query = DB::table('branches')->where('branch_status', 'active');
+    
+    // 🛡️ BRANCH DROPDOWN FILTER
+    $user = auth()->user();
+    $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+    
+    if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+        // Employees ko sirf apni company ki branches dikhengi
+        $query->where('company_id', $user->company_id);
+    }
+
+    $branches = $query->get();
     return response()->json(['status' => 'success', 'data' => $branches]);
 }
 

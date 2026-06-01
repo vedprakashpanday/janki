@@ -1,3 +1,4 @@
+
 @extends('layout.app')
 
 @section('content')
@@ -90,10 +91,10 @@
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Member (Distributor) Details</h4>
+                <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Member Details</h4>
             </div>
-            <button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: var(--brand-primary);"
-                onclick="openModal('add')">
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" data-permission="member_add"
+                style="background-color: var(--brand-primary);" onclick="openModal('add')">
                 <i class="fas fa-plus me-1"></i> Add New Member
             </button>
         </div>
@@ -240,24 +241,46 @@
                             <div class="tab-pane fade show active" id="tab-personal">
 
                                 <div class="row g-3 mb-4 pb-3 border-bottom">
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Select Branch <span
+
+                                    <div class="col-md-4" id="wrap_company">
+                                        <label class="form-label text-secondary small">Company <span
                                                 class="text-danger">*</span></label>
-                                        <select name="branch_id" id="f_branch" class="form-select" required></select>
+                                        <input type="text" id="f_company" class="form-control" list="companyList"
+                                            placeholder="Search Company" autocomplete="off" required>
+                                        <input type="hidden" name="company_id" id="hidden_company_id">
+                                        <datalist id="companyList"></datalist>
+                                    </div>
+
+                                    <div class="col-md-4" id="wrap_branch">
+                                        <label class="form-label text-secondary small">Branch <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" id="f_branch" class="form-control" list="branchList"
+                                            placeholder="Search Branch" autocomplete="off" required>
+                                        <input type="hidden" name="branch_id" id="hidden_branch_id">
+                                        <datalist id="branchList"></datalist>
+                                    </div>
+
+                                    <div class="col-md-4" id="wrap_dept">
+                                        <label class="form-label text-secondary small">Department <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" id="f_department" class="form-control" list="deptList"
+                                            placeholder="Search Department" autocomplete="off" required>
+                                        <input type="hidden" name="department_id" id="hidden_department_id">
+                                        <datalist id="deptList"></datalist>
                                     </div>
 
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Sponsor ID</label>
-                                        <input type="text" name="sponsor_id" class="form-control" id="f_sponsor_id"
-                                            list="sponsorList" placeholder="Click to select or type" autocomplete="off">
-                                        <datalist id="sponsorList">
-                                        </datalist>
+                                        <input type="text" name="sponsor_id" class="form-control fw-bold"
+                                            id="f_sponsor_id" list="sponsorList" placeholder="Type or select Sponsor ID"
+                                            autocomplete="off">
+                                        <datalist id="sponsorList"></datalist>
                                     </div>
 
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Sponsor Name</label>
-                                        <input type="text" name="sponsor_name" class="form-control bg-light"
-                                            id="f_sponsor_name" readonly value="Amitabh Kumar">
+                                        <input type="text" name="sponsor_name" class="form-control bg-light fw-bold"
+                                            id="f_sponsor_name" readonly placeholder="Enter Sponsor Name">
                                     </div>
 
                                     <div class="col-md-4 password-edit-div" style="display:none;">
@@ -307,8 +330,8 @@
                                         <label class="form-label small fw-bold">Designation <span
                                                 class="text-danger">*</span></label>
                                         <input type="text" name="designation" id="designation" class="form-control"
-                                            list="designationList" placeholder="Type or Select Designation" required>
-
+                                            list="designationList" placeholder="Type or Select Designation" required
+                                            autocomplete="off">
                                         <datalist id="designationList"></datalist>
                                     </div>
                                     <div class="col-md-4">
@@ -401,9 +424,10 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">Bank
                                             Name</label><input type="text" name="bank_name" class="form-control"
                                             id="f_bank_name"></div>
-                                    <div class="col-md-4"><label class="form-label text-secondary small">Branch Name</label>
-                                        <input type="text" name="branch" class="form-control"
-                                            id="f_bank_branch"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Branch
+                                            Name</label>
+                                        <input type="text" name="branch" class="form-control" id="f_bank_branch">
+                                    </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">IFSC
                                             Code</label><input type="text" name="ifsc_code"
                                             class="form-control text-uppercase" id="f_ifsc"></div>
@@ -566,13 +590,265 @@
             const apiToken = localStorage.getItem('admin_token');
             let mode = 'add';
             let allMembers = [];
-            // 1. DataTables
-            let table = $('#memberTable').DataTable({
-                ajax: {
-                    url: '/api/v1/admin/members',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
+            let allDesignations = [];
+
+            // Maps for converting DataList Text -> ID
+            let companyMap = {};
+            let branchMap = {};
+            let deptMap = {};
+
+            // ==========================================
+            // 🔥 ROLE-BASED SPONSOR & UI LOGIC (LOCALSTORAGE FALLBACK FIX) 🔥
+            // ==========================================
+            let userEmail = (localStorage.getItem('user_email') || localStorage.getItem('admin_email') || '').toLowerCase();
+            let roleLevel = localStorage.getItem('user_role') || ''; 
+            let loggedInMemberId = localStorage.getItem('member_id') || '';
+            let loggedInMemberName = localStorage.getItem('user_name') || '';
+            let loggedInDesignation = localStorage.getItem('designation') || '';
+
+            // 🔥 NAYA FALLBACK LOGIC 🔥
+            // Agar localStorage me role save nahi hai, lekin 'admin_token' mojood hai, toh usko CEO maan lo
+            if (!roleLevel && localStorage.getItem('admin_token')) {
+                roleLevel = 'ceo';
+                userEmail = userEmail || 'admin@jankivilla.com'; // Default admin email
+            } else if (!roleLevel) {
+                roleLevel = 'member'; // Warna normal member
+            }
+
+            // Developer Override Check (Hardcoded Emails)
+            const devEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+            if (devEmails.includes(userEmail) || roleLevel === 'ceo' || roleLevel === 'super_admin' || typeof window.userGodMode !== 'undefined') {
+                roleLevel = 'ceo';
+            }
+
+            // Boolean flag for all admin types
+            const isUserAdmin = (roleLevel === 'ceo' || roleLevel === 'director' || roleLevel === 'branch_manager');
+
+            function applyRoleUI() {
+                if (roleLevel === 'ceo') {
+                    $('#wrap_company, #wrap_branch, #wrap_dept').show();
+                    $('#f_sponsor_id').prop('readonly', false);
+                } else if (roleLevel === 'director') {
+                    $('#wrap_company').hide();
+                    $('#wrap_branch, #wrap_dept').show();
+                    $('#f_sponsor_id').prop('readonly', false);
+                } else if (roleLevel === 'branch_manager') {
+                    $('#wrap_company, #wrap_branch').hide();
+                    $('#wrap_dept').show();
+                    $('#f_sponsor_id').prop('readonly', false);
+                } else {
+                    // Normal Associate Member
+                    $('#wrap_company, #wrap_branch, #wrap_dept').hide();
+                    
+                    // Lock Sponsor to Self
+                    $('#f_sponsor_id').val(loggedInMemberId).prop('readonly', true);
+                    $('#f_sponsor_name').val(loggedInMemberName).prop('readonly', true);
+                    
+                    // Trigger manual change to fetch appropriate child designations
+                    $('#f_sponsor_id').trigger('change');
+                }
+            }
+
+            // ==========================================
+            // CASCADING DATALISTS LOGIC
+            // ==========================================
+            function loadCompanies() {
+                $.ajax({
+                    url: '/api/v1/get-active-companies',
+                    type: 'GET',
+                    success: function(res) {
+                        let opts = '';
+                        companyMap = {};
+                        res.data.forEach(c => {
+                            opts += `<option value="${c.company_name}">`;
+                            companyMap[c.company_name] = c.id;
+                        });
+                        $('#companyList').html(opts);
                     }
+                });
+            }
+            loadCompanies();
+
+            // 1. Company Change -> Fetch Branches
+            $('#f_company').on('input change', function() {
+                let val = $(this).val();
+                if (companyMap[val]) {
+                    $('#hidden_company_id').val(companyMap[val]);
+                    this.setCustomValidity('');
+
+                    $.ajax({
+                        url: '/api/v1/branches?company_id=' + companyMap[val],
+                        type: 'GET',
+                        success: function(res) {
+                            let bOpts = '';
+                            branchMap = {};
+                            res.data.forEach(b => {
+                                bOpts += `<option value="${b.branch_name}">`;
+                                branchMap[b.branch_name] = b.id;
+                            });
+                            $('#branchList').html(bOpts);
+                            $('#f_branch').val('');
+                            $('#hidden_branch_id').val('');
+                            $('#f_department').val('');
+                            $('#hidden_department_id').val('');
+                        }
+                    });
+                } else {
+                    $('#hidden_company_id').val('');
+                    if (val !== '') this.setCustomValidity('Please select a valid company');
+                }
+            });
+
+            // 2. Branch Change -> Fetch Departments
+            $('#f_branch').on('input change', function() {
+                let val = $(this).val();
+                if (branchMap[val]) {
+                    $('#hidden_branch_id').val(branchMap[val]);
+                    this.setCustomValidity('');
+
+                    $.ajax({
+                        url: '/api/v1/get-departments-by-company?company_id=' + $(
+                            '#hidden_company_id').val(),
+                        type: 'GET',
+                        success: function(res) {
+                            let dOpts = '';
+                            deptMap = {};
+                            res.data.forEach(d => {
+                                dOpts += `<option value="${d.department_name}">`;
+                                deptMap[d.department_name] = d.id;
+                            });
+                            $('#deptList').html(dOpts);
+                            $('#f_department').val('');
+                            $('#hidden_department_id').val('');
+                        }
+                    });
+                } else {
+                    $('#hidden_branch_id').val('');
+                    if (val !== '') this.setCustomValidity('Please select a valid branch');
+                }
+            });
+
+            // 3. Department Change -> Fetch Designations & Auto-Sponsor Logic
+            $('#f_department').on('input change', function() {
+                let val = $(this).val();
+                let deptId = deptMap[val];
+
+                if (deptId) {
+                    $('#hidden_department_id').val(deptId);
+                    this.setCustomValidity('');
+
+                    // Fetch Designations for this department
+                    $.ajax({
+                        url: '/api/v1/get-designations-by-dept?department_id=' + deptId,
+                        type: 'GET',
+                        success: function(res) {
+                            allDesignations = res.data;
+
+                            // Agar normal member hai, to turant re-trigger sponsor logic
+                            if (!isUserAdmin) {
+                                $('#f_sponsor_id').trigger('change');
+                            } else {
+                                renderDesignations(); // CEO wagaira ke liye all show karo
+                            }
+                        }
+                    });
+
+                    // 🔥 AUTO SPONSOR LOGIC (Only for Admin Roles)
+                    if (isUserAdmin) {
+                        let branchId = $('#hidden_branch_id').val();
+                        let membersInBranch = allMembers.filter(m => m.branch_id == branchId);
+
+                        if (membersInBranch.length === 0) {
+                            let compStr = $('#f_company').val() ? $('#f_company').val().substring(0, 3)
+                                .toUpperCase() : 'CMP';
+                            let brStr = $('#f_branch').val() ? $('#f_branch').val().substring(0, 3)
+                                .toUpperCase() : 'BRN';
+                            let autoSponsorId = `${compStr}-${brStr}-0001`;
+
+                            $('#f_sponsor_id').val(autoSponsorId).prop('readonly', true);
+                            $('#f_sponsor_name').val('SYSTEM ROOT').prop('readonly', true);
+                        } else {
+                            $('#f_sponsor_id').val('').prop('readonly', false);
+                            $('#f_sponsor_name').val('').prop('readonly', true);
+                        }
+                    }
+
+                } else {
+                    $('#hidden_department_id').val('');
+                    if (val !== '') this.setCustomValidity('Please select a valid department');
+                }
+            });
+
+
+            // ==========================================
+            // 🔥 SPONSOR SELECTION & DESIGNATION FILTER 🔥
+            // ==========================================
+            function renderDesignations(maxComm = null) {
+                let options = '';
+                allDesignations.forEach(function(item) {
+                    // Agar koi max commission set nahi hai, YA FIR current item ka commission sponsor se chota hai
+                    if (maxComm === null || parseFloat(item.commission_percentage || 0) < parseFloat(
+                            maxComm)) {
+                        options += `<option value="${item.designation_name}">`;
+                    }
+                });
+                $('#designationList').html(options);
+            }
+
+            $('#f_sponsor_id').on('input change', function() {
+                let val = $(this).val();
+
+                // User Administrator Nahi Hai (Associate Member logic)
+                if (!isUserAdmin) {
+                    $('#f_sponsor_name').val(loggedInMemberName);
+                    // Ab backend se fetch ki gayi allDesignations mein iski post dhundte hain
+                    if (allDesignations.length > 0) {
+                        let myDesigObj = allDesignations.find(d => d.designation_name ===
+                            loggedInDesignation);
+                        if (myDesigObj) {
+                            renderDesignations(myDesigObj.commission_percentage); // Filter laga diya
+                        } else {
+                            renderDesignations();
+                        }
+                    }
+                    return; // Normal logic bypass
+                }
+
+                // Administrator Logic
+                if (val === '') {
+                    $('#f_sponsor_name').val('');
+                    renderDesignations(); // Show all designations
+                } else {
+                    let found = allMembers.find(m => m.member_id === val);
+                    if (found) {
+                        $('#f_sponsor_name').val(found.member_name);
+                        let sponsorDesigObj = allDesignations.find(d => d.designation_name === found
+                            .designation);
+
+                        if (sponsorDesigObj) {
+                            renderDesignations(sponsorDesigObj.commission_percentage); // Filter laga diya
+                        } else {
+                            renderDesignations();
+                        }
+                    } else {
+                        // Custom sponsor id typing scenario
+                        if (!$(this).prop('readonly')) {
+                            $('#f_sponsor_name').val('');
+                            renderDesignations();
+                        }
+                    }
+                }
+            });
+
+
+            // ==========================================
+            // DataTables
+            // ==========================================
+            let table = $('#memberTable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '/api/v1/members', // /admin/ removed
                 },
                 dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
                 buttons: [{
@@ -587,8 +863,11 @@
                     {
                         data: 'branch_id',
                         render: (d, t, row) => {
-                            let branchName = row.branch ? row.branch.branch_name : 'N/A';
-                            return `<span class="badge bg-light text-dark border"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${branchName}</span>`;
+                            if (!row.branch) return 'N/A';
+                            let compName = row.branch.company ? row.branch.company.company_name :
+                                'Master Company';
+                            return `<div class="small fw-bold text-primary"><i class="fas fa-building me-1"></i> ${compName}</div>
+                                    <div class="small text-muted"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${row.branch.branch_name}</div>`;
                         }
                     },
                     {
@@ -606,40 +885,41 @@
                         render: d => `
                 <div class="text-end">
                     <button type="button" class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-light text-primary me-1 edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>
-                    <button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
+                    <button type="button" class="btn btn-sm btn-light text-primary me-1 edit-btn secured-item" data-permission="member_edit" data-id="${d}"><i class="fas fa-edit"></i></button>
+                    <button type="button" class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="member_delete" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
                 </div>`
                     }
-                ]
+                ],
+                drawCallback: function(settings) {
+                    renderMobileCards(settings.json.data);
+                    if (typeof window.applyPermissions === 'function') window.applyPermissions();
+                }
+
             });
 
-            // 2. Mobile Cards
-            function loadMobile() {
-                $.ajax({
-                    url: '/api/v1/admin/members',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(res) {
-                        let html = '';
-                        res.data.forEach(d => {
-                            let branchName = d.branch ? d.branch.branch_name : 'N/A';
-                            html += `<div class="mobile-item">
-                        <h6 class="fw-bold text-dark">${d.member_name} <span class="float-end text-primary small">${d.member_id}</span></h6>
-                        <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${branchName}</div>
-                        <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.mobile}</div>
-                        <div class="mt-2 pt-2 border-top d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
-                            <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>
-                            <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>
-                        </div>
-                    </div>`;
-                        });
-                        $('#mobileCardsContainer').html(html);
-                    }
-                });
+            function renderMobileCards(data) {
+                let html = '';
+                if (!data || data.length === 0) {
+                    html =
+                    '<div class="text-center p-3 text-muted border rounded bg-light">No members found.</div>';
+                } else {
+                    data.forEach(d => {
+                        let branchName = d.branch ? d.branch.branch_name : 'N/A';
+                        html += `<div class="mobile-item">
+                            <h6 class="fw-bold text-dark">${d.member_name} <span class="float-end text-primary small">${d.member_id}</span></h6>
+                            <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${branchName}</div>
+                            <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.mobile}</div>
+                            <div class="mt-2 pt-2 border-top d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
+                                <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn secured-item" data-permission="member_edit" data-id="${d.id}">Edit</button>
+                                <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn secured-item" data-permission="member_delete" data-id="${d.id}">Delete</button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                $('#mobileCardsContainer').html(html);
+                if (typeof window.applyPermissions === 'function') window.applyPermissions();
             }
-            loadMobile();
 
             $('#mobileSearch').on('keyup', function() {
                 let v = $(this).val().toLowerCase();
@@ -647,18 +927,12 @@
                     $(this).toggle($(this).text().toLowerCase().indexOf(v) > -1)
                 });
             });
-            $('#mobileExcelBtn').click(() => $('.buttons-excel').click());
 
-            // === NAYA: Sponsor List aur Auto-fill Logic ===
-
-            // Page load hote hi saare members (sponsors) ko background me load kar lenge
+            // Load All Members for Sponsor List
             function loadSponsorsList() {
                 $.ajax({
-                    url: '/api/v1/admin/members',
+                    url: '/api/v1/members',
                     type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     success: function(res) {
                         allMembers = res.data;
                         let options = '';
@@ -670,147 +944,81 @@
                     }
                 });
             }
-            loadSponsorsList(); // Call it initially
+            loadSponsorsList();
 
 
-            $('#f_sponsor_id').on('input', function() {
-                let val = $(this).val();
-                if (val === '') {
-                    $('#f_sponsor_name').val('');
-                } else {
-                    let found = allMembers.find(m => m.member_id === val);
-                    if (found) {
-                        $('#f_sponsor_name').val(found.member_name);
-                    } else {
-                        $('#f_sponsor_name').val('');
-                    }
-                }
-            });
-
+            // ==========================================
+            // Modals
+            // ==========================================
             window.openModal = function(type, id = null) {
                 mode = type;
                 $('#memberForm')[0].reset();
                 $('#edit_id').val('');
                 $('#form_method').val('POST');
+
+                // Clear hidden IDs
+                $('#hidden_company_id, #hidden_branch_id, #hidden_department_id').val('');
+
+                $('#f_sponsor_name').prop('readonly', true).addClass('bg-light');
                 $('#modalTitle').text(type === 'add' ? 'Register Member' : 'Edit Member');
-                $('.file-preview-wrapper').hide(); // Previews reset karein 
+                $('.file-preview-wrapper').hide().find('.preview-content').empty();
+                $('.nav-tabs button:first').tab('show');
 
                 if (type === 'add') {
                     $('.password-edit-div').hide();
                     $('.password-gen-div').show();
+                    applyRoleUI(); // Yahan call hoga applyRoleUI
                 } else {
                     $('.password-edit-div').show();
                     $('.password-gen-div').hide();
-                }
 
-                // Branches load karein
-                $.ajax({
-                    url: '/api/v1/admin/branches',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(res) {
-                        let options = '<option value="">-- Choose Branch --</option>';
-                        res.data.forEach(b => {
-                            options += `<option value="${b.id}">${b.branch_name}</option>`;
-                        });
-                        $('#f_branch').html(options);
+                    // Fetch Data for Edit
+                    $.get({
+                        url: `/api/v1/members/${id}`,
+                        success: function(res) {
+                            let d = res.data;
+                            $('#edit_id').val(d.id);
+                            $('#form_method').val('PUT');
 
-                        if (type === 'edit') {
-                            $.get({
-                                url: `/api/v1/admin/members/${id}`,
-                                headers: {
-                                    'Authorization': 'Bearer ' + apiToken
-                                },
-                                success: function(res) {
-                                    let d = res.data;
-                                    $('#edit_id').val(d.id);
-                                    $('#form_method').val('PUT');
+                            // Set Hidden IDs
+                            $('#hidden_company_id').val(d.company_id);
+                            $('#hidden_branch_id').val(d.branch_id);
+                            $('#hidden_department_id').val(d.department_id);
 
-                                   // Smart Populating Logic: Har field ko database values se bharo 
-// Smart Populating Logic: Har field ko database values se bharo 
-Object.keys(d).forEach(key => {
-    let input = $(`#memberForm [name="${key}"]`);
-    
-    if(input.length && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
-        
-        // Agar value Object hai (jaise company branch), toh ise input me mat dalo
-        if (typeof d[key] === 'object' && d[key] !== null) {
-            return; // Skip kar do
-        }
+                            // Setup visual inputs
+                            if (d.company) $('#f_company').val(d.company.company_name);
+                            if (d.branch) $('#f_branch').val(d.branch.branch_name);
+                            if (d.department) $('#f_department').val(d.department.department_name);
 
-        // Normal text/number fields ke liye
-        input.val(d[key]);
-    }
-});
-
-// 👇 NAYA FIX: Loop ke khatam hone ke baad, hamara Virtual Field bank branch ko bhar dega 👇
-$('#f_bank_branch').val(d.bank_branch_text);
-
-
-                                    // Radios handle karein (Gender, Marital Status)
-                                    if (d.gender) $(
-                                            `input[name="gender"][value="${d.gender}"]`)
-                                        .prop('checked', true);
-                                    if (d.marital_status) $(
-                                        `input[name="marital_status"][value="${d.marital_status}"]`
-                                        ).prop('checked', true);
-
-                                    // EXISTING FILES PREVIEW LOGIC 
-                                    let fileFields = [
-                                        'aadharcard', 'pancard', 'bankpassbook',
-                                        'drivinglicense', 'passport',
-                                        'passport_photo', 'sign',
-                                        'tenthmarksheet', 'twelvethmarksheet',
-                                        'graduationcertificate', 'pgcertificate',
-                                        'otherdoc',
-                                        'nom_aadharcard', 'nom_pancard',
-                                        'nom_bankpassbook', 'nom_drivinglicense',
-                                        'nom_passport',
-                                        'nom_passport_photo', 'nom_tenthmarksheet',
-                                        'nom_twelvethmarksheet',
-                                        'nom_graduationcertificate',
-                                        'nom_pgcertificate', 'nom_otherdoc'
-                                    ];
-
-                                    fileFields.forEach(field => {
-                                        let filePath = d[field];
-                                        let input = $(
-                                            `#memberForm [name="${field}"]`);
-                                        if (input.length) {
-                                            let wrapper = input.next(
-                                                '.file-preview-wrapper');
-                                            let content = wrapper.find(
-                                                '.preview-content');
-
-                                            if (filePath) {
-                                                let fullUrl = filePath
-                                                    .startsWith('/') ?
-                                                    filePath : '/' + filePath;
-                                                let ext = filePath.split('.')
-                                                    .pop().toLowerCase();
-                                                let imageExts = ['jpg', 'jpeg',
-                                                    'png', 'webp', 'bmp'
-                                                ];
-
-                                                if (imageExts.includes(ext)) {
-                                                    content.html(
-                                                        `<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`
-                                                        );
-                                                } else {
-                                                    content.html(
-                                                        `<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`
-                                                        );
-                                                }
-                                                wrapper.show();
-                                            }
-                                        }
-                                    });
+                            // Smart Populating Logic
+                            Object.keys(d).forEach(key => {
+                                let input = $(`#memberForm [name="${key}"]`);
+                                if (input.length && input.attr('type') !== 'file' && input
+                                    .attr('type') !== 'radio') {
+                                    if (typeof d[key] === 'object' && d[key] !== null)
+                                        return;
+                                    input.val(d[key]);
                                 }
                             });
+
+                            $('#f_bank_branch').val(d.bank_branch_text);
+
+                            // Trigger sponsor event to load hierarchy if sponsor exists
+                            if (d.sponsor_id) {
+                                $('#f_sponsor_id').trigger('change');
+                            }
+
+                            if (d.gender) $(`input[name="gender"][value="${d.gender}"]`).prop(
+                                'checked', true);
+                            if (d.marital_status) $(
+                                    `input[name="marital_status"][value="${d.marital_status}"]`)
+                                .prop('checked', true);
+
+                            // Edit mode me UI theek karne ke liye applyRoleUI chalega
+                            applyRoleUI();
                         }
-                    }
-                });
+                    });
+                }
                 $('#memberModal').modal('show');
             };
 
@@ -818,20 +1026,17 @@ $('#f_bank_branch').val(d.bank_branch_text);
                 openModal('edit', $(this).data('id'));
             });
 
-            // 4. Form Submit
+            // Form Submit
             $('#memberForm').submit(function(e) {
                 e.preventDefault();
                 let formData = new FormData(this);
                 let id = $('#edit_id').val();
-                let url = mode === 'add' ? '/api/v1/admin/members' : `/api/v1/admin/members/${id}`;
+                let url = mode === 'add' ? '/api/v1/members' : `/api/v1/members/${id}`;
                 if (mode === 'edit') formData.append('_method', 'PUT');
 
                 $.ajax({
                     url: url,
                     type: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     data: formData,
                     processData: false,
                     contentType: false,
@@ -839,25 +1044,59 @@ $('#f_bank_branch').val(d.bank_branch_text);
                         alert(res.message);
                         $('#memberModal').modal('hide');
                         table.ajax.reload(null, false);
-                        loadMobile();
+                        loadSponsorsList(); // Refresh sponsors
                     }
                 });
             });
 
-            // 5. View Logic
+            // Delete Logic
+            $(document).on('click', '.delete-btn', function() {
+                if (confirm("Delete Member?")) {
+                    $.ajax({
+                        url: `/api/v1/members/${$(this).data('id')}`,
+                        type: 'DELETE',
+                        success: function() {
+                            table.ajax.reload(null, false);
+                            loadSponsorsList();
+                        }
+                    });
+                }
+            });
+
+            // Password Generator Logic
+            function generatePassword() {
+                let fullName = $('#f_name').val().trim();
+                let aadhar = $('#f_aadhar').val().replace(/\D/g, '');
+                if (fullName.length < 1 || aadhar.length < 4) {
+                    $('#mem_pass_gen').val('');
+                    return;
+                }
+                let firstNamePart = fullName.split(' ')[0].substring(0, 3).toLowerCase();
+                let formattedName = firstNamePart.charAt(0).toUpperCase() + firstNamePart.slice(1);
+                let aadharLast4 = aadhar.slice(-4);
+                $('#mem_pass_gen').val(formattedName + '@' + aadharLast4);
+            }
+            $('#f_name, #f_aadhar').on('keyup change', generatePassword);
+
+            // View Logic
             $(document).on('click', '.view-btn', function() {
                 $.get({
-                    url: `/api/v1/admin/members/${$(this).data('id')}`,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: `/api/v1/members/${$(this).data('id')}`,
                     success: function(res) {
                         let d = res.data;
                         $('#v_mem_id').text(d.member_id || 'N/A');
                         $('#v_password').text(d.password || 'N/A');
-                        $('#v_branch').text(d.branch ? d.branch.branch_name : 'N/A');
+
+                        let branchText = 'N/A';
+                        if (d.branch) {
+                            let compName = d.branch.company ? d.branch.company.company_name :
+                                'Master Company';
+                            branchText = compName + ' - ' + d.branch.branch_name;
+                        }
+                        $('#v_branch').text(branchText);
+
                         $('#v_sponsor').text(d.sponsor_name ?
-                            `${d.sponsor_name} (${d.sponsor_id})` : 'N/A');
+                            `${d.sponsor_name} (${d.sponsor_id})` : (d.sponsor_id || 'N/A'));
                         $('#v_name').text(d.member_name || 'N/A');
                         $('#v_designation').text(d.designation || 'N/A');
                         $('#v_mobile').text(d.mobile || 'N/A');
@@ -867,45 +1106,23 @@ $('#f_bank_branch').val(d.bank_branch_text);
                         $('#v_nom_name').text(d.nominee_name || 'N/A');
                         $('#v_nom_relation').text(d.nominee_relation || 'N/A');
                         $('#v_nom_mobile').text(d.nominee_mobile || 'N/A');
+
                         $('#viewModal').modal('show');
                     }
                 });
             });
 
-            // 6. Delete Logic
-            $(document).on('click', '.delete-btn', function() {
-                if (confirm("Delete Member?")) {
-                    $.ajax({
-                        url: `/api/v1/admin/members/${$(this).data('id')}`,
-                        type: 'DELETE',
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
-                        success: function() {
-                            table.ajax.reload(null, false);
-                            loadMobile();
-                        }
-                    });
-                }
-            });
-
-
-            // Har file input ke neeche Preview Container add karein
+            // Previews
             $('input[type="file"]').each(function() {
-                $(this).after(`
-        <div class="file-preview-wrapper">
-            <button type="button" class="btn btn-danger remove-preview-btn" title="Remove File"><i class="fas fa-times"></i></button>
-            <div class="preview-content text-center"></div>
-        </div>
-    `);
+                $(this).after(
+                    `<div class="file-preview-wrapper"><button type="button" class="btn btn-danger remove-preview-btn"><i class="fas fa-times"></i></button><div class="preview-content text-center"></div></div>`
+                    );
             });
 
-            // Select karne par Preview dikhao
             $(document).on('change', 'input[type="file"]', function() {
                 let file = this.files[0];
                 let wrapper = $(this).next('.file-preview-wrapper');
                 let content = wrapper.find('.preview-content');
-
                 if (file) {
                     if (file.type.startsWith('image/')) {
                         let reader = new FileReader();
@@ -925,41 +1142,10 @@ $('#f_bank_branch').val(d.bank_branch_text);
                 }
             });
 
-            // Remove Button logic
             $(document).on('click', '.remove-preview-btn', function() {
-                let wrapper = $(this).closest('.file-preview-wrapper');
-                wrapper.prev('input[type="file"]').val('');
-                wrapper.slideUp();
+                $(this).closest('.file-preview-wrapper').prev('input[type="file"]').val('');
+                $(this).closest('.file-preview-wrapper').slideUp();
             });
-
-            // ========================================================
-            // FETCH MEMBER DESIGNATIONS FOR DATALIST
-            // ========================================================
-            function loadMemberDesignations() {
-                $.ajax({
-                    url: '/api/v1/admin/member-designations', // Aapke MemberDesignationController ka API route
-                    type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(response) {
-                        let options = '';
-                        // Sirf 'active' designations ko dropdown me dikhayenge
-                        response.data.forEach(function(item) {
-                            if (item.status === 'active') {
-                                options += `<option value="${item.designation_name}">`;
-                            }
-                        });
-                        $('#designationList').html(options);
-                    },
-                    error: function() {
-                        console.log("Error fetching member designations");
-                    }
-                });
-            }
-
-            // Page load hote hi isko ek baar call kar lein taaki datalist bhar jaye
-            loadMemberDesignations();
 
         });
     </script>

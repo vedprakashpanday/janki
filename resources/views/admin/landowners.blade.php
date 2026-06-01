@@ -90,8 +90,8 @@
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Landowner Details</h4>
-            <button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: var(--brand-primary);"
-                onclick="openModal('add')">
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" data-permission="landowner_add"
+                style="background-color: var(--brand-primary);" onclick="openModal('add')">
                 <i class="fas fa-plus me-1"></i> Add Landowner
             </button>
         </div>
@@ -240,7 +240,10 @@
                                     <div class="col-md-6">
                                         <label class="form-label text-secondary small">Select Branch <span
                                                 class="text-danger">*</span></label>
-                                        <select name="branch_id" id="f_branch" class="form-select" required></select>
+                                        <input type="text" class="form-control" id="f_branch" list="branchList"
+                                            placeholder="Search Branch..." required autocomplete="off">
+                                        <input type="hidden" name="branch_id" id="branch_id_hidden" required>
+                                        <datalist id="branchList"></datalist>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label text-secondary small">Select Agent (Optional)</label>
@@ -416,25 +419,51 @@
                             </div>
 
                             <div class="tab-pane fade" id="tab-nominee">
-                            <div class="row g-3">
-                                <div class="col-md-3"><label class="form-label text-secondary small">Nominee Name</label><input type="text" name="nominee_name" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label text-secondary small">Relation</label><input type="text" name="nominee_relation" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label text-secondary small">S/o, D/o, W/o</label><input type="text" name="nominee_so_do_wo" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label text-secondary small">Date of Birth</label><input type="date" name="nominee_dob" class="form-control"></div>
+                                <div class="row g-3">
+                                    <div class="col-md-3"><label class="form-label text-secondary small">Nominee
+                                            Name</label><input type="text" name="nominee_name" class="form-control">
+                                    </div>
+                                    <div class="col-md-3"><label
+                                            class="form-label text-secondary small">Relation</label><input type="text"
+                                            name="nominee_relation" class="form-control"></div>
+                                    <div class="col-md-3"><label class="form-label text-secondary small">S/o, D/o,
+                                            W/o</label><input type="text" name="nominee_so_do_wo"
+                                            class="form-control"></div>
+                                    <div class="col-md-3"><label class="form-label text-secondary small">Date of
+                                            Birth</label><input type="date" name="nominee_dob" class="form-control">
+                                    </div>
 
-                                <div class="col-md-4"><label class="form-label text-secondary small">Mobile No</label><input type="text" name="nominee_mobile" class="form-control" maxlength="10"></div>
-                                <div class="col-md-4"><label class="form-label text-secondary small">Alt. Mobile</label><input type="text" name="nominee_alternate_mobile" class="form-control" maxlength="10"></div>
-                                <div class="col-md-4"><label class="form-label text-secondary small">Email Id</label><input type="email" name="nominee_email" class="form-control"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Mobile
+                                            No</label><input type="text" name="nominee_mobile" class="form-control"
+                                            maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Alt.
+                                            Mobile</label><input type="text" name="nominee_alternate_mobile"
+                                            class="form-control" maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Email
+                                            Id</label><input type="email" name="nominee_email" class="form-control">
+                                    </div>
 
-                                <div class="col-md-4"><label class="form-label text-secondary small">Aadhar No.</label><input type="text" name="nominee_aadhar" class="form-control" maxlength="12"></div>
-                                <div class="col-md-4"><label class="form-label text-secondary small">PAN No.</label><input type="text" name="nominee_pan" class="form-control text-uppercase" maxlength="10"></div>
-                                <div class="col-md-4"><label class="form-label text-secondary small">PIN Code</label><input type="text" name="nominee_pincode" class="form-control" maxlength="6"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Aadhar
+                                            No.</label><input type="text" name="nominee_aadhar" class="form-control"
+                                            maxlength="12"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">PAN
+                                            No.</label><input type="text" name="nominee_pan"
+                                            class="form-control text-uppercase" maxlength="10"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">PIN
+                                            Code</label><input type="text" name="nominee_pincode" class="form-control"
+                                            maxlength="6"></div>
 
-                                <div class="col-md-4"><label class="form-label text-secondary small">State</label><input type="text" name="nominee_state" class="form-control"></div>
-                                <div class="col-md-4"><label class="form-label text-secondary small">District</label><input type="text" name="nominee_district" class="form-control"></div>
-                                <div class="col-md-4"><label class="form-label text-secondary small">Address</label><input type="text" name="nominee_address" class="form-control"></div>
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">State</label><input type="text"
+                                            name="nominee_state" class="form-control"></div>
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">District</label><input type="text"
+                                            name="nominee_district" class="form-control"></div>
+                                    <div class="col-md-4"><label
+                                            class="form-label text-secondary small">Address</label><input type="text"
+                                            name="nominee_address" class="form-control"></div>
+                                </div>
                             </div>
-                        </div>
 
                             <div class="tab-pane fade" id="tab-docs">
                                 <h6 class="text-primary fw-bold border-bottom pb-2 mb-3">Landowner Documents</h6>
@@ -548,6 +577,26 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="responseModal" tabindex="-1" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="responseModalTitle">Message</h5>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <i id="responseModalIcon" class="fas fa-3x mb-3"></i>
+                    <p id="responseModalMessage" class="mb-0 fw-medium" style="word-wrap: break-word; font-size: 14px;">
+                    </p>
+                </div>
+                <div class="modal-footer border-top-0 justify-content-center pb-4">
+                    <button type="button" class="btn px-5 text-white fw-bold shadow-sm" id="responseModalBtn"
+                        data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -558,6 +607,43 @@
         $(document).ready(function() {
             const apiToken = localStorage.getItem('admin_token');
             let mode = 'add';
+            let branchMap = {}; // Datalist map ke liye
+
+
+            // ========================================================
+            // 🔥 NAYA: Custom Modal Show Karne ka Function 🔥
+            // ========================================================
+            window.showMessage = function(message, type = 'success') {
+                let modal = $('#responseModal');
+                let header = modal.find('.modal-header');
+                let title = $('#responseModalTitle');
+                let icon = $('#responseModalIcon');
+                let btn = $('#responseModalBtn');
+                let closeBtn = modal.find('.btn-close');
+
+                // Classes reset kar rahe hain
+                header.removeClass('bg-success bg-danger text-white');
+                icon.removeClass('fa-check-circle text-success fa-times-circle text-danger');
+                btn.removeClass('btn-success btn-danger');
+                closeBtn.removeClass('btn-close-white');
+
+                if (type === 'error') {
+                    title.text('Error Occurred!');
+                    header.addClass('bg-danger text-white');
+                    icon.addClass('fas fa-times-circle text-danger');
+                    btn.addClass('btn-danger');
+                    closeBtn.addClass('btn-close-white');
+                } else {
+                    title.text('Success!');
+                    header.addClass('bg-success text-white');
+                    icon.addClass('fas fa-check-circle text-success');
+                    btn.addClass('btn-success');
+                    closeBtn.addClass('btn-close-white');
+                }
+
+                $('#responseModalMessage').text(message);
+                modal.modal('show');
+            };
 
             // Document Fields Array for auto-links
             const loDocFields = [
@@ -584,14 +670,31 @@
                 return `<b>N:</b> ${json.north||'-'}, <b>S:</b> ${json.south||'-'}, <b>E:</b> ${json.east||'-'}, <b>W:</b> ${json.west||'-'}`;
             };
 
-            // 1. DataTables
+            // 1. DataTables (Server-side + Excel All Data Trick) (API Updated)
             let table = $('#landownerTable').DataTable({
+                processing: true,
+                serverSide: true,
                 ajax: {
-                    url: '/api/v1/admin/landowners',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    }
+                    url: '/api/v1/landowners', // Changed from /admin/
                 },
+                dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
+                buttons: [{
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel me-1"></i> Export All to Excel',
+                    className: 'btn btn-success btn-sm shadow-sm rounded-3',
+                    // 🔥 NAYA LOGIC: EXCEL MEIN SAARA DATA DOWNLOAD KARNE KI TRICK 🔥
+                    action: function(e, dt, button, config) {
+                        let oldLength = dt.page.len(); // Purani limit save ki (10)
+                        dt.page.len(-1).draw(); // Limit -1 karke saara data draw kiya
+
+                        dt.one('draw', function() {
+                            // Jab saara data aa jaye, tab excel ka asli function call karo
+                            $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e,
+                                dt, button, config);
+                            dt.page.len(oldLength).draw(); // Wapas 10 limit set kardo
+                        });
+                    }
+                }],
                 columns: [{
                         data: 'land_owner_id',
                         render: d => `<span class="fw-bold text-primary">${d}</span>`
@@ -612,184 +715,311 @@
                     },
                     {
                         data: 'id',
+                        orderable: false,
                         render: d => `
-                <div class="text-end">
-                    <button type="button" class="btn btn-sm btn-light text-info view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-light text-primary edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>
-                    <button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
-                </div>`
+                        <div class="text-end text-nowrap">
+                            <button type="button" class="btn btn-sm btn-light text-info view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>
+                            <button type="button" class="btn btn-sm btn-light text-primary edit-btn secured-item" data-permission="landowner_edit" data-id="${d}"><i class="fas fa-edit"></i></button>
+                            <button type="button" class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="landowner_delete" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
+                        </div>`
                     }
-                ]
+                ],
+                drawCallback: function(settings) {
+                    renderMobileCards(settings.json.data);
+                }
             });
 
-            // 2. Mobile Cards (Enhanced for better UI)
-            function loadMobile() {
-                $.ajax({
-                    url: '/api/v1/admin/landowners',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(res) {
-                        let html = '';
-                        res.data.forEach(d => {
-                            html += `<div class="mobile-item">
+            // 2. Mobile Cards (Table draw hone par render hoga)
+            function renderMobileCards(data) {
+                let html = '';
+                if (!data || data.length === 0) {
+                    html = '<div class="text-center p-3 text-muted bg-light rounded">No landowners found.</div>';
+                } else {
+                    data.forEach(d => {
+                        html += `<div class="mobile-item">
                         <div class="d-flex flex-column mb-2">
                             <h6 class="fw-bold text-dark mb-1">${d.land_owner_name}</h6>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-primary text-white border"><i class="fas fa-user-tie me-1"></i> ${d.land_owner_id}</span>
-                                <span class="badge bg-danger text-white border"><i class="fas fa-map-marker-alt me-1"></i> ${d.land_id}</span>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <span class="badge bg-light border text-primary"><i class="fas fa-user-tie me-1"></i> ${d.land_owner_id}</span>
+                                <span class="badge bg-light border text-danger"><i class="fas fa-map-marker-alt me-1"></i> ${d.land_id}</span>
                             </div>
                         </div>
                         <div class="small text-muted mt-2"><i class="fas fa-phone me-1"></i> ${d.mobile1}</div>
                         ${d.agent_id ? `<div class="small text-muted mt-1"><i class="fas fa-briefcase me-1"></i> Agent: ${d.agent_id}</div>` : ''}
                         
                         <div class="mt-3 pt-3 border-top d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-light text-info flex-fill fw-bold view-btn" data-id="${d.id}"><i class="fas fa-eye"></i> View</button>
-                            <button type="button" class="btn btn-sm btn-light text-primary flex-fill fw-bold edit-btn" data-id="${d.id}"><i class="fas fa-edit"></i> Edit</button>
-                            <button type="button" class="btn btn-sm btn-light text-danger flex-fill fw-bold delete-btn" data-id="${d.id}"><i class="fas fa-trash-alt"></i> Delete</button>
+                            <button type="button" class="btn btn-sm btn-light text-info flex-fill fw-bold view-btn" data-id="${d.id}"><i class="fas fa-eye"></i></button>
+                            <button type="button" class="btn btn-sm btn-light text-primary flex-fill fw-bold edit-btn secured-item" data-permission="landowner_edit" data-id="${d.id}"><i class="fas fa-edit"></i></button>
+                            <button type="button" class="btn btn-sm btn-light text-danger flex-fill fw-bold delete-btn secured-item" data-permission="landowner_delete" data-id="${d.id}"><i class="fas fa-trash-alt"></i></button>
                         </div>
                     </div>`;
+                    });
+                }
+                $('#mobileCardsContainer').html(html);
+
+                // 🛡️ RE-APPLY PERMISSIONS for mobile
+                if (typeof window.applyPermissions === 'function') window.applyPermissions();
+            }
+
+            // Branch Input Mapping Event
+            $('#f_branch').on('input change', function() {
+                let val = $(this).val();
+                if (branchMap[val]) {
+                    $('#branch_id_hidden').val(branchMap[val]);
+                    this.setCustomValidity('');
+                } else {
+                    $('#branch_id_hidden').val('');
+                    this.setCustomValidity('Please select a valid branch from the list');
+                }
+            });
+
+            // 3. Open Modal
+            window.openModal = function(type, id = null) {
+                mode = type;
+                $('#loForm')[0].reset();
+                $('#branch_id_hidden').val('');
+                $('#modalTitle').text(type === 'add' ? 'Register Landowner' : 'Edit Landowner');
+                $('.nav-tabs button:first').tab('show');
+                $('.file-preview-wrapper').hide().find('.preview-content').empty();
+
+                // Branch fetch karein (API Updated)
+                $.ajax({
+                    url: '/api/v1/branches', // Changed from /admin/
+                    success: function(res) {
+                        let bOpt = '';
+                        branchMap = {};
+                        res.data.forEach(b => {
+                            let compName = b.company ? b.company.company_name :
+                                'Master Company';
+                            let disp = `${compName} - ${b.branch_name} (${b.branch_id})`;
+                            bOpt += `<option value="${disp}">`;
+                            branchMap[disp] = b.id;
                         });
-                        $('#mobileCardsContainer').html(html);
-                    }
-                });
-            }
-            loadMobile();
+                        $('#branchList').html(bOpt);
 
-          window.openModal = function(type, id = null) {
-        mode = type;
-        $('#loForm')[0].reset();
-        $('#modalTitle').text(type === 'add' ? 'Register Landowner' : 'Edit Landowner');
-        $('.nav-tabs button:first').tab('show'); 
-        
-        // Reset file previews
-        $('.file-preview-wrapper').hide().find('.preview-content').empty();
+                        $.get({
+                            url: '/api/v1/agents', // Changed from /admin/
+                            success: function(aRes) {
+                                let aOpt = '';
+                                aRes.data.forEach(a => aOpt +=
+                                    `<option value="${a.agent_id}">${a.full_name}</option>`
+                                    );
+                                $('#agentList').html(aOpt);
 
-        // Branches aur Agents load karein
-        $.ajax({
-            url: '/api/v1/admin/branches', headers: { 'Authorization': 'Bearer ' + apiToken },
-            success: function(res) {
-                let bOpt = '<option value="">-- Select Branch --</option>';
-                res.data.forEach(b => bOpt += `<option value="${b.id}">${b.branch_name} (${b.branch_id})</option>`);
-                $('#f_branch').html(bOpt);
+                                if (type === 'edit') {
+                                    $.get({
+                                        url: `/api/v1/landowners/${id}`, // Changed from /admin/
+                                        success: function(r) {
+                                            let d = r.data;
+                                            $('#edit_id').val(d.id);
 
-                $.get({
-                    url: '/api/v1/admin/agents', headers: { 'Authorization': 'Bearer ' + apiToken },
-                    success: function(aRes) {
-                        let aOpt = '';
-                        aRes.data.forEach(a => aOpt += `<option value="${a.agent_id}">${a.full_name}</option>`);
-                        $('#agentList').html(aOpt);
-
-                        if(type === 'edit') {
-                            $.get({
-                                url: `/api/v1/admin/landowners/${id}`, headers: { 'Authorization': 'Bearer ' + apiToken },
-                                success: function(r) {
-                                    let d = r.data;
-                                    $('#edit_id').val(d.id);
-
-                                    // SMART LOOP: Har Normal, Finance aur Nominee field ko auto-fill karega
-                                    Object.keys(d).forEach(key => {
-                                        let input = $(`#loForm [name="${key}"]`);
-                                        if(input.length && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
-                                            // Object (Jaise Relation ya JSON) ko text me nahi dalna hai
-                                            if (typeof d[key] === 'object' && d[key] !== null) return; 
-                                            input.val(d[key]);
-                                        }
-                                    });
-
-                                    // Bank Branch ka conflict bypass (Step 1 wali Trick)
-                                    $('#f_b_branch').val(d.bank_branch_text);
-
-                                    // JSON Fields Manual Binding (Rakwa, Khata, etc.)
-                                    if(d.khesra_no) { $('#f_kh_old').val(d.khesra_no.old_khesra_no); $('#f_kh_new').val(d.khesra_no.new_khesra_no); }
-                                    if(d.khata) { $('#f_kha_old').val(d.khata.old_khata); $('#f_kha_new').val(d.khata.new_khata); }
-                                    if(d.rakuwa) { 
-                                        $('#f_r_big').val(d.rakuwa.bigha); $('#f_r_kat').val(d.rakuwa.kattha); 
-                                        $('#f_r_dho').val(d.rakuwa.dhoor); $('#f_r_kan').val(d.rakuwa.kanma);
-                                        $('#f_r_dis').val(d.rakuwa.dismil); $('#f_r_sqf').val(d.rakuwa.squarefeet); 
-                                    }
-                                    if(d.chauhaddi) {
-                                        $('#f_c_n').val(d.chauhaddi.north); $('#f_c_s').val(d.chauhaddi.south);
-                                        $('#f_c_e').val(d.chauhaddi.east); $('#f_c_w').val(d.chauhaddi.west);
-                                    }
-
-                                    // EXISTING FILES PREVIEW LOGIC
-                                    loDocFields.forEach(field => {
-                                        let filePath = d[field];
-                                        let input = $(`#loForm [name="${field}"]`);
-                                        if(input.length && filePath) {
-                                            let wrapper = input.next('.file-preview-wrapper');
-                                            let content = wrapper.find('.preview-content');
-                                            let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
-                                            let ext = filePath.split('.').pop().toLowerCase();
-                                            let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
-
-                                            if(imageExts.includes(ext)) {
-                                                content.html(`<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`);
-                                            } else {
-                                                content.html(`<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`);
+                                            if (d.branch) {
+                                                let compName = d.branch
+                                                    .company ? d.branch
+                                                    .company.company_name :
+                                                    'Master Company';
+                                                let disp =
+                                                    `${compName} - ${d.branch.branch_name} (${d.branch.branch_id})`;
+                                                $('#f_branch').val(disp);
+                                                $('#branch_id_hidden').val(d
+                                                    .branch_id);
                                             }
-                                            wrapper.show();
+
+                                            Object.keys(d).forEach(key => {
+                                                let input = $(
+                                                    `#loForm [name="${key}"]`
+                                                    );
+                                                if (input.length &&
+                                                    input.attr(
+                                                        'type') !==
+                                                    'file' && input
+                                                    .attr(
+                                                    'type') !==
+                                                    'radio') {
+                                                    if (typeof d[
+                                                            key] ===
+                                                        'object' &&
+                                                        d[key] !==
+                                                        null)
+                                                return;
+                                                    if (key !==
+                                                        'branch_id')
+                                                        input.val(d[
+                                                                key
+                                                                ]);
+                                                }
+                                            });
+
+                                            $('#f_b_branch').val(d
+                                                .bank_branch_text);
+
+                                            // JSON Fields Manual Binding (Rakwa, Khata, etc.)
+                                            if (d.khesra_no) {
+                                                $('#f_kh_old').val(d
+                                                    .khesra_no
+                                                    .old_khesra_no);
+                                                $('#f_kh_new').val(d
+                                                    .khesra_no
+                                                    .new_khesra_no);
+                                            }
+                                            if (d.khata) {
+                                                $('#f_kha_old').val(d.khata
+                                                    .old_khata);
+                                                $('#f_kha_new').val(d.khata
+                                                    .new_khata);
+                                            }
+                                            if (d.rakuwa) {
+                                                $('#f_r_big').val(d.rakuwa
+                                                    .bigha);
+                                                $('#f_r_kat').val(d.rakuwa
+                                                    .kattha);
+                                                $('#f_r_dho').val(d.rakuwa
+                                                    .dhoor);
+                                                $('#f_r_kan').val(d.rakuwa
+                                                    .kanma);
+                                                $('#f_r_dis').val(d.rakuwa
+                                                    .dismil);
+                                                $('#f_r_sqf').val(d.rakuwa
+                                                    .squarefeet);
+                                            }
+                                            if (d.chauhaddi) {
+                                                $('#f_c_n').val(d.chauhaddi
+                                                    .north);
+                                                $('#f_c_s').val(d.chauhaddi
+                                                    .south);
+                                                $('#f_c_e').val(d.chauhaddi
+                                                    .east);
+                                                $('#f_c_w').val(d.chauhaddi
+                                                    .west);
+                                            }
+
+                                            // EXISTING FILES PREVIEW LOGIC
+                                            loDocFields.forEach(field => {
+                                                let filePath = d[
+                                                    field];
+                                                let input = $(
+                                                    `#loForm [name="${field}"]`
+                                                    );
+                                                if (input.length &&
+                                                    filePath) {
+                                                    let wrapper =
+                                                        input.next(
+                                                            '.file-preview-wrapper'
+                                                            );
+                                                    let content =
+                                                        wrapper
+                                                        .find(
+                                                            '.preview-content'
+                                                            );
+                                                    let fullUrl =
+                                                        filePath
+                                                        .startsWith(
+                                                            '/') ?
+                                                        filePath :
+                                                        '/' +
+                                                        filePath;
+                                                    let ext =
+                                                        filePath
+                                                        .split('.')
+                                                        .pop()
+                                                        .toLowerCase();
+                                                    let imageExts = [
+                                                        'jpg',
+                                                        'jpeg',
+                                                        'png',
+                                                        'webp',
+                                                        'bmp'
+                                                    ];
+
+                                                    if (imageExts
+                                                        .includes(
+                                                            ext)) {
+                                                        content
+                                                            .html(
+                                                                `<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`
+                                                                );
+                                                    } else {
+                                                        content
+                                                            .html(
+                                                                `<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`
+                                                                );
+                                                    }
+                                                    wrapper.show();
+                                                }
+                                            });
+
                                         }
                                     });
-
                                 }
-                            });
-                        }
+                            }
+                        });
                     }
                 });
-            }
-        });
-        $('#landownerModal').modal('show');
-    };
+                $('#landownerModal').modal('show');
+            };
 
-    
+
             $(document).on('click', '.edit-btn', function() {
                 openModal('edit', $(this).data('id'));
             });
 
-            // 4. Form Submit
+
+            // 4. Form Submit (Bulletproof Logic) (API Updated)
             $('#loForm').submit(function(e) {
                 e.preventDefault();
                 let formData = new FormData(this);
                 let id = $('#edit_id').val();
-                let url = mode === 'add' ? '/api/v1/admin/landowners' : `/api/v1/admin/landowners/${id}`;
+                let url = mode === 'add' ? '/api/v1/landowners' :
+                `/api/v1/landowners/${id}`; // Changed from /admin/
                 if (mode === 'edit') formData.append('_method', 'PUT');
 
                 let btn = $('#saveBtn');
+
+                // 1. Button ko lock kiya aur Saving likha
                 btn.prop('disabled', true).text('Saving...');
 
                 $.ajax({
                     url: url,
                     type: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     data: formData,
                     processData: false,
                     contentType: false,
                     success: function(res) {
-                        alert(res.message);
                         $('#landownerModal').modal('hide');
-                        table.ajax.reload(null, false);
-                        loadMobile();
+                        if (typeof table !== 'undefined') table.ajax.reload(null, false);
+                        if (typeof loadMobile === 'function') loadMobile();
+
+                        // Check if showMessage function exists, warna normal alert dikhao taaki code crash na ho
+                        if (typeof showMessage === 'function') {
+                            showMessage(res.message, 'success');
+                        } else {
+                            alert(res.message);
+                        }
                     },
                     error: function(err) {
-                        alert('Error saving data!');
+                        let errMsg = 'Something went wrong!';
+                        if (err.responseJSON && err.responseJSON.message) {
+                            errMsg = err.responseJSON.message;
+                        }
+
+                        if (typeof showMessage === 'function') {
+                            showMessage(errMsg, 'error');
+                        } else {
+                            alert(errMsg);
+                        }
                     },
                     complete: function() {
+                        // 🔥 2. YE BLOCK HAMESHA CHALEGA AUR BUTTON KO WAPAS THEEK KAREGA 🔥
                         btn.prop('disabled', false).text('Save Landowner');
                     }
                 });
             });
 
-            // 5. View Logic
+
+            // 5. View Logic (API Updated)
             $(document).on('click', '.view-btn', function() {
                 $.get({
-                    url: `/api/v1/admin/landowners/${$(this).data('id')}`,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: `/api/v1/landowners/${$(this).data('id')}`, // Changed from /admin/
                     success: function(res) {
                         let d = res.data;
                         $('#v_lo_id').text(d.land_owner_id || 'N/A');
@@ -820,15 +1050,12 @@
                 });
             });
 
-            // 6. Delete Logic
+            // 6. Delete Logic (API Updated)
             $(document).on('click', '.delete-btn', function() {
                 if (confirm("Delete Landowner?")) {
                     $.ajax({
-                        url: `/api/v1/admin/landowners/${$(this).data('id')}`,
+                        url: `/api/v1/landowners/${$(this).data('id')}`, // Changed from /admin/
                         type: 'DELETE',
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
                         success: function() {
                             table.ajax.reload(null, false);
                             loadMobile();
@@ -837,45 +1064,49 @@
                 }
             });
 
-// 1. File input ke aage automatically Preview Container lagayein
-    $('input[type="file"]').each(function() {
-        if ($(this).next('.file-preview-wrapper').length === 0) {
-            $(this).after(`
+            // 1. File input ke aage automatically Preview Container lagayein
+            $('input[type="file"]').each(function() {
+                if ($(this).next('.file-preview-wrapper').length === 0) {
+                    $(this).after(`
                 <div class="file-preview-wrapper">
                     <button type="button" class="btn btn-danger remove-preview-btn" title="Remove File"><i class="fas fa-times"></i></button>
                     <div class="preview-content text-center"></div>
                 </div>
             `);
-        }
-    });
+                }
+            });
 
-    // 2. File select hone par Preview dikhayein
-    $(document).on('change', 'input[type="file"]', function() {
-        let file = this.files[0];
-        let wrapper = $(this).next('.file-preview-wrapper');
-        let content = wrapper.find('.preview-content');
+            // 2. File select hone par Preview dikhayein
+            $(document).on('change', 'input[type="file"]', function() {
+                let file = this.files[0];
+                let wrapper = $(this).next('.file-preview-wrapper');
+                let content = wrapper.find('.preview-content');
 
-        if (file) {
-            if (file.type.startsWith('image/')) {
-                let reader = new FileReader();
-                reader.onload = e => { content.html(`<img src="${e.target.result}" style="max-height:80px; border-radius:6px;">`); wrapper.slideDown(); }
-                reader.readAsDataURL(file);
-            } else {
-                content.html(`<div class="p-2 small fw-bold text-dark"><i class="fas fa-file-alt text-primary me-2"></i>${file.name}</div>`);
-                wrapper.slideDown();
-            }
-        }
-    });
+                if (file) {
+                    if (file.type.startsWith('image/')) {
+                        let reader = new FileReader();
+                        reader.onload = e => {
+                            content.html(
+                                `<img src="${e.target.result}" style="max-height:80px; border-radius:6px;">`
+                                );
+                            wrapper.slideDown();
+                        }
+                        reader.readAsDataURL(file);
+                    } else {
+                        content.html(
+                            `<div class="p-2 small fw-bold text-dark"><i class="fas fa-file-alt text-primary me-2"></i>${file.name}</div>`
+                            );
+                        wrapper.slideDown();
+                    }
+                }
+            });
 
-    // 3. X (Cut) Button se file hatayein
-    $(document).on('click', '.remove-preview-btn', function() {
-        let wrapper = $(this).closest('.file-preview-wrapper');
-        wrapper.prev('input[type="file"]').val('');
-        wrapper.slideUp();
-    });
-
-
-
+            // 3. X (Cut) Button se file hatayein
+            $(document).on('click', '.remove-preview-btn', function() {
+                let wrapper = $(this).closest('.file-preview-wrapper');
+                wrapper.prev('input[type="file"]').val('');
+                wrapper.slideUp();
+            });
 
         });
     </script>

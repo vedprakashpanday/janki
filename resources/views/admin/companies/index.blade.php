@@ -35,6 +35,7 @@
                                 <th>Prefix</th>
                                 <th>Company Name</th>
                                 <th>Parent Company</th>
+                                <th>Directors</th>
                                 <th>State/District</th>
                                 <th>Status</th>
                                 <th class="text-center">Action</th>
@@ -126,6 +127,15 @@
                                     required>
                                 <small class="text-muted">Will be used to generate branch/employee IDs.</small>
                             </div>
+
+                            <div class="col-md-6 mt-4 border-top pt-3">
+    <h6 class="fw-bold mb-3">Assign Directors/CEOs</h6>
+    <div id="directorRows">
+        </div>
+    <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addDirectorRow()">
+        <i class="fas fa-plus"></i> Add Director Row
+    </button>
+</div>
 
                             <div class="col-md-12">
                                 <label class="small fw-bold">Parent Company</label>
@@ -284,6 +294,51 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
+
+ // इसे $(document).ready() के बाहर रखें या window पर असाइन करें
+window.addDirectorRow = function(directorId = '', role = 'Director') {
+    let row = `
+        <div class="row g-2 mb-2 director-row">
+            <div class="col-6">
+                <select class="form-control director-select" name="directors[]" required>
+                    <option value="">Select Director</option>
+                </select>
+            </div>
+            <div class="col-4">
+                <select class="form-select role-select" name="roles[]">
+                    <option value="Director" ${role=='Director'?'selected':''}>Director</option>
+                    <option value="CEO" ${role=='CEO'?'selected':''}>CEO</option>
+                    <option value="MD" ${role=='MD'?'selected':''}>MD</option>
+                </select>
+            </div>
+            <div class="col-2">
+                <button type="button" class="btn btn-danger btn-sm" onclick="$(this).closest('.director-row').remove()"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+    `;
+    $('#directorRows').append(row);
+    
+    // Select2 initialize karein (DropdownParent zaroori hai modal ke liye)
+    let lastRow = $('.director-select').last();
+    lastRow.select2({ 
+        dropdownParent: $('#companyModal'),
+        width: '100%' 
+    });
+    
+    // Directors API call
+    $.get('/api/v1/admin/directors/active', function(res) {
+        let opts = '<option value="">Select Director</option>';
+        res.data.forEach(d => {
+            opts += `<option value="${d.id}" ${d.id == directorId ? 'selected' : ''}>${d.full_name} (${d.director_id})</option>`;
+        });
+        lastRow.html(opts).trigger('change');
+    });
+}
+
+
+
+
+
         let table;
         const apiToken = localStorage.getItem('admin_token');
 
@@ -320,6 +375,10 @@
                     {
                         data: 'parent_name'
                     },
+                    { 
+    data: 'directors_html', 
+    render: d => `<div style="font-size:12px;">${d}</div>` 
+},
                     {
                         data: null,
                         render: function(data, type, row) {
@@ -367,14 +426,31 @@
                 $('.buttons-excel').click();
             });
 
+
+           
+
+
+
+
+
+
             $('#companyForm').on('submit', function(e) {
                 e.preventDefault();
+
+                let directorData = [];
+    $('.director-row').each(function() {
+        directorData.push({
+            director_id: $(this).find('.director-select').val(),
+            role: $(this).find('.role-select').val()
+        });
+    });
+
                 let id = $('#c_id').val();
                 let url = id ? `/api/v1/admin/companies/${id}` : '/api/v1/admin/companies';
                 let method = id ? 'PUT' : 'POST';
 
                 let formData = new FormData(this);
-
+formData.append('director_assignments', JSON.stringify(directorData));
                 if (id) {
                     formData.append('_method', 'PUT');
                     url = `/api/v1/admin/companies/${id}`;
@@ -429,6 +505,8 @@
         $('#remove_logo_flag').val('1'); // Backend ko batane ke liye ki logo uda do
     });
 
+
+    
 
 
         });
@@ -486,6 +564,14 @@
                     $('#c_iso_no').val(data.iso_no);
                     $('#c_trademark').val(data.trademark);
                     $('#c_logo_reg_no').val(data.logo_reg_no);
+
+                    // Edit success function mein:
+$('#directorRows').empty(); // Purane rows saaf karo
+if (data.directors && data.directors.length > 0) {
+    data.directors.forEach(dir => {
+        addDirectorRow(dir.id, dir.pivot.role);
+    });
+}
                     // 🔥 Edit form mein purana logo dikhane ka logic 👇
             if(data.company_logo) {
                 $('#logoPreviewImg').attr('src', '/' + data.company_logo);
@@ -523,6 +609,15 @@
                             .css('background-color', '#1a2a40');
                     }
 
+                    // JS Logic:
+let directorsHtml = res.data.directors.map(d => 
+    `<li class="list-group-item d-flex justify-content-between">
+        ${d.full_name} 
+        <span class="badge bg-primary">${d.pivot.role}</span>
+    </li>`
+).join('');
+
+$('#v_directors_list').html('<ul class="list-group list-group-flush">' + directorsHtml + '</ul>');
                     $('#v_name_display').text(data.company_name);
                     $('#v_code_display').text(data.company_code);
 
@@ -601,6 +696,7 @@
                         '<span class="badge bg-success-subtle text-success">Active</span>' :
                         '<span class="badge bg-danger-subtle text-danger">Inactive</span>';
                     let rawPrefix = $(c.company_code).text() || c.company_code;
+                    let directorsHtml = c.directors_html || 'No Director';
                     html += `
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body p-3">
@@ -614,6 +710,7 @@
                         <div class="text-end">
                             ${statusBadge}
                         </div>
+                        <div class="mt-2 small text-muted"><strong>Board:</strong><br>${directorsHtml}</div>
                     </div>
                     <div class="d-flex justify-content-end align-items-center pt-2 border-top gap-1">
                         <!-- 🔥 MOBILE CARD ME BHI PRINT BUTTON AAGAYA 🔥 -->

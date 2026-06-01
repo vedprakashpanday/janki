@@ -30,17 +30,17 @@
                     <div id="actionButtons" style="display: none;">
                         <hr class="my-4">
                         <h6 class="fw-bold text-secondary mb-3">Available Print Actions</h6>
-                        <div class="d-grid gap-3">
-                            <button class="btn btn-primary btn-lg fw-bold print-btn shadow-sm" data-type="id_card">
-                                <i class="fas fa-id-card me-2"></i> Print ID Card
-                            </button>
-                            <button class="btn btn-outline-success btn-lg fw-bold print-btn " data-type="visiting_normal">
-                                <i class="fas fa-address-card me-2"></i> Print Visiting Card (Normal)
-                            </button>
-                            <button class="btn btn-dark btn-lg fw-bold print-btn shadow-sm" data-type="visiting_premium">
-                                <i class="fas fa-gem text-warning me-2"></i> Print Visiting Card (Premium)
-                            </button>
-                        </div>
+                     <div class="d-grid gap-3">
+    <button class="btn btn-primary btn-lg fw-bold print-btn shadow-sm secured-item" data-permission="id_card_print" data-type="id_card">
+        <i class="fas fa-id-card me-2"></i> Print ID Card
+    </button>
+    <button class="btn btn-outline-success btn-lg fw-bold print-btn secured-item" data-permission="id_card_print" data-type="visiting_normal">
+        <i class="fas fa-address-card me-2"></i> Print Visiting Card (Normal)
+    </button>
+    <button class="btn btn-dark btn-lg fw-bold print-btn shadow-sm secured-item" data-permission="id_card_print" data-type="visiting_premium">
+        <i class="fas fa-gem text-warning me-2"></i> Print Visiting Card (Premium)
+    </button>
+</div>
                     </div>
                 </div>
             </div>
@@ -56,7 +56,7 @@ $(document).ready(function() {
     
     // Load Datalist via API
     $.ajax({
-        url: '/api/v1/admin/id-cards/staff-list',
+        url: '/api/v1/id-cards/staff-list',
         headers: { 'Authorization': 'Bearer ' + apiToken },
         success: function(res) {
             let options = '';
@@ -89,7 +89,7 @@ $(document).ready(function() {
     
     // NAYA FIX: encodeURIComponent use kiya taaki slashes safe rahein 
     let safeId = encodeURIComponent(id);
-    window.open(`/admin/id-cards/print/${type}/${safeId}`, '_blank');
+    window.open(`/id-cards/print/${type}/${safeId}`, '_blank');
 });
 });
 </script>

@@ -91,8 +91,9 @@
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Vendor Details</h4>
-            <button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: var(--brand-primary);"
-                onclick="openModal('add')">
+            <!-- 🛡️ SECURED: Add Vendor Button -->
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" data-permission="vendor_add"
+                style="background-color: var(--brand-primary);" onclick="openModal('add')">
                 <i class="fas fa-plus me-1"></i> Register Vendor
             </button>
         </div>
@@ -245,8 +246,9 @@
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Select Branch <span
                                                 class="text-danger">*</span></label>
-                                        <input type="text" name="branch_id" class="form-control" id="f_branch"
-                                            list="branchList" placeholder="Search Branch..." required autocomplete="off">
+                                        <input type="text" class="form-control" id="f_branch" list="branchList"
+                                            placeholder="Search Branch..." required autocomplete="off">
+                                        <input type="hidden" name="branch_id" id="branch_id_hidden" required>
                                         <datalist id="branchList"></datalist>
                                     </div>
                                     <div class="col-md-4">
@@ -463,37 +465,37 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">Aadhar Card
                                             (.pdf)</label><input type="file" name="aadhar_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">PAN Card
                                             (.pdf)</label><input type="file" name="pan_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Bank Passbook
                                             (.pdf)</label><input type="file" name="bank_passbook_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Driving License
                                             (.pdf)</label><input type="file" name="driving_license_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                       
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Passport
                                             (.pdf)</label><input type="file" name="passport_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                      
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Passport Photo
                                             (Img)</label><input type="file" name="passport_photo"
                                             class="form-control form-control-sm" accept="image/*">
-                                       
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Other Docs
                                             (.pdf)</label><input type="file" name="other_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                 </div>
 
@@ -503,37 +505,37 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">Nominee Aadhar
                                             (.pdf)</label><input type="file" name="nom_aadhar_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Nominee PAN
                                             (.pdf)</label><input type="file" name="nom_pan_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Nominee Bank
                                             Passbook</label><input type="file" name="nom_bank_passbook_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Nominee Driving
                                             License</label><input type="file" name="nom_driving_license_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Nominee Passport
                                             (.pdf)</label><input type="file" name="nom_passport_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Nominee Photo
                                             (Img)</label><input type="file" name="nom_passport_photo"
                                             class="form-control form-control-sm" accept="image/*">
-                                        
+
                                     </div>
                                     <div class="col-md-4"><label class="form-label text-secondary small">Nominee Other
                                             Docs</label><input type="file" name="nom_other_pdf"
                                             class="form-control form-control-sm" accept=".pdf">
-                                       
+
                                     </div>
                                 </div>
                             </div>
@@ -551,6 +553,26 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="responseModal" tabindex="-1" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="responseModalTitle">Message</h5>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <i id="responseModalIcon" class="fas fa-3x mb-3"></i>
+                    <p id="responseModalMessage" class="mb-0 fw-medium" style="word-wrap: break-word; font-size: 14px;">
+                    </p>
+                </div>
+                <div class="modal-footer border-top-0 justify-content-center pb-4">
+                    <button type="button" class="btn px-5 text-white fw-bold shadow-sm" id="responseModalBtn"
+                        data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -564,6 +586,7 @@
         $(document).ready(function() {
             const apiToken = localStorage.getItem('admin_token');
             let mode = 'add';
+            let branchMap = {}; // Datalist Map
 
             const docFields = [
                 'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf',
@@ -572,19 +595,59 @@
                 'nom_passport_pdf', 'nom_passport_photo', 'nom_other_pdf'
             ];
 
-            // 1. DataTables
+            // 櫨 Custom Modal Show Karne ka Function 櫨
+            window.showMessage = function(message, type = 'success') {
+                let modal = $('#responseModal');
+                let header = modal.find('.modal-header');
+                let title = $('#responseModalTitle');
+                let icon = $('#responseModalIcon');
+                let btn = $('#responseModalBtn');
+                let closeBtn = modal.find('.btn-close');
+
+                header.removeClass('bg-success bg-danger text-white');
+                icon.removeClass('fa-check-circle text-success fa-times-circle text-danger');
+                btn.removeClass('btn-success btn-danger');
+                closeBtn.removeClass('btn-close-white');
+
+                if (type === 'error') {
+                    title.text('Error Occurred!');
+                    header.addClass('bg-danger text-white');
+                    icon.addClass('fas fa-times-circle text-danger');
+                    btn.addClass('btn-danger');
+                    closeBtn.addClass('btn-close-white');
+                } else {
+                    title.text('Success!');
+                    header.addClass('bg-success text-white');
+                    icon.addClass('fas fa-check-circle text-success');
+                    btn.addClass('btn-success');
+                    closeBtn.addClass('btn-close-white');
+                }
+
+                $('#responseModalMessage').text(message);
+                modal.modal('show');
+            };
+
+            // 1. DataTables (Server-side + Excel All Data Trick)
             let table = $('#vendorTable').DataTable({
+                processing: true,
+                serverSide: true,
                 ajax: {
-                    url: '/api/v1/admin/vendors',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    }
+                    url: '/api/v1/vendors' // CLEANED API ROUTE
                 },
                 dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
                 buttons: [{
                     extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-3'
+                    text: '<i class="fas fa-file-excel me-1"></i> Export All to Excel',
+                    className: 'btn btn-success btn-sm shadow-sm rounded-3',
+                    action: function(e, dt, button, config) {
+                        let oldLength = dt.page.len();
+                        dt.page.len(-1).draw();
+                        dt.one('draw', function() {
+                            $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e,
+                                dt, button, config);
+                            dt.page.len(oldLength).draw();
+                        });
+                    }
                 }],
                 columns: [{
                         data: 'vendor_id',
@@ -592,8 +655,13 @@
                     },
                     {
                         data: 'branch_id',
-                        render: (d, t, row) =>
-                            `<span class="badge bg-light text-dark border"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${row.branch ? row.branch.branch_name : 'N/A'}</span>`
+                        render: (d, t, row) => {
+                            if (!row.branch) return 'N/A';
+                            let compName = row.branch.company ? row.branch.company.company_name :
+                                'Master Company';
+                            return `<div class="small fw-bold text-primary"><i class="fas fa-building me-1"></i> ${compName}</div>
+                                    <div class="small text-muted"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${row.branch.branch_name}</div>`;
+                        }
                     },
                     {
                         data: 'full_name'
@@ -611,49 +679,81 @@
                             `<span class="badge bg-danger">In-Active</span>`
                     },
                     {
-    data: 'id',
-    className: 'text-end text-nowrap', // <-- Ye column ko tootne (wrap hone) se rokega
-    render: d => `
-    <div class="d-flex justify-content-end flex-nowrap gap-1">
-        <button type="button" class="btn btn-sm btn-light text-info view-btn" title="View" data-id="${d}"><i class="fas fa-eye"></i></button>
-        <button type="button" class="btn btn-sm btn-light text-primary edit-btn" title="Edit" data-id="${d}"><i class="fas fa-edit"></i></button>
-        <button type="button" class="btn btn-sm btn-light text-danger delete-btn" title="Delete" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
-    </div>`
-}
-                ]
+                        data: 'id',
+                        className: 'text-end text-nowrap',
+                        orderable: false,
+                        render: d => `
+                        <div class="d-flex justify-content-end flex-nowrap gap-1">
+                            <button type="button" class="btn btn-sm btn-light text-info view-btn" title="View" data-id="${d}"><i class="fas fa-eye"></i></button>
+                            <!-- 🛡️ SECURED: Edit and Delete Buttons -->
+                            <button type="button" class="btn btn-sm btn-light text-primary edit-btn secured-item" data-permission="vendor_edit" title="Edit" data-id="${d}"><i class="fas fa-edit"></i></button>
+                            <button type="button" class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="vendor_delete" title="Delete" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
+                        </div>`
+                    }
+                ],
+                drawCallback: function(settings) {
+                    renderMobileCards(settings.json.data);
+                    // 🛡️ RE-APPLY PERMISSIONS
+                    if (typeof window.applyPermissions === 'function') window.applyPermissions();
+                }
             });
 
             // 2. Mobile Cards
-            function loadMobile() {
-                $.ajax({
-                    url: '/api/v1/admin/vendors',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(res) {
-                        let html = '';
-                        res.data.forEach(d => {
-                            let st = d.vendor_status === 'active' ?
-                                `<span class="badge bg-success">Active</span>` :
-                                `<span class="badge bg-danger">In-Active</span>`;
-                            html += `<div class="mobile-item">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div><h6 class="fw-bold text-dark mb-0">${d.full_name}</h6><span class="text-primary small fw-bold">${d.vendor_id}</span></div>
-                            ${st}
-                        </div>
-                        <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.contact_no}</div>
-                        <div class="mt-2 pt-2 border-top d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
-                            <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>
-                            <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>
-                        </div>
-                    </div>`;
-                        });
-                        $('#mobileCardsContainer').html(html);
-                    }
-                });
+            function renderMobileCards(data) {
+                let html = '';
+                if (!data || data.length === 0) {
+                    html = '<div class="text-center p-3 text-muted bg-light rounded">No vendors found.</div>';
+                } else {
+                    data.forEach(d => {
+                        let st = d.vendor_status === 'active' ?
+                            `<span class="badge bg-success">Active</span>` :
+                            `<span class="badge bg-danger">In-Active</span>`;
+                        let compName = d.branch && d.branch.company ? d.branch.company.company_name :
+                            'Master Company';
+                        let branchName = d.branch ? d.branch.branch_name : 'N/A';
+
+                        html += `<div class="mobile-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div><h6 class="fw-bold text-dark mb-0">${d.full_name}</h6><span class="text-primary small fw-bold">${d.vendor_id}</span></div>
+                                ${st}
+                            </div>
+                            <div class="small text-muted mb-1"><i class="fas fa-building text-info me-1"></i> ${compName} - ${branchName}</div>
+                            <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.contact_no}</div>
+                            <div class="mt-2 pt-2 border-top d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
+                                <!-- 🛡️ SECURED: Edit and Delete Buttons for Mobile -->
+                                <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn secured-item" data-permission="vendor_edit" data-id="${d.id}">Edit</button>
+                                <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn secured-item" data-permission="vendor_delete" data-id="${d.id}">Delete</button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                $('#mobileCardsContainer').html(html);
+                // 🛡️ RE-APPLY PERMISSIONS
+                if (typeof window.applyPermissions === 'function') window.applyPermissions();
             }
-            loadMobile();
+
+            // 櫨 2. Input select hone par Hidden field me ID daalna
+            $('#f_branch').on('input change', function() {
+                let val = $(this).val();
+                if (branchMap[val]) {
+                    $('#branch_id_hidden').val(branchMap[val]);
+                    this.setCustomValidity('');
+                } else {
+                    $('#branch_id_hidden').val('');
+                    this.setCustomValidity('Please select a valid branch from the list');
+                }
+            });
+
+            $('#f_status').on('change', function() {
+                if ($(this).val() === 'inactive') {
+                    $('.leave-fields').removeClass('d-none');
+                } else {
+                    $('.leave-fields').addClass('d-none');
+                    $('#f_dol, #f_remarks').val('');
+                }
+            });
+
 
             $('#mobileSearch').on('keyup', function() {
                 let v = $(this).val().toLowerCase();
@@ -663,15 +763,7 @@
             });
             $('#mobileExcelBtn').click(() => $('.buttons-excel').click());
 
-            // 3. Status Toggle Logic
-            $('#f_status').on('change', function() {
-                if ($(this).val() === 'inactive') {
-                    $('.leave-fields').removeClass('d-none');
-                } else {
-                    $('.leave-fields').addClass('d-none');
-                    $('#f_dol, #f_remarks').val('');
-                }
-            });
+
 
             // 4. Modals
             window.openModal = function(type, id = null) {
@@ -688,27 +780,43 @@
                 }
 
                 $.ajax({
-                    url: '/api/v1/admin/branches',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: '/api/v1/branches', // CLEANED API ROUTE
                     success: function(res) {
                         let options = '';
-                        res.data.forEach(b => options +=
-                            `<option value="${b.id}">${b.branch_name} (${b.branch_id})</option>`
-                        );
+                        branchMap = {}; // Purana map clear kiya
+
+                        res.data.forEach(b => {
+                            let compName = b.company ? b.company.company_name :
+                                'Master Company';
+                            // Pura text jo dropdown me dikhega
+                            let dispText =
+                            `${compName} - ${b.branch_name} (${b.branch_id})`;
+
+                            // 櫨 YAHAN HAI ASLI JADOO: Value me ID ki jagah Text dalenge 櫨
+                            options += `<option value="${dispText}">`;
+
+                            // Aur background me us text ko ID se jod denge
+                            branchMap[dispText] = b.id;
+                        });
+
                         $('#branchList').html(options);
 
                         if (type === 'edit') {
                             $.get({
-                                url: `/api/v1/admin/vendors/${id}`,
-                                headers: {
-                                    'Authorization': 'Bearer ' + apiToken
-                                },
+                                url: `/api/v1/vendors/${id}`, // CLEANED API ROUTE
                                 success: function(res) {
                                     let d = res.data;
                                     $('#edit_id').val(d.id);
-                                    $('#f_branch').val(d.branch_id);
+                                    // Edit mode me branch set karna
+                                    if (d.branch) {
+                                        let compName = d.branch.company ? d.branch
+                                            .company.company_name : 'Master Company';
+                                        let dispText =
+                                            `${compName} - ${d.branch.branch_name} (${d.branch.branch_id})`;
+                                        $('#f_branch').val(dispText); // Text dikhega
+                                        $('#branch_id_hidden').val(d
+                                        .branch_id); // ID chhupegi
+                                    }
 
                                     $('.password-div').show();
                                     $('#f_password').val(d.password);
@@ -772,31 +880,49 @@
 
 
                                     // ====== EXISTING FILES PREVIEW LOGIC ======
-let vendorFiles = [
-    'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 
-    'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf',
-    'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 
-    'nom_passport_pdf', 'nom_other_pdf', 'passport_photo', 'nom_passport_photo'
-];
+                                    let vendorFiles = [
+                                        'aadhar_pdf', 'pan_pdf',
+                                        'bank_passbook_pdf', 'driving_license_pdf',
+                                        'passport_pdf',
+                                        'tenth_pdf', 'twelfth_pdf',
+                                        'graduation_pdf', 'pg_pdf', 'other_pdf',
+                                        'nom_aadhar_pdf', 'nom_pan_pdf',
+                                        'nom_bank_passbook_pdf',
+                                        'nom_driving_license_pdf',
+                                        'nom_passport_pdf', 'nom_other_pdf',
+                                        'passport_photo', 'nom_passport_photo'
+                                    ];
 
-vendorFiles.forEach(field => {
-    let filePath = d[field];
-    let input = $(`#vendorForm [name="${field}"]`);
-    if(input.length && filePath) {
-        let wrapper = input.next('.file-preview-wrapper');
-        let content = wrapper.find('.preview-content');
-        let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
-        let ext = filePath.split('.').pop().toLowerCase();
-        let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
+                                    vendorFiles.forEach(field => {
+                                        let filePath = d[field];
+                                        let input = $(
+                                            `#vendorForm [name="${field}"]`);
+                                        if (input.length && filePath) {
+                                            let wrapper = input.next(
+                                                '.file-preview-wrapper');
+                                            let content = wrapper.find(
+                                                '.preview-content');
+                                            let fullUrl = filePath.startsWith(
+                                                    '/') ? filePath : '/' +
+                                                filePath;
+                                            let ext = filePath.split('.').pop()
+                                                .toLowerCase();
+                                            let imageExts = ['jpg', 'jpeg',
+                                                'png', 'webp', 'bmp'
+                                            ];
 
-        if(imageExts.includes(ext)) {
-            content.html(`<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`);
-        } else {
-            content.html(`<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`);
-        }
-        wrapper.show();
-    }
-});
+                                            if (imageExts.includes(ext)) {
+                                                content.html(
+                                                    `<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`
+                                                    );
+                                            } else {
+                                                content.html(
+                                                    `<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`
+                                                    );
+                                            }
+                                            wrapper.show();
+                                        }
+                                    });
 
                                     // Existing Documents Links
                                     docFields.forEach(field => {
@@ -827,7 +953,7 @@ vendorFiles.forEach(field => {
                 e.preventDefault();
                 let formData = new FormData(this);
                 let id = $('#edit_id').val();
-                let url = mode === 'add' ? '/api/v1/admin/vendors' : `/api/v1/admin/vendors/${id}`;
+                let url = mode === 'add' ? '/api/v1/vendors' : `/api/v1/vendors/${id}`; // CLEANED API ROUTE
                 if (mode === 'edit') formData.append('_method', 'PUT');
 
                 let btn = $('#saveBtn');
@@ -836,20 +962,20 @@ vendorFiles.forEach(field => {
                 $.ajax({
                     url: url,
                     type: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     data: formData,
                     processData: false,
                     contentType: false,
                     success: function(res) {
-                        alert(res.message);
                         $('#vendorModal').modal('hide');
                         table.ajax.reload(null, false);
-                        loadMobile();
+                        showMessage(res.message, 'success');
                     },
                     error: function(err) {
-                        alert('Error saving data!');
+                        let errMsg = 'Something went wrong!';
+                        if (err.responseJSON && err.responseJSON.message) {
+                            errMsg = err.responseJSON.message;
+                        }
+                        showMessage(errMsg, 'error');
                     },
                     complete: function() {
                         btn.prop('disabled', false).text('Save Vendor Details');
@@ -860,15 +986,20 @@ vendorFiles.forEach(field => {
             // 6. View & Delete
             $(document).on('click', '.view-btn', function() {
                 $.get({
-                    url: `/api/v1/admin/vendors/${$(this).data('id')}`,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: `/api/v1/vendors/${$(this).data('id')}`, // CLEANED API ROUTE
                     success: function(res) {
                         let d = res.data;
                         $('#v_vendor_id').text(d.vendor_id || 'N/A');
                         $('#v_password').text(d.password || 'N/A');
-                        $('#v_branch').text(d.branch ? d.branch.branch_name : 'N/A');
+
+                        // 櫨 Company Name in View
+                        let branchText = 'N/A';
+                        if (d.branch) {
+                            let compName = d.branch.company ? d.branch.company.company_name :
+                                'Master Company';
+                            branchText = compName + ' - ' + d.branch.branch_name;
+                        }
+                        $('#v_branch').text(branchText);
                         $('#v_type').text(d.vendor_type || 'N/A');
 
                         if (d.vendor_status === 'active') {
@@ -897,55 +1028,59 @@ vendorFiles.forEach(field => {
             $(document).on('click', '.delete-btn', function() {
                 if (confirm("Delete Vendor?")) {
                     $.ajax({
-                        url: `/api/v1/admin/vendors/${$(this).data('id')}`,
+                        url: `/api/v1/vendors/${$(this).data('id')}`, // CLEANED API ROUTE
                         type: 'DELETE',
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
                         success: function() {
                             table.ajax.reload(null, false);
-                            loadMobile();
+                            showMessage("Deleted successfully!", 'success');
                         }
                     });
                 }
             });
 
-// 1. Har file input ke neeche Preview Container add karein
-    $('input[type="file"]').each(function() {
-        if ($(this).next('.file-preview-wrapper').length === 0) {
-            $(this).after(`
+            // 1. Har file input ke neeche Preview Container add karein
+            $('input[type="file"]').each(function() {
+                if ($(this).next('.file-preview-wrapper').length === 0) {
+                    $(this).after(`
                 <div class="file-preview-wrapper">
                     <button type="button" class="btn btn-danger remove-preview-btn" title="Remove File"><i class="fas fa-times"></i></button>
                     <div class="preview-content text-center"></div>
                 </div>
             `);
-        }
-    });
+                }
+            });
 
-    // 2. File Select karne par Preview dikhayein
-    $(document).on('change', 'input[type="file"]', function() {
-        let file = this.files[0];
-        let wrapper = $(this).next('.file-preview-wrapper');
-        let content = wrapper.find('.preview-content');
+            // 2. File Select karne par Preview dikhayein
+            $(document).on('change', 'input[type="file"]', function() {
+                let file = this.files[0];
+                let wrapper = $(this).next('.file-preview-wrapper');
+                let content = wrapper.find('.preview-content');
 
-        if (file) {
-            if (file.type.startsWith('image/')) {
-                let reader = new FileReader();
-                reader.onload = e => { content.html(`<img src="${e.target.result}" style="max-height:80px; border-radius:6px;">`); wrapper.slideDown(); }
-                reader.readAsDataURL(file);
-            } else {
-                content.html(`<div class="p-2 small fw-bold text-dark"><i class="fas fa-file-alt text-primary me-2"></i>${file.name}</div>`);
-                wrapper.slideDown();
-            }
-        }
-    });
+                if (file) {
+                    if (file.type.startsWith('image/')) {
+                        let reader = new FileReader();
+                        reader.onload = e => {
+                            content.html(
+                                `<img src="${e.target.result}" style="max-height:80px; border-radius:6px;">`
+                                );
+                            wrapper.slideDown();
+                        }
+                        reader.readAsDataURL(file);
+                    } else {
+                        content.html(
+                            `<div class="p-2 small fw-bold text-dark"><i class="fas fa-file-alt text-primary me-2"></i>${file.name}</div>`
+                            );
+                        wrapper.slideDown();
+                    }
+                }
+            });
 
-    // 3. Remove Button (X) se file hatayein
-    $(document).on('click', '.remove-preview-btn', function() {
-        let wrapper = $(this).closest('.file-preview-wrapper');
-        wrapper.prev('input[type="file"]').val('');
-        wrapper.slideUp();
-    });
+            // 3. Remove Button (X) se file hatayein
+            $(document).on('click', '.remove-preview-btn', function() {
+                let wrapper = $(this).closest('.file-preview-wrapper');
+                wrapper.prev('input[type="file"]').val('');
+                wrapper.slideUp();
+            });
 
 
         });

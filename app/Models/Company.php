@@ -28,4 +28,12 @@ class Company extends Model
     {
         return $this->hasMany(Branch::class);
     }
+
+    public function directors()
+{
+    // Yahan ulta relation
+    return $this->belongsToMany(Director::class, 'company_director', 'company_id', 'director_id')
+                ->withPivot('role')
+                ->withTimestamps();
+}
 }

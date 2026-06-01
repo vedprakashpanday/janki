@@ -9,12 +9,25 @@ class Customer extends Model
 {
    use HasFactory;
     
-    // Sab fields ko allow karne ke liye guarded empty chhod dete hain (Shortcut for large forms)
     protected $guarded = [];
 
-    // NAYA: Branch ke sath relation
+    // Branch Relation
     public function branch()
     {
         return $this->belongsTo(Branch::class, 'branch_id');
+    }
+
+    // 🔥 NAYA: Company Relation 🔥
+    public function company()
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
+
+    // Virtual attribute for Bank Branch conflict bypass
+    protected $appends = ['bank_branch_text'];
+
+    public function getBankBranchTextAttribute()
+    {
+        return array_key_exists('branch', $this->attributes) ? $this->attributes['branch'] : '';
     }
 }

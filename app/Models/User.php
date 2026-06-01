@@ -7,12 +7,13 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     // 2. Yahan 'HasApiTokens' add karein
     use HasApiTokens, HasFactory, Notifiable;
-
+use HasRoles;
     /**
      * The attributes that are mass assignable.
      *
@@ -26,6 +27,9 @@ class User extends Authenticatable
         'is_active',
         'password',
     ];
+
+    
+
 
     /**
      * The attributes that should be hidden for serialization.

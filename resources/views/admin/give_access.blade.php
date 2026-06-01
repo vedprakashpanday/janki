@@ -49,15 +49,17 @@
 
 <script>
 $(document).ready(function() {
+    // Variable rakha hai taaki code crash na ho
     const apiToken = localStorage.getItem('admin_token');
 
-    // 1. Desktop DataTables
+    // ==========================================
+    // 1. Desktop DataTables (API Route Fixed)
+    // ==========================================
     let table = $('#accessTable').DataTable({
         ajax: { 
-            url: '/api/v1/admin/telecaller-access', 
-            headers: { 'Authorization': 'Bearer ' + apiToken },
+            url: '/api/v1/telecaller-access', // '/admin/' hata diya
             dataSrc: function(json) {
-                renderMobileCards(json.data); // Parallelly render cards for mobile
+                renderMobileCards(json.data); 
                 return json.data;
             }
         },
@@ -67,16 +69,19 @@ $(document).ready(function() {
             { data: 'role', render: d => `<span class="badge bg-light text-dark border">${d}</span>` },
             { data: 'has_access', render: d => d ? `<span class="badge bg-success"><i class="fas fa-check-circle"></i> Access Granted</span>` : `<span class="badge bg-danger"><i class="fas fa-times-circle"></i> No Access</span>` },
             { data: null, render: function(data, type, row) {
+                // 🛡️ ROLE BASED BUTTONS ADDED
                 if(row.has_access) {
-                    return `<div class="text-end"><button class="btn btn-sm btn-danger toggle-access" data-id="${row.staff_id}"><i class="fas fa-user-times me-1"></i> Remove Access</button></div>`;
+                    return `<div class="text-end"><button class="btn btn-sm btn-danger toggle-access secured-item" data-permission="telecaller_access_edit" data-id="${row.staff_id}"><i class="fas fa-user-times me-1"></i> Remove Access</button></div>`;
                 } else {
-                    return `<div class="text-end"><button class="btn btn-sm btn-success toggle-access" data-id="${row.staff_id}"><i class="fas fa-user-check me-1"></i> Give Access</button></div>`;
+                    return `<div class="text-end"><button class="btn btn-sm btn-success toggle-access secured-item" data-permission="telecaller_access_edit" data-id="${row.staff_id}"><i class="fas fa-user-check me-1"></i> Give Access</button></div>`;
                 }
             }}
         ]
     });
 
+    // ==========================================
     // 2. Mobile Cards Rendering Function
+    // ==========================================
     function renderMobileCards(data) {
         let html = '';
         data.forEach(item => {
@@ -84,9 +89,10 @@ $(document).ready(function() {
                 ? `<span class="status-badge bg-success-subtle text-success border border-success-subtle"><i class="fas fa-check-circle"></i> Granted</span>` 
                 : `<span class="status-badge bg-danger-subtle text-danger border border-danger-subtle"><i class="fas fa-times-circle"></i> No Access</span>`;
             
+            // 🛡️ ROLE BASED BUTTONS ADDED
             let actionButton = item.has_access 
-                ? `<button class="btn btn-sm btn-danger w-100 fw-bold toggle-access" data-id="${item.staff_id}"><i class="fas fa-user-times me-1"></i> Remove Access</button>`
-                : `<button class="btn btn-sm btn-success w-100 fw-bold toggle-access" data-id="${item.staff_id}"><i class="fas fa-user-check me-1"></i> Give Access</button>`;
+                ? `<button class="btn btn-sm btn-danger w-100 fw-bold toggle-access secured-item" data-permission="telecaller_access_edit" data-id="${item.staff_id}"><i class="fas fa-user-times me-1"></i> Remove Access</button>`
+                : `<button class="btn btn-sm btn-success w-100 fw-bold toggle-access secured-item" data-permission="telecaller_access_edit" data-id="${item.staff_id}"><i class="fas fa-user-check me-1"></i> Give Access</button>`;
 
             html += `
                 <div class="mobile-item staff-card">
@@ -107,9 +113,16 @@ $(document).ready(function() {
             `;
         });
         $('#mobileCardsContainer').html(html || '<p class="text-center text-muted">No staff records found.</p>');
+        
+        // 🛡️ NAYA: Buttons load hone ke baad global permission logic run karo taaki show/hide ho sakein
+        if(typeof window.applyPermissions === 'function') {
+            window.applyPermissions();
+        }
     }
 
-    // 3. Toggle Access Action (Works for both Table and Cards)
+    // ==========================================
+    // 3. Toggle Access Action (API Fix & Header Clean)
+    // ==========================================
     $(document).on('click', '.toggle-access', function() {
         let staffId = $(this).data('id');
         let btn = $(this);
@@ -117,9 +130,8 @@ $(document).ready(function() {
         btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
 
         $.ajax({
-            url: '/api/v1/admin/telecaller-access/toggle',
+            url: '/api/v1/telecaller-access/toggle', // '/admin/' aur headers hata diye
             type: 'POST',
-            headers: { 'Authorization': 'Bearer ' + apiToken },
             data: { staff_id: staffId },
             success: function(res) {
                 table.ajax.reload(null, false); // Reload table and mobile cards
@@ -131,7 +143,9 @@ $(document).ready(function() {
         });
     });
 
+    // ==========================================
     // 4. Mobile Search Logic
+    // ==========================================
     $('#mobileSearch').on('keyup', function() {
         let value = $(this).val().toLowerCase();
         $(".staff-card").filter(function() {

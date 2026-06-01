@@ -23,6 +23,12 @@ class Landowner extends Model
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
+    // 🔥 NAYA: Company Relation 🔥
+    public function company()
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
+
     // JSON Casting ke theek neeche ye add karein
     protected $appends = ['bank_branch_text'];
 

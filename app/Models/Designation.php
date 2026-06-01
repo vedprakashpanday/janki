@@ -12,6 +12,15 @@ class Designation extends Model
     protected $fillable = [
         'designation_code', 
         'designation_name', 
+        'department_id', // Naya field add kiya
         'status'
     ];
+
+    // Purana $casts array jisme company_ids tha, use hata dijiye.
+
+    // Relation add karein
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
 }

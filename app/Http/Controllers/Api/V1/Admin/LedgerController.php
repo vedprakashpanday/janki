@@ -11,8 +11,21 @@ class LedgerController extends Controller
 {
     public function index()
     {
-        // Branch data load karna zaroori hai
-        $ledgers = Ledger::with('branch')->orderBy('id', 'desc')->get();
+        $query = Ledger::with('branch')->orderBy('id', 'desc');
+
+        // ==========================================
+        // 🛡️ 1. DATA FILTER LOGIC
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            // Employee/Accountant ko sirf apni branch ke ledgers dikhenge
+            $query->where('branch_id', $user->branch_id);
+        }
+        // ==========================================
+
+        $ledgers = $query->get();
         return response()->json(['status' => 'success', 'data' => $ledgers]);
     }
 
@@ -28,8 +41,22 @@ class LedgerController extends Controller
         // NAYA LOGIC: Year ko 'from_date' se nikalein, agar from_date nahi hai toh current year lein
         $year = !empty($request->from_date) ? date('Y', strtotime($request->from_date)) : date('Y');
 
-        $branch = Branch::findOrFail($request->branch_id);
-        $branchParts = explode('/', $branch->branch_id); 
+       $branch = Branch::findOrFail($request->branch_id);
+
+        // ==========================================
+        // 🛡️ 2. STORE OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($branch->id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You can only create ledgers for your own branch.'], 403);
+            }
+        }
+        // ==========================================
+
+        $branchParts = explode('/', $branch->branch_id);
         $stateCode = $branchParts[1] ?? 'ST';
         $distCode  = $branchParts[2] ?? 'DIST';
 
@@ -56,9 +83,20 @@ class LedgerController extends Controller
         return response()->json(['status' => 'success', 'message' => "Ledger Created! Code: {$ledger->ledger_code}"]);
     }
 
-    public function show($id)
+  public function show($id)
     {
-        return response()->json(['status' => 'success', 'data' => Ledger::with('branch')->findOrFail($id)]);
+        $ledger = Ledger::with('branch')->findOrFail($id);
+
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($ledger->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot view ledgers of another branch.'], 403);
+            }
+        }
+
+        return response()->json(['status' => 'success', 'data' => $ledger]);
     }
 
     public function update(Request $request, $id)
@@ -68,7 +106,16 @@ class LedgerController extends Controller
             'ledger_name' => 'required'
         ]);
 
-        $ledger = Ledger::findOrFail($id);
+       $ledger = Ledger::findOrFail($id);
+        
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($ledger->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot modify ledgers of another branch.'], 403);
+            }
+        }
         
         // Code update nahi hota, sirf baaki details update hoti hain (Best Practice)
         $data = $request->except(['_token', 'ledger_code', '_method']);
@@ -80,7 +127,16 @@ class LedgerController extends Controller
     
     public function destroy($id)
     {
-        Ledger::findOrFail($id)->delete();
+        $ledger = Ledger::findOrFail($id);
+        
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($ledger->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot modify ledgers of another branch.'], 403);
+            }
+        }
         return response()->json(['status' => 'success', 'message' => 'Ledger Deleted Successfully!']);
     }
 }

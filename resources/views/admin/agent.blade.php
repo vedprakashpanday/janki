@@ -91,10 +91,9 @@
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Agent Details</h4>
-            <button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: var(--brand-primary);"
-                onclick="openModal('add')">
-                <i class="fas fa-plus me-1"></i> Register Agent
-            </button>
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" data-permission="agent_add" style="background-color: var(--brand-primary);" onclick="openModal('add')">
+    <i class="fas fa-plus me-1"></i> Register Agent
+</button>
         </div>
 
         <div class="d-flex d-md-none gap-2 mb-3">
@@ -237,11 +236,13 @@
                             <div class="tab-pane fade show active" id="tab-personal">
 
                                 <div class="row g-3 mb-4 pb-3 border-bottom">
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Select Branch <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" name="branch_id" class="form-control" id="f_branch"
-                                            list="branchList" placeholder="Search Branch..." required autocomplete="off">
+                                  <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Select Branch <span class="text-danger">*</span></label>
+                                        
+                                        <input type="text" class="form-control" id="f_branch" list="branchList" placeholder="Search Branch..." required autocomplete="off">
+                                        
+                                        <input type="hidden" name="branch_id" id="branch_id_hidden" required>
+                                        
                                         <datalist id="branchList"></datalist>
                                     </div>
                                     <div class="col-md-4">
@@ -593,11 +594,27 @@
         $(document).ready(function() {
             const apiToken = localStorage.getItem('admin_token');
             let mode = 'add';
+            
+            // 🔥 NAYA: Mapping ke liye variable aur Event Listener
+            let branchMap = {}; 
+
+            $('#f_branch').on('input change', function() {
+                let val = $(this).val();
+                if (branchMap[val]) {
+                    $('#branch_id_hidden').val(branchMap[val]); // ID mil gayi, hidden me set kardo
+                    this.setCustomValidity(''); // Error clear
+                } else {
+                    $('#branch_id_hidden').val(''); 
+                    this.setCustomValidity('Please select a valid branch from the list');
+                }
+            });
 
             // 1. DataTables
             let table = $('#agentTable').DataTable({
+                processing: true,
+                serverSide: true,
                 ajax: {
-                    url: '/api/v1/admin/agents',
+                    url: '/api/v1/agents',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
                     }
@@ -637,40 +654,42 @@
                     <button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
                 </div>`
                     }
-                ]
+                ],
+                drawCallback: function(settings) {
+                    renderMobileCards(settings.json.data);
+                }
             });
 
-            // 2. Mobile Cards
-            function loadMobile() {
-                $.ajax({
-                    url: '/api/v1/admin/agents',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(res) {
-                        let html = '';
-                        res.data.forEach(d => {
-                            let st = d.agent_status === 'active' ?
-                                `<span class="badge bg-success">Active</span>` :
-                                `<span class="badge bg-danger">In-Active</span>`;
-                            html += `<div class="mobile-item">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div><h6 class="fw-bold text-dark mb-0">${d.full_name}</h6><span class="text-primary small fw-bold">${d.agent_id}</span></div>
-                            ${st}
-                        </div>
-                        <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.contact_no}</div>
-                        <div class="mt-2 pt-2 border-top d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
-                            <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>
-                            <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>
-                        </div>
-                    </div>`;
-                        });
-                        $('#mobileCardsContainer').html(html);
-                    }
-                });
+           // 2. Mobile Cards
+            function renderMobileCards(data) {
+                let html = '';
+                if(!data || data.length === 0) {
+                    html = '<div class="text-center p-3 text-muted border rounded bg-light">No agents found.</div>';
+                } else {
+                    data.forEach(d => {
+                        let st = d.agent_status === 'active' ?
+                            `<span class="badge bg-success">Active</span>` :
+                            `<span class="badge bg-danger">In-Active</span>`;
+                        let compName = d.branch && d.branch.company ? d.branch.company.company_name : 'Master Company';
+                        let branchName = d.branch ? d.branch.branch_name : 'N/A';
+
+                        html += `<div class="mobile-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div><h6 class="fw-bold text-dark mb-0">${d.full_name}</h6><span class="text-primary small fw-bold">${d.agent_id}</span></div>
+                                ${st}
+                            </div>
+                            <div class="small text-muted mb-1"><i class="fas fa-building text-info me-1"></i> ${compName} - ${branchName}</div>
+                            <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.contact_no}</div>
+                            <div class="mt-2 pt-2 border-top d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
+                                <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>
+                                <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                $('#mobileCardsContainer').html(html);
             }
-            loadMobile();
 
             $('#mobileSearch').on('keyup', function() {
                 let v = $(this).val().toLowerCase();
@@ -702,82 +721,99 @@
                 'nom_other_pdf'
             ];
 
-         window.openModal = function(type, id = null) {
-        mode = type;
-        $('#agentForm')[0].reset();
-        $('#modalTitle').text(type === 'add' ? 'Register Agent' : 'Edit Agent');
-        $('.nav-tabs button:first').tab('show'); 
-        $('#f_status').trigger('change');
-        
-        // Reset old previews
-        $('.file-preview-wrapper').hide().find('.preview-content').empty();
-        $('.password-div').toggle(type === 'edit');
+       window.openModal = function(type, id = null) {
+                mode = type;
+                $('#agentForm')[0].reset();
+                $('#branch_id_hidden').val(''); // Hidden input clear kiya
+                $('#modalTitle').text(type === 'add' ? 'Register Agent' : 'Edit Agent');
+                $('.nav-tabs button:first').tab('show'); 
+                $('#f_status').trigger('change');
+                
+                $('.file-preview-wrapper').hide().find('.preview-content').empty();
+                $('.password-div').toggle(type === 'edit');
 
-        // Document Fields Array
-        const docFields = [
-            'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'passport_photo', 
-            'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf',
-            'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 
-            'nom_passport_photo', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'
-        ];
+                // Document Fields Array (Aapka purana wala)
+                const docFields = [
+                    'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'passport_photo', 
+                    'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf',
+                    'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 
+                    'nom_passport_photo', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'
+                ];
 
-        $.ajax({
-            url: '/api/v1/admin/branches', headers: { 'Authorization': 'Bearer ' + apiToken },
-            success: function(res) {
-                let options = '<option value="">-- Select Branch --</option>';
-                res.data.forEach(b => options += `<option value="${b.id}">${b.branch_name} (${b.branch_id})</option>`);
-                $('#branchList').html(options);
-
-                if(type === 'edit') {
-                    $.get({
-                        url: `/api/v1/admin/agents/${id}`, headers: { 'Authorization': 'Bearer ' + apiToken },
-                        success: function(res) {
-                            let d = res.data;
-                            $('#edit_id').val(d.id);
+                $.ajax({
+                    url: '/api/v1/branches', headers: { 'Authorization': 'Bearer ' + apiToken },
+                    success: function(res) {
+                        let options = '';
+                        branchMap = {}; // Map reset karein
+                        
+                        res.data.forEach(b => {
+                            let compName = b.company ? b.company.company_name : 'Master Company';
+                            let displayText = `${compName} - ${b.branch_name} (${b.branch_id})`;
                             
-                            // Smart Populating Logic
-                            Object.keys(d).forEach(key => {
-                                let input = $(`#agentForm [name="${key}"]`);
-                                if(input.length && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
-                                    if (typeof d[key] === 'object' && d[key] !== null) return; // Ignore objects like branch relation
-                                    input.val(d[key]);
-                                }
-                            });
+                            options += `<option value="${displayText}">`; // Ab sirf text value me jayega
+                            branchMap[displayText] = b.id; // Text ko ID se map kiya
+                        });
+                        $('#branchList').html(options);
 
-                            // Radios handle karein
-                            if(d.gender) $(`input[name="gender"][value="${d.gender}"]`).prop('checked', true);
-                            if(d.marital_status) $(`input[name="marital_status"][value="${d.marital_status}"]`).prop('checked', true);
-
-                            // Status trigger for leave fields
-                            $('#f_status').trigger('change');
-
-                            // EXISTING FILES PREVIEW LOGIC
-                            docFields.forEach(field => {
-                                let filePath = d[field];
-                                let input = $(`#agentForm [name="${field}"]`);
-                                if(input.length && filePath) {
-                                    let wrapper = input.next('.file-preview-wrapper');
-                                    let content = wrapper.find('.preview-content');
-                                    let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
-                                    let ext = filePath.split('.').pop().toLowerCase();
-                                    let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
-
-                                    if(imageExts.includes(ext)) {
-                                        content.html(`<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`);
-                                    } else {
-                                        content.html(`<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`);
+                        if(type === 'edit') {
+                            $.get({
+                                url: `/api/v1/agents/${id}`, headers: { 'Authorization': 'Bearer ' + apiToken },
+                                success: function(res) {
+                                    let d = res.data;
+                                    $('#edit_id').val(d.id);
+                                    
+                                    // 🔥 Edit mode me branch set karne ka fix
+                                    if(d.branch) {
+                                        let compName = d.branch.company ? d.branch.company.company_name : 'Master Company';
+                                        let displayText = `${compName} - ${d.branch.branch_name} (${d.branch.branch_id})`;
+                                        $('#f_branch').val(displayText);
+                                        $('#branch_id_hidden').val(d.branch_id);
                                     }
-                                    wrapper.show();
+                                    
+                                    // Baaki fields populate
+                                    Object.keys(d).forEach(key => {
+                                        let input = $(`#agentForm [name="${key}"]`);
+                                        if(input.length && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
+                                            if (typeof d[key] === 'object' && d[key] !== null) return;
+                                            
+                                            // branch_id skip karein kyunki humne upar set kar diya
+                                            if(key !== 'branch_id') input.val(d[key]); 
+                                        }
+                                    });
+
+                                    if(d.gender) $(`input[name="gender"][value="${d.gender}"]`).prop('checked', true);
+                                    if(d.marital_status) $(`input[name="marital_status"][value="${d.marital_status}"]`).prop('checked', true);
+
+                                    $('#f_status').trigger('change');
+
+                                    // Preview Logic... (Aapka purana wala same rahega)
+                                    docFields.forEach(field => {
+                                        let filePath = d[field];
+                                        let input = $(`#agentForm [name="${field}"]`);
+                                        if(input.length && filePath) {
+                                            let wrapper = input.next('.file-preview-wrapper');
+                                            let content = wrapper.find('.preview-content');
+                                            let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
+                                            let ext = filePath.split('.').pop().toLowerCase();
+                                            let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
+
+                                            if(imageExts.includes(ext)) {
+                                                content.html(`<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`);
+                                            } else {
+                                                content.html(`<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`);
+                                            }
+                                            wrapper.show();
+                                        }
+                                    });
                                 }
                             });
                         }
-                    });
-                }
-            }
-        });
-        $('#agentModal').modal('show');
-    };
+                    }
+                });
+                $('#agentModal').modal('show');
+            };
 
+            
             $(document).on('click', '.edit-btn', function() {
                 openModal('edit', $(this).data('id'));
             });
@@ -787,7 +823,7 @@
                 e.preventDefault();
                 let formData = new FormData(this);
                 let id = $('#edit_id').val();
-                let url = mode === 'add' ? '/api/v1/admin/agents' : `/api/v1/admin/agents/${id}`;
+                let url = mode === 'add' ? '/api/v1/agents' : `/api/v1/agents/${id}`;
                 if (mode === 'edit') formData.append('_method', 'PUT');
 
                 let btn = $('#saveBtn');
@@ -817,18 +853,22 @@
                 });
             });
 
-            // 6. View & Delete
+            // View Logic (Show Company Name)
             $(document).on('click', '.view-btn', function() {
                 $.get({
-                    url: `/api/v1/admin/agents/${$(this).data('id')}`,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
+                    url: `/api/v1/agents/${$(this).data('id')}`,
+                    headers: { 'Authorization': 'Bearer ' + apiToken },
                     success: function(res) {
                         let d = res.data;
                         $('#v_agent_id').text(d.agent_id || 'N/A');
                         $('#v_password').text(d.password || 'N/A');
-                        $('#v_branch').text(d.branch ? d.branch.branch_name : 'N/A');
+                        
+                        let branchText = 'N/A';
+                        if(d.branch) {
+                            let compName = d.branch.company ? d.branch.company.company_name : 'Master Company';
+                            branchText = compName + ' - ' + d.branch.branch_name;
+                        }
+                        $('#v_branch').text(branchText);
                         $('#v_joining').text(d.joining_date || 'N/A');
 
                         if (d.agent_status === 'active') {
@@ -856,7 +896,7 @@
             $(document).on('click', '.delete-btn', function() {
                 if (confirm("Delete Agent?")) {
                     $.ajax({
-                        url: `/api/v1/admin/agents/${$(this).data('id')}`,
+                        url: `/api/v1/agents/${$(this).data('id')}`,
                         type: 'DELETE',
                         headers: {
                             'Authorization': 'Bearer ' + apiToken

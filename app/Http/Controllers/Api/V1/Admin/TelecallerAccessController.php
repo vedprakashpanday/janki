@@ -12,11 +12,29 @@ class TelecallerAccessController extends Controller
 {
     public function index()
     {
-        // 1. Jinhe access mil chuka hai unki list nikal lo
         $accessList = TelecallerAccess::pluck('staff_id')->toArray();
 
-        // 2. Saare Employees fetch karein
-        $employees = Employee::whereNotNull('member_id')->get()->map(function($e) use ($accessList) {
+        // ==========================================
+        // 🛡️ 1. DATA FILTER LOGIC
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        $empQuery = Employee::whereNotNull('member_id');
+        $memQuery = Member::whereNotNull('member_id');
+
+        if (!in_array($user->email, $developerEmails)) {
+            if ($user->hasRole(['CEO', 'Director'])) {
+                $empQuery->where('company_id', $user->company_id);
+                $memQuery->where('company_id', $user->company_id);
+            } else {
+                $empQuery->where('branch_id', $user->branch_id);
+                $memQuery->where('branch_id', $user->branch_id);
+            }
+        }
+        // ==========================================
+
+        $employees = $empQuery->get()->map(function($e) use ($accessList) {
             return [
                 'staff_id' => (string) $e->member_id,
                 'name' => $e->full_name,
@@ -25,8 +43,7 @@ class TelecallerAccessController extends Controller
             ];
         });
 
-        // 3. Saare Members fetch karein
-        $members = Member::whereNotNull('member_id')->get()->map(function($m) use ($accessList) {
+        $members = $memQuery->get()->map(function($m) use ($accessList) {
             return [
                 'staff_id' => (string) $m->member_id,
                 'name' => $m->member_name,
@@ -35,16 +52,37 @@ class TelecallerAccessController extends Controller
             ];
         });
 
-        // Combine karke unique list banayein
         $combinedStaff = $employees->concat($members)->unique('staff_id')->values();
 
         return response()->json(['status' => 'success', 'data' => $combinedStaff]);
     }
-
     public function toggleAccess(Request $request)
     {
-        $request->validate(['staff_id' => 'required']);
+       $request->validate(['staff_id' => 'required']);
         $staffId = $request->staff_id;
+
+        // ==========================================
+        // 🛡️ 2. SECURITY & OWNERSHIP CHECK
+        // ==========================================
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!in_array($user->email, $developerEmails)) {
+            // Find out if this staff_id is an Employee or Member to check their branch
+            $staff = Employee::where('member_id', $staffId)->first() ?? Member::where('member_id', $staffId)->first();
+            
+            if (!$staff) {
+                return response()->json(['status' => 'error', 'message' => 'Staff not found.'], 404);
+            }
+
+            if ($user->hasRole(['CEO', 'Director']) && $staff->company_id != $user->company_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! Staff belongs to another company.'], 403);
+            }
+            if (!$user->hasRole(['CEO', 'Director']) && $staff->branch_id != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! Staff belongs to another branch.'], 403);
+            }
+        }
+        // ==========================================
 
         $access = TelecallerAccess::where('staff_id', $staffId)->first();
 

@@ -5,14 +5,34 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+
 
 class BranchController extends Controller
 {
-    // 1. GET LIST
-    public function index()
+   public function index()
     {
-        // Company detail bhi sath me load karenge
-        $branches = Branch::with('company')->latest()->get();
+        $user = auth()->user();
+        
+        // Base query banayein (Abhi fetch nahi kiya hai)
+        $query = Branch::with('company')->latest();
+
+        // 🛡️ DATA FILTER LOGIC
+        // Agar user Developer, CEO, ya Director NAHI hai, tabhi filter lagega
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            // Employee ko sirf uski company ki branches dikhengi
+            $query->where('id', $user->branch_id);
+            
+            // Note: Agar aap chahte hain ki employee sirf apni khud ki 'ek' branch dekhe, 
+            // toh upar wali line hata kar ye likhein: $query->where('id', $user->branch_id);
+        }
+
+        // Ab filtered data fetch karein
+        $branches = $query->get();
+        
         return response()->json(['status' => 'success', 'data' => $branches]);
     }
 
@@ -75,6 +95,16 @@ class BranchController extends Controller
     {
         // with('company') add kiya taaki parent company ka data bhi aa jaye
         $branch = Branch::with('company')->find($id);
+
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($branch->company_id != $user->company_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope'], 403);
+            }
+        }
         
         if (!$branch) return response()->json(['status' => 'error', 'message' => 'Branch not found'], 404);
         return response()->json(['status' => 'success', 'data' => $branch]);
@@ -93,6 +123,16 @@ class BranchController extends Controller
         ]);
 
         $branch = Branch::findOrFail($id);
+
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($branch->company_id != $user->company_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope'], 403);
+            }
+        }
         
         // ID remains fixed, rest gets updated
         $branch->update([
@@ -113,6 +153,16 @@ class BranchController extends Controller
     public function destroy($id)
     {
         $branch = Branch::find($id);
+
+        // 🛡️ OWNERSHIP CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
+            if ($branch->company_id != $user->company_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope'], 403);
+            }
+        }
         if (!$branch) return response()->json(['status' => 'error', 'message' => 'Branch not found'], 404);
 
         $branch->delete();

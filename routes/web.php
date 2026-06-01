@@ -1,113 +1,153 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\User\DashboardController;
 use App\Http\Controllers\Admin\DebitVoucherWebController;
 use App\Http\Controllers\Admin\CompanyWebController;
+
 /*
 |--------------------------------------------------------------------------
-| Web Routes (User Interface)
+| Web Routes (User Interface / Blade Views)
 |--------------------------------------------------------------------------
 */
 
-// Agar koi direct base URL khele toh Admin Login par redirect ho
+// ==========================================
+// 1. PUBLIC ROUTES & REDIRECTS
+// ==========================================
 Route::get('/', function () {
-    // return view('coming_soon'); 
-    return view('welcome'); 
+    return view('coming_soon'); // Future mein 'welcome' kar dena
 });
 
-Route::get('/admin', function () {
-   return redirect('/admin/login'); 
+Route::get('/adm', function () {
+    return redirect('/admin/login');
 });
 
-// Admin Panel UI Routes Group
-Route::prefix('admin')->group(function () {
-    
-    // Login Page
+
+// ==========================================
+// 2. ADMIN PORTAL (Views)
+// ==========================================
+Route::prefix('admin')->name('admin.')->group(function () {
+
+    // Auth & Dashboard
     Route::get('/login', function () {
         return view('admin.auth.login');
-    })->name('admin.login.view');
-
-    // Dashboard Page
+    })->name('login');
     Route::get('/dashboard', function () {
         return view('admin.dashboard');
-    })->name('admin.dashboard.view');
+    })->name('dashboard');
 
-    // YAHAN ADD KIYA HAI: Branch Page (Browser yahan aayega HTML dekhne)
+    // System, Access & Roles
+    Route::get('/role-manager', function () {
+        return view('admin.role_manager.index');
+    })->name('roles');
+    Route::get('/module-master', function () {
+        return view('admin.modules.index');
+    })->name('modules');
+    Route::get('/action-master', function () {
+        return view('admin.actions.index');
+    })->name('actions');
+    Route::get('/give-access', function () {
+        return view('admin.give_access');
+    })->name('give_access');
+    Route::get('/panel-access', function () {
+        return view('admin.panel_access');
+    })->name('panel_access');
+
+    // Companies & Hierarchy
+    Route::get('/companies', [CompanyWebController::class, 'index'])->name('companies.index');
     Route::get('/branches', function () {
-        return view('admin.branch'); 
-    })->name('admin.branches.view');
+        return view('admin.branch');
+    })->name('branches');
+    Route::get('/departments', function () {
+        return view('admin.departments.index');
+    })->name('departments');
+    Route::get('/designations', function () {
+        return view('admin.desigantions');
+    })->name('designations');
 
-    Route::get('/employees', function () { return view('admin.employees'); });
-
-    Route::get('/designations', function () { return view('admin.desigantions'); });
-
+    // HR & Users
+    Route::get('/super-admins', function () {
+        return view('admin.super_admins');
+    })->name('super_admins.index');
+    Route::get('/directors', function () {
+        return view('admin.directors');
+    })->name('directors');
+    Route::get('/employees', function () {
+        return view('admin.employees');
+    })->name('employees');
     Route::get('/salaries', function () {
-    return view('admin.salaries');
-    });
+        return view('admin.salaries');
+    })->name('salaries');
 
+    // CRM, Network & Associates
     Route::get('/customers', function () {
-    return view('admin.customers');
-    });
-
+        return view('admin.customers');
+    })->name('customers');
+    Route::get('/interested-customers', function () {
+        return view('admin.interested_customers');
+    })->name('interested_customers');
     Route::get('/members', function () {
-    return view('admin.members');
+        return view('admin.members');
+    })->name('members');
+    Route::get('/member-designations', function () {
+        return view('admin.member_designations');
+    })->name('member_designations');
+    Route::get('/agents', function () {
+        return view('admin.agent');
+    })->name('agents');
+    Route::get('/landowners', function () {
+        return view('admin.landowners');
+    })->name('landowners');
+    Route::get('/vendors', function () {
+        return view('admin.vendors');
+    })->name('vendors');
+
+    // Finance & Ledgers
+    Route::get('/ledgers', function () {
+        return view('admin.ledgers');
+    })->name('ledgers');
+    Route::get('/debit_vouchers', [DebitVoucherWebController::class, 'index'])->name('debit_vouchers.index');
+    Route::get('/debit_vouchers/create', [DebitVoucherWebController::class, 'create'])->name('debit_vouchers.create');
+    Route::get('/debit_vouchers/print/{id}', [DebitVoucherWebController::class, 'print'])->name('debit_vouchers.print');
+
+    // Print & Utilities
+    Route::get('/letterheads', function () {
+        return view('admin.letterheads');
+    })->name('letterheads');
+    Route::get('/letterheads/print/{id}', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'printPreview'])->name('letterheads.print');
+
+    Route::get('/id-cards', function () {
+        return view('admin.id_cards');
+    })->name('id_cards');
+    Route::get('/id-cards/print/{type}/{id}', [\App\Http\Controllers\Api\V1\Admin\IdCardController::class, 'printPreview'])
+        ->where('id', '.*')->name('id_cards.print');
 });
 
-Route::get('/member-designations', function () {
-    return view('admin.member_designations');
-});
 
-Route::get('/agents', function () {
-    return view('admin.agent');
-});
+// ==========================================
+// 3. EMPLOYEE PORTAL (Views)
+// ==========================================
+Route::prefix('employee')->name('employee.')->group(function () {
 
-Route::get('/landowners', function () {
-    return view('admin.landowners');
-});
+    // Auth & Dashboard
+    Route::get('/login', function () {
+        return view('employee.login');
+    })->name('login');
+    Route::get('/dashboard', function () {
+        return view('employee.dashboard');
+    })->name('dashboard');
 
-Route::get('/vendors', function () {
-    return view('admin.vendors');
-});
-
-Route::get('/interested-customers', function () {
-    return view('admin.interested_customers');
-});
-
-Route::get('/give-access', function () {
-    return view('admin.give_access');
-});
-
-Route::get('/ledgers', function () {
-    return view('admin.ledgers');
-});
-
-Route::get('/letterheads', function () {
-    return view('admin.letterheads');
+    // Employee specific views aage yahan add honge, e.g.:
+    // Route::get('/my-attendance', function () { return view('employee.attendance'); })->name('attendance');
 });
 
 
-Route::get('/letterheads/print/{id}', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'printPreview']);
+// ==========================================
+// 4. CUSTOMER PORTAL (Views - Future setup)
+// ==========================================
+Route::prefix('customer')->name('customer.')->group(function () {
 
-Route::get('/id-cards', function () { return view('admin.id_cards'); });
-Route::get('/id-cards/print/{type}/{id}', [\App\Http\Controllers\Api\V1\Admin\IdCardController::class, 'printPreview'])
-    ->where('id', '.*');
-
-
-// List Page
-    Route::get('/debit_vouchers', [DebitVoucherWebController::class, 'index'])->name('admin.debit_vouchers.index');
-    // Create Form Page
-    Route::get('/debit_vouchers/create', [DebitVoucherWebController::class, 'create'])->name('admin.debit_vouchers.create');
-
-    Route::get('/debit_vouchers/print/{id}', [App\Http\Controllers\Admin\DebitVoucherWebController::class, 'print'])->name('admin.debit_vouchers.print');
+    // Auth & Dashboard
+    // Route::get('/login', function () { return view('customer.login'); })->name('login');
+    // Route::get('/dashboard', function () { return view('customer.dashboard'); })->name('dashboard');
 
 });
-
-Route::get('/admin/companies', [CompanyWebController::class, 'index'])->name('admin.companies.index');
-
-// Route::middleware(['auth'])->prefix('user')->name('user.')->group(function () {
-    Route::get('user/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    // Baki routes: profile, my-properties, etc.
-
-
-// });

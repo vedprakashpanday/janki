@@ -130,4 +130,36 @@ class AuthController extends Controller
 
         return response()->json(['status' => 'success', 'message' => 'Logged out from all']);
     }
+
+
+    public function me(Request $request)
+    {
+        $user = $request->user();
+        
+        // 1. Fetch company logo safely
+        $logoUrl = null;
+        if (method_exists($user, 'company') && $user->company) {
+            $logoName = $user->company->company_logo ?? $user->company->logo ?? null;
+            if ($logoName) {
+                $logoUrl = asset('uploads/' . $logoName);
+            }
+        }
+
+        // 2. Fetch permissions safely via Spatie
+        $permissions = [];
+        if (method_exists($user, 'getAllPermissions')) {
+            $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->employee_name ?? 'Admin',
+                'email' => $user->email,
+                'company_logo' => $logoUrl,
+                'permissions' => $permissions
+            ]
+        ]);
+    }
 }
