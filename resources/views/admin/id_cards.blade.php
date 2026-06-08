@@ -79,18 +79,20 @@ $(document).ready(function() {
 
     // Print logic (Opens in new tab exactly like your PHP flow)
    $('.print-btn').on('click', function() {
-    let type = $(this).data('type');
-    let id = $('#staff_input').val().trim();
-    
-    if(!id) {
-        alert('Please select a valid staff member first.');
-        return;
-    }
-    
-    // NAYA FIX: encodeURIComponent use kiya taaki slashes safe rahein 
-    let safeId = encodeURIComponent(id);
-    window.open(`/id-cards/print/${type}/${safeId}`, '_blank');
-});
+        let type = $(this).data('type');
+        let id = $('#staff_input').val().trim();
+        
+       
+        
+        
+        if(!id) {
+            alert('Please select a valid staff member first.');
+            return;
+        }
+        
+        // 🔥 NAYA: /admin/ lagaya gaya hai, aur ID ko ?member_id= karke bheja gaya hai 🔥
+        window.open(`/admin/id-cards/print/${type}?member_id=${encodeURIComponent(id)}`, '_blank');
+    });
 });
 </script>
 @endpush

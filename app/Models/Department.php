@@ -11,12 +11,12 @@ class Department extends Model
 
     protected $guarded = [];
 
-    // JSON column ko array mein cast karna zaroori hai
+    // JSON columns ko array mein cast karna zaroori hai
     protected $casts = [
         'company_ids' => 'array',
+        'branch_ids'  => 'array', // 🔥 NAYA ADD KIYA
     ];
 
-    // Ek department mein kai designations hongi
     public function designations()
     {
         return $this->hasMany(Designation::class, 'department_id');

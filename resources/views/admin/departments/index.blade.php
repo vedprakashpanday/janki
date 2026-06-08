@@ -35,10 +35,37 @@
             font-size: 11px;
         }
 
+        .status-pending {
+            background: #fef3c7;
+            color: #9a3412;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+        }
+
         .select2-container .select2-selection--multiple {
             border: 1px solid #0d6efd;
             min-height: 38px;
             border-radius: 0.375rem;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: var(--sidebar-bg);
+            color: white;
+            border: none;
+            padding: 2px 8px;
+            font-size: 12px;
+        }
+
+        /* 🔥 NAYA: Mobile Card Styles 🔥 */
+        .mobile-card {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 15px;
+            padding: 15px;
         }
     </style>
 
@@ -50,23 +77,10 @@
                 <p class="text-secondary small d-none d-md-block mb-0">Manage Departments and their hierarchical
                     Designations</p>
             </div>
-            <button class="btn text-white px-3 py-2 shadow-sm" style="background-color:var(--brand-primary);"
-                onclick="openAddModal()">
+            <button class="btn text-white px-3 py-2 shadow-sm" id="addDepartmentBtn"
+                style="background-color:var(--brand-primary); display:none;" onclick="openAddModal()">
                 <i class="fas fa-plus me-1"></i> <span class="d-none d-md-inline">Add Department</span>
             </button>
-        </div>
-
-        <div class="d-block d-md-none mb-3">
-            <div class="d-flex gap-2">
-                <div class="input-group shadow-sm">
-                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                    <input type="text" class="form-control border-start-0" id="mobileSearch"
-                        placeholder="Search departments...">
-                </div>
-                <button class="btn btn-success shadow-sm px-3" id="mobileExcelBtn" title="Download Excel">
-                    <i class="fas fa-file-excel"></i>
-                </button>
-            </div>
         </div>
 
         <div class="card border-0 shadow-sm mb-3" id="globalFilterCard">
@@ -81,6 +95,14 @@
             </div>
         </div>
 
+        <div class="d-block d-md-none mb-3">
+            <div class="input-group shadow-sm" style="border-radius: 8px; overflow: hidden;">
+                <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control border-start-0" id="mobileSearch"
+                    placeholder="Search departments...">
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm d-none d-md-block">
             <div class="card-body p-4">
                 <div class="table-responsive">
@@ -89,7 +111,7 @@
                             <tr>
                                 <th style="width: 50px;">ID</th>
                                 <th>Department Name</th>
-                                <th>Assigned To</th>
+                                <th>Assigned To (Company)</th>
                                 <th>Total Designations</th>
                                 <th>Status</th>
                                 <th class="text-center">Actions</th>
@@ -101,10 +123,9 @@
             </div>
         </div>
 
-        <div class="d-md-none" id="mobileCardsContainer">
-            <div class="text-center py-5" id="mobileLoader">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2 text-muted small">Loading departments...</p>
+        <div id="mobileCardsContainer" class="d-block d-md-none mb-4">
+            <div class="text-center text-muted my-4" id="cardsLoader">
+                <i class="fas fa-spinner fa-spin fs-2 mb-2"></i><br>Loading Departments...
             </div>
         </div>
 
@@ -125,45 +146,44 @@
                         <input type="hidden" id="form_method" value="POST">
 
                         <div class="row g-3 mb-4 border-bottom pb-4">
-                            <div class="col-md-12" id="modalCompanyContainer">
+                            <div class="col-md-6" id="modalCompanyContainer">
                                 <label class="form-label small fw-bold text-secondary">Assign to Company(s) <span
-                                        class="text-muted fw-normal">(Khali = All Companies)</span></label>
+                                        class="text-muted fw-normal">(Khali = All)</span></label>
                                 <select class="form-control" name="company_ids[]" id="m_company_ids" multiple
                                     style="width:100%;"></select>
                             </div>
-
+                            <div class="col-md-6" id="modalBranchContainer">
+                                <label class="form-label small fw-bold text-secondary">Assign to Branch(es) <span
+                                        class="text-muted fw-normal">(Khali = All)</span></label>
+                                <select class="form-control" name="branch_ids[]" id="m_branch_ids" multiple
+                                    style="width:100%;"></select>
+                            </div>
                             <div class="col-md-8">
                                 <label class="form-label small fw-bold text-secondary">Department Name <span
                                         class="text-danger">*</span></label>
                                 <input type="text" class="form-control border-primary" id="m_dept_name"
                                     name="department_name" placeholder="e.g. Information Technology" required>
                             </div>
-
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold text-secondary">Status</label>
                                 <select class="form-select" id="m_status" name="status">
                                     <option value="active">Active</option>
                                     <option value="inactive">Inactive</option>
+                                    <option value="pending">Pending</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="mb-2 d-flex justify-content-between align-items-center">
                             <h6 class="fw-bold text-primary mb-0"><i class="fas fa-user-tag me-1"></i> Include
-                                Designations</h6>
+                                Designations
+                            </h6>
                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="addDesignationRow()">
                                 <i class="fas fa-plus"></i> Add Row
                             </button>
                         </div>
-
                         <div class="bg-light p-3 rounded border">
-                            <div class="row g-2 mb-2 d-none d-md-flex">
-                                <div class="col-6"><label class="small fw-bold text-muted">Designation Name</label></div>
-                                <div class="col-5"><label class="small fw-bold text-muted">Short Code</label></div>
-                                <div class="col-1"></div>
-                            </div>
-                            <div id="designationRowsContainer">
-                            </div>
+                            <div id="designationRowsContainer"></div>
                         </div>
 
                         <button type="submit" class="btn text-white w-100 py-2 fw-medium mt-4 shadow-sm"
@@ -178,38 +198,122 @@
 @push('scripts')
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script>
         let table;
-        const apiToken = localStorage.getItem('admin_token');
+        let currentPortal = window.location.pathname.split('/')[1] || 'admin';
+        let currentUserData = null; // Hold User Context
+        let globalCompanyOptions = '<option value="all">-- Apply to All (Global) --</option>';
 
-        // 🔥 MOCK ROLES 🔥
-        const loggedInRole = 'super_admin';
-        const loggedInCompanyId = null;
+        function loadCompanies() {
+            $.ajax({
+                url: '/api/v1/get-active-companies',
+                type: 'GET',
+                success: function(res) {
+                    let filterOpts = '<option value="">-- All Companies --</option>';
+                    globalCompanyOptions = '<option value="all">-- Apply to All (Global) --</option>';
+                    if (res.data) {
+                        res.data.forEach(c => {
+                            let text = `${c.company_name} (${c.company_code || c.id})`;
+                            filterOpts += `<option value="${c.id}">${text}</option>`;
+                            globalCompanyOptions += `<option value="${c.id}">${text}</option>`;
+                        });
+                    }
+                    $('#filter_company').html(filterOpts);
+                    $('#m_company_ids').html(globalCompanyOptions);
+                }
+            });
+        }
 
-        // ==========================================
-        // GLOBAL FUNCTIONS (Window Context)
-        // ==========================================
+        function fetchAndLoadBranches(selectedCompanies, preSelectedBranches = []) {
+            let payload = selectedCompanies;
+            if (!payload || payload.length === 0 || payload.includes('all')) payload = ['all'];
+
+            $.ajax({
+                url: '/api/v1/get-branches-by-companies',
+                type: 'POST',
+                data: {
+                    company_ids: payload
+                },
+                success: function(res) {
+                    let options = '<option value="all">-- Apply to All (Global) --</option>';
+                    if (res.data) {
+                        res.data.forEach(b => {
+                            options +=
+                                `<option value="${b.id}">${b.branch_name} (${b.branch_id || b.id})</option>`;
+                        });
+                    }
+                    $('#m_branch_ids').html(options);
+                    if (preSelectedBranches.length > 0) $('#m_branch_ids').val(preSelectedBranches).trigger(
+                        'change.select2');
+                }
+            });
+        }
+
+        function applySmartRBACUI() {
+            let perms = window.userPerms || [];
+            let isGod = window.userGodMode || false;
+            let isDirector = currentUserData?.designation_name?.toLowerCase().includes('director');
+
+            let hasDirect = isGod || isDirector || perms.includes('department_add_direct');
+            let hasRequest = perms.includes('department_add_request');
+
+            let btn = $('#addDepartmentBtn');
+            if (hasDirect) {
+                btn.html('<i class="fas fa-plus me-1"></i> <span class="d-none d-md-inline">Add Department</span>').show();
+            } else if (hasRequest) {
+                btn.html(
+                    '<i class="fas fa-paper-plane me-1"></i> <span class="d-none d-md-inline">Request Department</span>'
+                    ).show();
+            } else {
+                btn.hide();
+            }
+        }
+
         window.openAddModal = function() {
             $('#deptForm')[0].reset();
             $('#edit_id').val('');
             $('#form_method').val('POST');
-            $('#m_company_ids').val(null).trigger('change');
             $('#designationRowsContainer').empty();
-
             addDesignationRow();
 
-            if (loggedInRole === 'director') {
-                $('#m_company_ids').val([loggedInCompanyId]).trigger('change');
-                $('#modalCompanyContainer').hide();
+            let perms = window.userPerms || [];
+            let isGod = window.userGodMode || false;
+            let isDirector = currentUserData?.designation_name?.toLowerCase().includes('director');
+            let hasDirect = isGod || isDirector || perms.includes('department_add_direct');
+
+            if (isGod) {
+                $('#m_company_ids').html(globalCompanyOptions).prop('disabled', false).val(null).trigger(
+                    'change.select2');
+                $('#m_branch_ids').prop('disabled', false).html(
+                    '<option value="all">-- Apply to All (Global) --</option>').val(null).trigger('change.select2');
+            } else if (currentUserData) {
+                let compHtml =
+                    `<option value="${currentUserData.company_id}" selected>${currentUserData.company_name || 'My Company'}</option>`;
+                $('#m_company_ids').html(compHtml).prop('disabled', true);
+
+                if (isDirector) {
+                    $('#m_branch_ids').prop('disabled', false);
+                    fetchAndLoadBranches([String(currentUserData.company_id)]);
+                } else {
+                    let branchName = currentUserData.branch_name || `Branch #${currentUserData.branch_id}`;
+                    $('#m_branch_ids').html(
+                        `<option value="${currentUserData.branch_id}" selected>${branchName}</option>`).prop(
+                        'disabled', true);
+                }
             }
 
-            $('#modalTitle').html('<i class="fas fa-sitemap me-2 text-primary"></i> Add Department');
+            if (!hasDirect) {
+                $('#m_status').html('<option value="pending" selected>Pending</option>').prop('disabled', true);
+                $('#modalTitle').html('<i class="fas fa-paper-plane me-2 text-warning"></i> Request Department');
+            } else {
+                $('#m_status').html('<option value="active">Active</option><option value="inactive">Inactive</option>')
+                    .prop('disabled', false);
+                $('#modalTitle').html('<i class="fas fa-sitemap me-2 text-primary"></i> Add Department');
+            }
+
             $('#deptModal').modal('show');
         };
 
@@ -217,77 +321,97 @@
             let rowHtml = `
                 <div class="row g-2 mb-2 desig-row align-items-center">
                     <input type="hidden" class="d-id" value="${id}">
-                    <div class="col-12 col-md-6 mb-2 mb-md-0">
-                        <input type="text" class="form-control d-name" placeholder="e.g. Project Manager" value="${name}" required>
-                    </div>
-                    <div class="col-10 col-md-5">
-                        <input type="text" class="form-control text-uppercase d-code" placeholder="e.g. PM" maxlength="10" value="${code}" required>
-                    </div>
-                    <div class="col-2 col-md-1 text-end">
-                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="$(this).closest('.desig-row').remove()"><i class="fas fa-trash"></i></button>
-                    </div>
-                </div>
-            `;
+                    <div class="col-12 col-md-6 mb-2 mb-md-0"><input type="text" class="form-control d-name" placeholder="e.g. Manager" value="${name}" required></div>
+                    <div class="col-10 col-md-5"><input type="text" class="form-control text-uppercase d-code" placeholder="e.g. MGR" value="${code}" required></div>
+                    <div class="col-2 col-md-1 text-end"><button type="button" class="btn btn-danger btn-sm w-100" onclick="$(this).closest('.desig-row').remove()"><i class="fas fa-trash"></i></button></div>
+                </div>`;
             $('#designationRowsContainer').append(rowHtml);
         };
 
         $(document).ready(function() {
-            if (!apiToken) window.location.href = '/admin/login';
+            loadCompanies();
+
+            $.ajax({
+                url: `/api/v1/${currentPortal}/auth/me`,
+                type: 'GET',
+                success: function(res) {
+                    currentUserData = res.data;
+                    applySmartRBACUI();
+                }
+            });
 
             $('#m_company_ids').select2({
                 dropdownParent: $('#deptModal'),
                 placeholder: '-- Select Companies --',
                 allowClear: true
             });
+            $('#m_branch_ids').select2({
+                dropdownParent: $('#deptModal'),
+                placeholder: '-- Select Branches --',
+                allowClear: true
+            });
 
-            function loadCompanies() {
-                $.ajax({
-                    url: '/api/v1/admin/get-active-companies',
-                    type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(res) {
-                        let filterOpts = '<option value="">-- All Companies --</option>';
-                        let multiOpts = '<option value="all">-- Apply to All (Global) --</option>';
-                        if (res.data) {
-                            res.data.forEach(c => {
-                                let text = `${c.company_name} (${c.company_code})`;
-                                filterOpts += `<option value="${c.id}">${text}</option>`;
-                                multiOpts += `<option value="${c.id}">${text}</option>`;
-                            });
-                        }
-                        $('#filter_company').html(filterOpts);
-                        $('#m_company_ids').html(multiOpts);
+            $('#m_company_ids').on('change', function() {
+                let selectedComps = $(this).val();
+                fetchAndLoadBranches(selectedComps);
+            });
 
-                        if (loggedInRole === 'director') {
-                            $('#filter_company').val(loggedInCompanyId);
-                            $('#globalFilterCard').hide();
-                        }
-                    }
+            // 🔥 NAYA: Mobile Card Logic 🔥
+            function renderMobileCards(dataset) {
+                $('#cardsLoader').hide();
+                let gridHtml = '';
+
+                if (!dataset || dataset.length === 0) {
+                    gridHtml =
+                        '<div class="text-center p-4 bg-white rounded shadow-sm text-muted small">No departments found.</div>';
+                    $('#mobileCardsContainer').html(gridHtml);
+                    return;
+                }
+
+                dataset.forEach(item => {
+                    let stBadge = '';
+                    if (item.status === 'pending') stBadge = '<span class="status-pending">Pending</span>';
+                    else if (item.status === 'active') stBadge =
+                    '<span class="status-active">Active</span>';
+                    else stBadge = '<span class="status-inactive">Inactive</span>';
+
+                    let cName = item.company_name || 'Master HO';
+
+                    gridHtml += `
+                    <div class="mobile-card">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="fw-bold text-primary mb-1"><i class="fas fa-sitemap me-1 text-muted"></i> ${item.department_name}</h6>
+                                <div class="small text-secondary"><i class="fas fa-building me-1"></i>${cName}</div>
+                            </div>
+                            <div class="text-end text-nowrap">
+                                <div class="small text-muted fw-bold mb-1">ID: ${item.id}</div>
+                                ${stBadge}
+                            </div>
+                        </div>
+                        <div class="mt-2 mb-3">
+                            <span class="badge bg-secondary"><i class="fas fa-user-tag me-1"></i>${item.designation_count || 0} Designations</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top gap-2 mt-3">
+                            <button class="btn btn-sm btn-light border text-primary flex-fill fw-medium edit-btn secured-item" data-permission="department_edit" data-id="${item.id}"><i class="fas fa-edit me-1"></i> Edit</button>
+                            <button class="btn btn-sm btn-light border text-danger flex-fill fw-medium delete-btn secured-item" data-permission="department_delete" data-id="${item.id}"><i class="fas fa-trash-alt me-1"></i> Delete</button>
+                        </div>
+                    </div>`;
                 });
-            }
-            loadCompanies();
 
-            // ==========================================
-            // DATATABLE INIT & DOM SETTINGS
-            // ==========================================
+                $('#mobileCardsContainer').html(gridHtml);
+            }
+
             table = $('#deptTable').DataTable({
                 dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
-                buttons: [{
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-3'
-                }],
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: '/api/v1/admin/departments',
+                    url: '/api/v1/departments',
                     type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    dataSrc: 'data'
+                    data: function(d) {
+                        d.company_id = $('#filter_company').val();
+                    }
                 },
                 columns: [{
                         data: 'id',
@@ -308,98 +432,58 @@
                     },
                     {
                         data: 'status',
-                        render: s => s === 'active' ? `<span class="status-active">Active</span>` :
-                            `<span class="status-inactive">Inactive</span>`
+                        render: s => {
+                            if (s === 'pending')
+                            return `<span class="status-pending">Pending</span>`;
+                            return s === 'active' ? `<span class="status-active">Active</span>` :
+                                `<span class="status-inactive">Inactive</span>`;
+                        }
                     },
                     {
                         data: 'id',
                         className: 'text-center text-nowrap',
                         orderable: false,
                         render: d => `
-                        <button class="btn btn-sm btn-light border text-primary shadow-sm edit-btn me-1" data-id="${d}"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-light border text-danger shadow-sm delete-btn" data-id="${d}"><i class="fas fa-trash"></i></button>
-                    `
+                        <div class="d-flex justify-content-center gap-1">
+                            <button class="btn btn-sm btn-light border text-primary shadow-sm edit-btn secured-item" data-permission="department_edit" data-id="${d}"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-light border text-danger shadow-sm delete-btn secured-item" data-permission="department_delete" data-id="${d}"><i class="fas fa-trash"></i></button>
+                        </div>`
                     }
                 ],
+                // 🔥 FIX: drawCallback me ab Mobile Cards render honge 🔥
                 drawCallback: function(settings) {
-                    // Mobile Cards Render
-                    renderMobileCards(settings.json?.data || this.api().data().toArray());
+                    if (settings.json && settings.json.data) {
+                        renderMobileCards(settings.json.data);
+                    } else {
+                        renderMobileCards(this.api().data().toArray());
+                    }
+
+                    if (typeof window.applyPermissions === 'function') window.applyPermissions();
                 }
             });
 
-            // 🔥 MOBILE SEARCH & EXCEL BINDING 🔥
+            // Mobile Search Binding
             $('#mobileSearch').on('keyup', function() {
                 table.search(this.value).draw();
             });
 
-            $('#mobileExcelBtn').on('click', function() {
-                $('.buttons-excel').click();
-            });
-
-            // 🔥 RENDER MOBILE CARDS LOGIC 🔥
-            function renderMobileCards(data) {
-                $('#mobileLoader').hide();
-                let html = '';
-                if (!data || data.length === 0) {
-                    html =
-                        '<div class="text-center p-4 bg-white rounded shadow-sm text-muted">No departments found.</div>';
-                } else {
-                    data.forEach(d => {
-                        let statusBadge = d.status === 'active' ?
-                            '<span class="badge bg-success-subtle text-success">Active</span>' :
-                            '<span class="badge bg-danger-subtle text-danger">Inactive</span>';
-
-                        html += `
-                        <div class="card border-0 shadow-sm mb-3">
-                            <div class="card-body p-3">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <h6 class="fw-bold mb-1 text-primary">${d.department_name}</h6>
-                                        <small class="text-muted d-block"><i class="fas fa-building me-1"></i> ${d.company_name}</small>
-                                        <span class="badge bg-secondary mt-2">${d.designation_count} Designations</span>
-                                    </div>
-                                    <div class="text-end">
-                                        ${statusBadge}
-                                    </div>
-                                </div>
-                                <div class="d-flex justify-content-end align-items-center pt-2 border-top gap-1 mt-3">
-                                    <button class="btn btn-sm btn-light border text-primary edit-btn flex-fill" data-id="${d.id}"><i class="fas fa-edit me-1"></i> Edit</button>
-                                    <button class="btn btn-sm btn-light border text-danger delete-btn flex-fill" data-id="${d.id}"><i class="fas fa-trash-alt me-1"></i> Delete</button>
-                                </div>
-                            </div>
-                        </div>`;
-                    });
-                }
-                $('#mobileCardsContainer').html(html);
-            }
-
-            // FILTER
             $('#filter_company').change(function() {
-                // Future Implementation: Add parameter to API call
+                table.ajax.reload();
             });
 
-            // FORM SUBMIT
             $('#deptForm').submit(function(e) {
                 e.preventDefault();
-
                 let designationsList = [];
                 $('.desig-row').each(function() {
-                    let dName = $(this).find('.d-name').val().trim();
-                    let dCode = $(this).find('.d-code').val().trim();
-                    let dId = $(this).find('.d-id').val();
-                    if (dName !== '' && dCode !== '') {
-                        designationsList.push({
-                            id: dId,
-                            name: dName,
-                            code: dCode
-                        });
-                    }
+                    let dName = $(this).find('.d-name').val().trim(),
+                        dCode = $(this).find('.d-code').val().trim(),
+                        dId = $(this).find('.d-id').val();
+                    if (dName && dCode) designationsList.push({
+                        id: dId,
+                        name: dName,
+                        code: dCode
+                    });
                 });
-
-                if (designationsList.length === 0) {
-                    Swal.fire('Warning', 'Please add at least one designation!', 'warning');
-                    return;
-                }
 
                 let formData = $(this).serializeArray();
                 formData.push({
@@ -407,19 +491,9 @@
                     value: JSON.stringify(designationsList)
                 });
 
-                if (loggedInRole === 'director') {
-                    formData = formData.filter(f => f.name !== 'company_ids[]');
-                    formData.push({
-                        name: 'company_ids[]',
-                        value: loggedInCompanyId
-                    });
-                }
-
-                let id = $('#edit_id').val();
-                let method = $('#form_method').val();
-                let url = method === 'PUT' ? `/api/v1/admin/departments/${id}` :
-                '/api/v1/admin/departments';
-
+                let id = $('#edit_id').val(),
+                    method = $('#form_method').val();
+                let url = method === 'PUT' ? `/api/v1/departments/${id}` : '/api/v1/departments';
                 if (method === 'PUT') formData.push({
                     name: '_method',
                     value: 'PUT'
@@ -432,9 +506,6 @@
                     url: url,
                     type: 'POST',
                     data: formData,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     success: function(res) {
                         $('#deptModal').modal('hide');
                         Swal.fire('Success', res.message, 'success');
@@ -450,25 +521,61 @@
                 });
             });
 
-            // EDIT DATA LOAD
             $(document).on('click', '.edit-btn', function() {
                 let id = $(this).data('id');
                 $.ajax({
-                    url: `/api/v1/admin/departments/${id}`,
+                    url: `/api/v1/departments/${id}`,
                     type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     success: function(res) {
                         let d = res.data;
                         $('#edit_id').val(d.id);
                         $('#form_method').val('PUT');
                         $('#m_dept_name').val(d.department_name);
-                        $('#m_status').val(d.status);
+
+                        let perms = window.userPerms || [];
+                        let isGod = window.userGodMode || false;
+                        let isDirector = currentUserData?.designation_name?.toLowerCase()
+                            .includes('director');
+                        let hasDirect = isGod || isDirector || perms.includes(
+                            'department_add_direct');
+
+                        if (!hasDirect) {
+                            $('#m_status').html(
+                                '<option value="pending" selected>Pending</option>').prop(
+                                'disabled', true);
+                        } else {
+                            $('#m_status').html(
+                                '<option value="active">Active</option><option value="inactive">Inactive</option><option value="pending">Pending</option>'
+                                ).val(d.status).prop('disabled', false);
+                        }
 
                         let cIds = (d.company_ids && d.company_ids.length > 0) ? d.company_ids
                             .map(String) : [];
-                        $('#m_company_ids').val(cIds).trigger('change');
+                        let bIds = (d.branch_ids && d.branch_ids.length > 0) ? d.branch_ids.map(
+                            String) : [];
+
+                        if (isGod) {
+                            $('#m_company_ids').html(globalCompanyOptions).prop('disabled',
+                                false).val(cIds).trigger('change.select2');
+                            $('#m_branch_ids').prop('disabled', false);
+                            fetchAndLoadBranches(cIds, bIds);
+                        } else {
+                            let compHtml =
+                                `<option value="${currentUserData.company_id}" selected>${currentUserData.company_name || 'My Company'}</option>`;
+                            $('#m_company_ids').html(compHtml).prop('disabled', true);
+
+                            if (isDirector) {
+                                $('#m_branch_ids').prop('disabled', false);
+                                fetchAndLoadBranches([String(currentUserData.company_id)],
+                                bIds);
+                            } else {
+                                let branchName = currentUserData.branch_name ||
+                                    `Branch #${currentUserData.branch_id}`;
+                                $('#m_branch_ids').html(
+                                    `<option value="${currentUserData.branch_id}" selected>${branchName}</option>`
+                                    ).prop('disabled', true);
+                            }
+                        }
 
                         $('#designationRowsContainer').empty();
                         if (d.designations && d.designations.length > 0) {
@@ -487,12 +594,11 @@
                 });
             });
 
-            // DELETE
             $(document).on('click', '.delete-btn', function() {
                 let id = $(this).data('id');
                 Swal.fire({
                     title: 'Delete Department?',
-                    text: 'This will also delete ALL associated Designations!',
+                    text: 'This will delete ALL associated Designations!',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
@@ -500,11 +606,8 @@
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: `/api/v1/admin/departments/${id}`,
+                            url: `/api/v1/departments/${id}`,
                             type: 'DELETE',
-                            headers: {
-                                'Authorization': 'Bearer ' + apiToken
-                            },
                             success: function(res) {
                                 Swal.fire('Deleted!', res.message, 'success');
                                 table.ajax.reload(null, false);

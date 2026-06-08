@@ -44,7 +44,11 @@ public function companies()
                 ->withTimestamps();
 }
     
-
+// Tasks jo is Employee ne doosro ko diye
+    public function tasksAssigned()
+    {
+        return $this->morphMany(Task::class, 'assigner');
+    }
 
 
 }

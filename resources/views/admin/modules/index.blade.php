@@ -86,7 +86,8 @@
                 </p>
             </div>
 
-            <button class="btn text-white px-4 py-2 shadow-sm d-none" id="addModuleBtn" onclick="openAddModal()"
+            <button class="btn text-white px-4 py-2 shadow-sm secured-item" data-permission="module_master_add"
+                onclick="openAddModal()"
                 style="background-color:var(--brand-primary); font-weight: 500; border-radius: 8px;">
                 <i class="fas fa-plus me-1"></i> Add Module
             </button>
@@ -182,11 +183,20 @@
                             </div>
                         </div>
 
+                       
+
                         <div class="mb-4">
                             <label class="form-label small fw-bold text-secondary">Permission Base Code <small
                                     class="text-muted">(Triggers Auto-Actions)</small></label>
                             <input type="text" class="form-control" name="permission_base" id="m_permission_base"
                                 placeholder="e.g., voucher">
+                        </div>
+
+                        <div class="mb-4" id="actionSelectionContainer" style="display: none;">
+                            <label class="form-label small fw-bold text-secondary">Select Actions for Permissions <span class="text-danger">*</span></label>
+                            <div class="p-3 bg-light border rounded d-flex flex-wrap gap-3" id="dynamicActionsBox">
+                                <div class="text-muted small"><i class="fas fa-spinner fa-spin"></i> Loading actions...</div>
+                            </div>
                         </div>
 
                         <button type="submit" class="btn text-white w-100 py-2 fw-semibold shadow-sm"
@@ -257,7 +267,6 @@
 
     <script>
         let table;
-        const apiToken = localStorage.getItem('admin_token');
         let localModuleCache = []; // Client side memory cache for direct lookup view rendering
 
         window.openAddModal = function() {
@@ -267,147 +276,155 @@
             loadParents();
             $('#modalTitle').html('<i class="fas fa-plus-circle text-primary me-2"></i>Add Module Ecosystem');
             $('#moduleModal').modal('show');
+            $('input[name="selected_actions[]"]').prop('checked', false);
         };
 
-        function loadParents() {
+      function loadParents() {
             $.ajax({
-                url: '/api/v1/admin/modules/parents',
+                url: '/api/v1/modules/parents', // 🔥 FIX: Yahan se /admin hata diya hai
                 type: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + apiToken
-                },
+                // headers: {
+                //     'Authorization': 'Bearer ' + apiToken
+                // },
                 success: function(res) {
                     let opts = '<option value="">-- Main Menu (Root Level) --</option>';
                     res.data.forEach(p => {
                         opts += `<option value="${p.id}">${p.module_name}</option>`;
                     });
                     $('#m_parent_id').html(opts);
+                },
+                error: function(err) {
+                    console.error("Failed to load parents: ", err);
                 }
             });
         }
 
         $(document).ready(function() {
-            if (!apiToken) {
-                window.location.href = '/admin/login';
-                return;
-            }
 
-            // 1. VERIFY PROFILE SECURITY CREDENTIALS FIRST
+            // 🔥 NAYA: Load System Actions in Modal 🔥
             $.ajax({
-                url: '/api/v1/admin/auth/me',
+                url: '/api/v1/system-actions', 
                 type: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + apiToken
-                },
+                // headers: { 'Authorization': 'Bearer ' + apiToken },
                 success: function(res) {
-                    let u = res.data;
-                    let emailStr = u.email ? u.email.toLowerCase() : '';
-                    let isMasterAdmin = (emailStr === 'admin@jankivilla.com');
-                    let allowedTokens = u.permissions || [];
-
-                    let canAdd = isMasterAdmin || allowedTokens.includes('module_master_add');
-                    let canEdit = isMasterAdmin || allowedTokens.includes('module_master_edit');
-                    let canDel = isMasterAdmin || allowedTokens.includes('module_master_delete');
-
-                    if (canAdd) $('#addModuleBtn').removeClass('d-none');
-
-                    // 2. RUN FULL ENGINE INITIALIZATION
-                    table = $('#moduleTable').DataTable({
-                        dom: '<"row d-none d-md-flex mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row d-none d-md-flex mt-3"<"col-md-6"i><"col-md-6"p>>',
-                        buttons: [{
-                            extend: 'excelHtml5',
-                            text: '<i class="fas fa-file-excel me-1"></i> Download Master Sheet',
-                            className: 'btn btn-success btn-sm font-weight-bold px-3'
-                        }],
-                        ajax: {
-                            url: '/api/v1/admin/modules',
-                            type: 'GET',
-                            headers: {
-                                'Authorization': 'Bearer ' + apiToken
-                            },
-                            dataSrc: function(json) {
-                                localModuleCache = json.data; // Sync to client cache memory
-                                return json.data;
-                            }
-                        },
-                        columns: [{
-                                data: 'sequence',
-                                className: 'text-center fw-bold text-dark'
-                            },
-                            {
-                                data: 'icon',
-                                render: d => d ? `<i class="${d} text-primary fs-5"></i>` :
-                                    '-'
-                            },
-                            {
-                                data: 'module_name',
-                                render: (d, t, row) => row.parent_id ?
-                                    `<span class="ms-3 text-secondary">-- ${d}</span>` :
-                                    `<span class="fw-bold text-dark">${d}</span>`
-                            },
-                            {
-                                data: 'parent_id',
-                                render: d => d ?
-                                    '<span class="badge bg-light text-dark border">Child Sub</span>' :
-                                    '<span class="badge bg-secondary">Root Parent</span>'
-                            },
-                            {
-                                data: 'route',
-                                render: d => d ?
-                                    `<code class="text-dark small">${d}</code>` : '-'
-                            },
-                            {
-                                data: 'permission_base',
-                                render: d => d ?
-                                    `<span class="badge bg-success-subtle text-success">${d}_*</span>` :
-                                    '-'
-                            },
-                            {
-                                data: 'status',
-                                render: s => s === 'active' ?
-                                    `<span class="status-active">Active</span>` :
-                                    `<span class="status-inactive">Inactive</span>`
-                            },
-                            {
-                                data: 'id',
-                                className: 'text-center text-nowrap',
-                                render: function(id) {
-                                    let uiActions =
-                                        `<button class="btn btn-sm btn-light border text-info view-btn me-1" data-id="${id}"><i class="fas fa-eye"></i></button>`;
-                                    if (canEdit) uiActions +=
-                                        `<button class="btn btn-sm btn-light border text-primary edit-btn me-1" data-id="${id}"><i class="fas fa-edit"></i></button>`;
-                                    if (canDel) uiActions +=
-                                        `<button class="btn btn-sm btn-light border text-danger delete-btn" data-id="${id}"><i class="fas fa-trash-alt"></i></button>`;
-                                    return uiActions;
-                                }
-                            }
-                        ],
-                        order: [
-                            [0, 'asc']
-                        ],
-                        pageLength: 50,
-                        drawCallback: function() {
-                            // Sync raw structural datasets to mobile template builder natively
-                            renderMobileCardGrid(this.api().rows({
-                                search: 'applied'
-                            }).data().toArray(), canEdit, canDel);
+                    let html = '';
+                    res.data.forEach(act => {
+                        if (act.status === 'active') {
+                            html += `
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selected_actions[]" value="${act.action_slug}" id="act_${act.id}">
+                                <label class="form-check-label small fw-bold text-secondary" for="act_${act.id}">
+                                    ${act.action_name}
+                                </label>
+                            </div>`;
                         }
                     });
-
-                    // 🔥 3. BIND SEPARATE MOBILE ACTIONS TIERS 🔥
-                    $('#mobileSearch').on('keyup', function() {
-                        table.search(this.value).draw();
-                    });
-
-                    $('#mobileExcelBtn').on('click', function() {
-                        table.button('.buttons-excel')
-                    .trigger(); // Trigger desktop instance pipeline safely
-                    });
+                    $('#dynamicActionsBox').html(html || '<span class="text-danger small">No active actions found.</span>');
                 }
             });
 
-            // 🔥 MOBILE CARD VIEW LIVE BUILDER ENGINE 🔥
-            function renderMobileCardGrid(dataset, canEdit, canDel) {
+            // Show/Hide Checkboxes based on Permission Base input
+            $('#m_permission_base').on('input', function() {
+                if ($(this).val().trim() !== '') {
+                    $('#actionSelectionContainer').slideDown();
+                } else {
+                    $('#actionSelectionContainer').slideUp();
+                    $('input[name="selected_actions[]"]').prop('checked', false); // uncheck all if hidden
+                }
+            });
+
+            // 1. RUN FULL ENGINE INITIALIZATION
+            table = $('#moduleTable').DataTable({
+                dom: '<"row d-none d-md-flex mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row d-none d-md-flex mt-3"<"col-md-6"i><"col-md-6"p>>',
+                buttons: [{
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel me-1"></i> Download Master Sheet',
+                    className: 'btn btn-success btn-sm font-weight-bold px-3'
+                }],
+                ajax: {
+                    url: '/api/v1/modules', // API Cleaned
+                    type: 'GET',
+                    dataSrc: function(json) {
+                        localModuleCache = json.data; // Sync to client cache memory
+                        return json.data;
+                    }
+                },
+                columns: [{
+                        data: 'sequence',
+                        className: 'text-center fw-bold text-dark'
+                    },
+                    {
+                        data: 'icon',
+                        render: d => d ? `<i class="${d} text-primary fs-5"></i>` : '-'
+                    },
+                   {
+                                data: 'module_name',
+                                render: (d, t, row) => `<span class="fw-bold text-dark">${row.display_name}</span>`
+                            },
+                            {
+                                data: 'parent_id',
+                                render: (d, t, row) => {
+                                    if (row.depth === 0) return '<span class="badge bg-dark">Main Menu</span>';
+                                    if (row.depth === 1) return '<span class="badge bg-secondary">Sub Menu</span>';
+                                    return `<span class="badge bg-light text-dark border">Sub-Level ${row.depth}</span>`;
+                                }
+                            },
+                    {
+                        data: 'route',
+                        render: d => d ?
+                            `<code class="text-dark small">${d}</code>` : '-'
+                    },
+                    {
+                        data: 'permission_base',
+                        render: d => d ?
+                            `<span class="badge bg-success-subtle text-success">${d}_*</span>` : '-'
+                    },
+                    {
+                        data: 'status',
+                        render: s => s === 'active' ?
+                            `<span class="status-active">Active</span>` :
+                            `<span class="status-inactive">Inactive</span>`
+                    },
+                    {
+                        data: 'id',
+                        className: 'text-center text-nowrap',
+                        render: function(id) {
+                            let uiActions =
+                                `<button class="btn btn-sm btn-light border text-info view-btn me-1" data-id="${id}"><i class="fas fa-eye"></i></button>`;
+                            // 🛡️ SECURED: Edit and Delete buttons
+                            uiActions +=
+                                `<button class="btn btn-sm btn-light border text-primary edit-btn me-1 secured-item" data-permission="module_master_edit" data-id="${id}"><i class="fas fa-edit"></i></button>`;
+                            uiActions +=
+                                `<button class="btn btn-sm btn-light border text-danger delete-btn secured-item" data-permission="module_master_delete" data-id="${id}"><i class="fas fa-trash-alt"></i></button>`;
+                            return uiActions;
+                        }
+                    }
+                ],
+                order: [
+                    [0, 'asc']
+                ],
+                pageLength: 50,
+                drawCallback: function() {
+                    // Sync raw structural datasets to mobile template builder natively
+                    renderMobileCardGrid(this.api().rows({
+                        search: 'applied'
+                    }).data().toArray());
+                    // 🛡️ Ensure permissions are applied after draw
+                    if (typeof window.applyPermissions === 'function') window.applyPermissions();
+                }
+            });
+
+            // 🛡️ 2. BIND SEPARATE MOBILE ACTIONS TIERS 🛡️
+            $('#mobileSearch').on('keyup', function() {
+                table.search(this.value).draw();
+            });
+
+            $('#mobileExcelBtn').on('click', function() {
+                table.button('.buttons-excel').trigger(); // Trigger desktop instance pipeline safely
+            });
+
+            // 🛡️ MOBILE CARD VIEW LIVE BUILDER ENGINE 🛡️
+            function renderMobileCardGrid(dataset) {
                 $('#mobileLoader').hide();
                 let gridHtml = '';
 
@@ -425,12 +442,11 @@
                         '<span class="badge bg-light text-dark border ms-2">Child Menu</span>' :
                         '<span class="badge bg-dark ms-2">Main Menu</span>';
 
-                    let editMarkup = canEdit ?
-                        `<button class="btn btn-sm btn-light border text-primary edit-btn flex-fill" data-id="${item.id}"><i class="fas fa-edit me-1"></i> Edit</button>` :
-                        '';
-                    let delMarkup = canDel ?
-                        `<button class="btn btn-sm btn-light border text-danger delete-btn" data-id="${item.id}"><i class="fas fa-trash-alt"></i></button>` :
-                        '';
+                    // 🛡️ SECURED: Edit and Delete Buttons for Mobile
+                    let editMarkup =
+                        `<button class="btn btn-sm btn-light border text-primary edit-btn flex-fill me-2 secured-item" data-permission="module_master_edit" data-id="${item.id}"><i class="fas fa-edit me-1"></i> Edit</button>`;
+                    let delMarkup =
+                        `<button class="btn btn-sm btn-light border text-danger delete-btn flex-fill secured-item" data-permission="module_master_delete" data-id="${item.id}"><i class="fas fa-trash-alt me-1"></i> Delete</button>`;
 
                     gridHtml += `
                     <div class="mobile-card p-3">
@@ -445,8 +461,8 @@
                                 ${stBadge}
                             </div>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center pt-2 border-top gap-2 mt-3">
-                            <button class="btn btn-sm btn-light border text-info view-btn flex-fill" data-id="${item.id}"><i class="fas fa-eye me-1"></i> Inspect</button>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top gap-1 mt-3">
+                            <button class="btn btn-sm btn-light border text-info view-btn flex-fill me-2" data-id="${item.id}"><i class="fas fa-eye me-1"></i> Inspect</button>
                             ${editMarkup}
                             ${delMarkup}
                         </div>
@@ -454,6 +470,8 @@
                 });
 
                 $('#mobileCardsContainer').html(gridHtml);
+                // 🛡️ RE-APPLY PERMISSIONS for mobile
+                if (typeof window.applyPermissions === 'function') window.applyPermissions();
             }
 
             // INSPECT OVERLAY VIEW HANDLER
@@ -488,8 +506,8 @@
                 let serializedPayload = $(this).serialize();
                 let recordId = $('#edit_id').val();
                 let activeMethod = $('#form_method').val();
-                let endpointUrl = activeMethod === 'PUT' ? `/api/v1/admin/modules/${recordId}` :
-                    '/api/v1/admin/modules';
+                let endpointUrl = activeMethod === 'PUT' ? `/api/v1/modules/${recordId}` :
+                '/api/v1/modules'; // API Cleaned
                 if (activeMethod === 'PUT') serializedPayload += '&_method=PUT';
 
                 let saveBtnInstance = $('#saveBtn');
@@ -500,9 +518,6 @@
                     url: endpointUrl,
                     type: 'POST',
                     data: serializedPayload,
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     success: function(res) {
                         $('#moduleModal').modal('hide');
                         Swal.fire('Ecosystem Synced', res.message, 'success');
@@ -519,15 +534,12 @@
                 });
             });
 
-            // EDIT POPULATE ENGINE
+           // EDIT POPULATE ENGINE
             $(document).on('click', '.edit-btn', function() {
                 let targetId = $(this).data('id');
                 $.ajax({
-                    url: `/api/v1/admin/modules/${targetId}`,
+                    url: `/api/v1/modules/${targetId}`, // API Cleaned
                     type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
                     success: function(res) {
                         loadParents();
                         setTimeout(() => {
@@ -541,9 +553,25 @@
                             $('#m_icon').val(core.icon);
                             $('#m_permission_base').val(core.permission_base);
 
+                            // 🔥 NAYA FIX: Pehle saare checkbox uncheck (clear) karo
+                            $('input[name="selected_actions[]"]').prop('checked', false);
+
+                            // Agar permission base hai, toh container show karo aur jo actions DB se aaye hain unhe TICK karo
+                            if (core.permission_base && core.permission_base.trim() !== '') {
+                                $('#actionSelectionContainer').slideDown();
+                                
+                                if (res.attached_actions && res.attached_actions.length > 0) {
+                                    res.attached_actions.forEach(act => {
+                                        $(`input[name="selected_actions[]"][value="${act}"]`).prop('checked', true);
+                                    });
+                                }
+                            } else {
+                                $('#actionSelectionContainer').slideUp();
+                            }
+
                             $('#modalTitle').html(
                                 '<i class="fas fa-edit text-warning me-2"></i>Modify Module Layout'
-                                );
+                            );
                             $('#moduleModal').modal('show');
                         }, 200);
                     }
@@ -563,11 +591,8 @@
                 }).then((executionMeta) => {
                     if (executionMeta.isConfirmed) {
                         $.ajax({
-                            url: `/api/v1/admin/modules/${targetDeleteId}`,
+                            url: `/api/v1/modules/${targetDeleteId}`, // API Cleaned
                             type: 'DELETE',
-                            headers: {
-                                'Authorization': 'Bearer ' + apiToken
-                            },
                             success: function(res) {
                                 Swal.fire('Purged!', res.message, 'success');
                                 table.ajax.reload(null, false);

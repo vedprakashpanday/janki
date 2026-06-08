@@ -326,7 +326,7 @@ window.addDirectorRow = function(directorId = '', role = 'Director') {
     });
     
     // Directors API call
-    $.get('/api/v1/admin/directors/active', function(res) {
+    $.get('/api/v1/directors/active', function(res) {
         let opts = '<option value="">Select Director</option>';
         res.data.forEach(d => {
             opts += `<option value="${d.id}" ${d.id == directorId ? 'selected' : ''}>${d.full_name} (${d.director_id})</option>`;
@@ -355,7 +355,7 @@ window.addDirectorRow = function(directorId = '', role = 'Director') {
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: '/api/v1/admin/companies',
+                    url: '/api/v1/companies',
                     type: 'GET',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
@@ -446,14 +446,14 @@ window.addDirectorRow = function(directorId = '', role = 'Director') {
     });
 
                 let id = $('#c_id').val();
-                let url = id ? `/api/v1/admin/companies/${id}` : '/api/v1/admin/companies';
+                let url = id ? `/api/v1/companies/${id}` : '/api/v1/companies';
                 let method = id ? 'PUT' : 'POST';
 
                 let formData = new FormData(this);
 formData.append('director_assignments', JSON.stringify(directorData));
                 if (id) {
                     formData.append('_method', 'PUT');
-                    url = `/api/v1/admin/companies/${id}`;
+                    url = `/api/v1/companies/${id}`;
                 }
 
                 $('#saveBtn').html('<span class="spinner-border spinner-border-sm"></span> Saving...');
@@ -513,7 +513,7 @@ formData.append('director_assignments', JSON.stringify(directorData));
 
         function loadParentCompanies() {
             $.ajax({
-                url: '/api/v1/admin/get-active-companies',
+                url: '/api/v1/get-active-companies',
                 type: 'GET',
                 headers: {
                     'Authorization': 'Bearer ' + apiToken
@@ -542,7 +542,7 @@ formData.append('director_assignments', JSON.stringify(directorData));
 
         function editCompany(id) {
             $.ajax({
-                url: `/api/v1/admin/companies/${id}`,
+                url: `/api/v1/companies/${id}`,
                 type: 'GET',
                 headers: {
                     'Authorization': 'Bearer ' + apiToken
@@ -590,7 +590,7 @@ if (data.directors && data.directors.length > 0) {
 
         function viewCompany(id) {
             $.ajax({
-                url: `/api/v1/admin/companies/${id}`,
+                url: `/api/v1/companies/${id}`,
                 type: 'GET',
                 headers: {
                     'Authorization': 'Bearer ' + apiToken
@@ -655,7 +655,7 @@ $('#v_directors_list').html('<ul class="list-group list-group-flush">' + directo
                 icon: 'info',
                 confirmButtonColor: '#3085d6'
             });
-            // Kal ye line aayegi: window.open(`/admin/companies/print/${id}`, '_blank');
+            // Kal ye line aayegi: window.open(`/companies/print/${id}`, '_blank');
         }
 
         function deleteCompany(id) {
@@ -670,7 +670,7 @@ $('#v_directors_list').html('<ul class="list-group list-group-flush">' + directo
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/api/v1/admin/companies/${id}`,
+                        url: `/api/v1/companies/${id}`,
                         type: 'DELETE',
                         headers: {
                             'Authorization': 'Bearer ' + apiToken

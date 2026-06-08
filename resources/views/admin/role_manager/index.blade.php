@@ -1,8 +1,10 @@
 @extends('layout.app')
 
 @section('content')
+   
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
 
     <style>
         /* Select2 Premium Overrides */
@@ -144,7 +146,8 @@
                 <p class="text-secondary small mb-0">Assign batch permissions, scoped access, and time constraints.</p>
             </div>
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                <button class="btn text-white px-4 py-2 shadow-sm fw-semibold" id="saveBatchPowersBtn"
+                <button class="btn text-white px-4 py-2 shadow-sm fw-semibold secured-item"
+                    data-permission="role_manager_edit" id="saveBatchPowersBtn"
                     style="background-color:var(--sidebar-bg); border-radius: 8px;">
                     <i class="fas fa-save me-1"></i> Grant & Sync Permissions
                 </button>
@@ -165,7 +168,8 @@
                                     <label class="form-label small fw-bold text-secondary mb-0">Companies</label>
                                     <div><a class="text-primary action-link select-all" data-target="#scopeCompany">All</a>
                                         <span class="text-muted px-1">|</span> <a class="text-danger action-link clear-all"
-                                            data-target="#scopeCompany">Clear</a></div>
+                                            data-target="#scopeCompany">Clear</a>
+                                    </div>
                                 </div>
                                 <select class="form-select multi-select-field" id="scopeCompany"
                                     multiple="multiple"></select>
@@ -175,7 +179,8 @@
                                     <label class="form-label small fw-bold text-secondary mb-0">Branches</label>
                                     <div><a class="text-primary action-link select-all" data-target="#scopeBranch">All</a>
                                         <span class="text-muted px-1">|</span> <a class="text-danger action-link clear-all"
-                                            data-target="#scopeBranch">Clear</a></div>
+                                            data-target="#scopeBranch">Clear</a>
+                                    </div>
                                 </div>
                                 <select class="form-select multi-select-field" id="scopeBranch"
                                     multiple="multiple"></select>
@@ -197,7 +202,8 @@
                                     <div><a class="text-primary action-link select-all"
                                             data-target="#scopeDesignation">All</a> <span class="text-muted px-1">|</span>
                                         <a class="text-danger action-link clear-all"
-                                            data-target="#scopeDesignation">Clear</a></div>
+                                            data-target="#scopeDesignation">Clear</a>
+                                    </div>
                                 </div>
                                 <select class="form-select multi-select-field" id="scopeDesignation"
                                     multiple="multiple"></select>
@@ -208,7 +214,8 @@
                                             class="text-danger">*</span></label>
                                     <div><a class="text-primary action-link select-all" data-target="#scopeEmployee">All</a>
                                         <span class="text-muted px-1">|</span> <a class="text-danger action-link clear-all"
-                                            data-target="#scopeEmployee">Clear</a></div>
+                                            data-target="#scopeEmployee">Clear</a>
+                                    </div>
                                 </div>
                                 <select class="form-select multi-select-field border-primary" id="scopeEmployee"
                                     multiple="multiple"></select>
@@ -301,12 +308,13 @@
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>  
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
-        // Note: Using window.layoutApiToken from app.blade.php (if integrated) or fallback to admin_token
-        const apiToken = window.layoutApiToken || localStorage.getItem('admin_token');
         let rawEmployeesDataset = [];
         let auditTableInstance;
 
@@ -333,87 +341,102 @@
             loadEcosystemData();
 
             function loadEcosystemData() {
-                // 🔥 URL FIXED: Removed /admin
-                $.ajax({
-                    url: '/api/v1/get-active-companies',
-                    type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
-                    success: function(res) {
-                        let html = '';
-                        res.data.forEach(c => html += `<option value="${c.id}">${c.company_name}</option>`);
-                        $('#scopeCompany').html(html);
-                    }
-                });
+                // (Company, Dept, Designation wale AJAX calls wahi rahenge jo pehle the)
+                $.ajax({ url: '/api/v1/get-active-companies', type: 'GET', success: function(res) { let html = ''; res.data.forEach(c => html += `<option value="${c.id}">${c.company_name}</option>`); $('#scopeCompany').html(html); }});
+                $.ajax({ url: '/api/v1/get-active-departments', type: 'GET', success: function(res) { let html = ''; res.data.forEach(d => html += `<option value="${d.id}">${d.department_name}</option>`); $('#scopeDepartment').html(html); }});
+                $.ajax({ url: '/api/v1/designations', type: 'GET', success: function(res) { let html = ''; let data = res.data || res; data.forEach(ds => html += `<option value="${ds.id}">${ds.designation_name}</option>`); $('#scopeDesignation').html(html); }});
 
-                // 🔥 URL FIXED: Removed /admin
-                $.ajax({
-                    url: '/api/v1/get-active-departments',
-                    type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
-                    success: function(res) {
-                        let html = '';
-                        res.data.forEach(d => html += `<option value="${d.id}">${d.department_name}</option>`);
-                        $('#scopeDepartment').html(html);
-                    }
-                });
-
-                // 🔥 URL FIXED: Removed /admin
-                $.ajax({
-                    url: '/api/v1/designations',
-                    type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
-                    success: function(res) {
-                        let html = '';
-                        let data = res.data || res;
-                        data.forEach(ds => html += `<option value="${ds.id}">${ds.designation_name}</option>`);
-                        $('#scopeDesignation').html(html);
-                    }
-                });
-
-                // 🔥 URL FIXED: Removed /admin
+                // 🔥 NAYA: FETCH TREE & RENDER RECURSIVELY 🔥
                 $.ajax({
                     url: '/api/v1/role-manager/roles-permissions',
                     type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
                     success: function(res) {
                         let rolesHtml = '';
                         res.data.roles.forEach(r => {
-                            rolesHtml += `<div class="form-check mb-2">
-                                <input class="form-check-input role-checkbox" type="checkbox" value="${r.name}" id="r_${r.id}">
-                                <label class="form-check-label small fw-bold" for="r_${r.id}">${r.name}</label>
-                            </div>`;
+                            rolesHtml += `<div class="form-check mb-2"><input class="form-check-input role-checkbox" type="checkbox" value="${r.name}" id="r_${r.id}"><label class="form-check-label small fw-bold" for="r_${r.id}">${r.name}</label></div>`;
                         });
                         $('#rolesContainer').html(rolesHtml);
 
-                        let permsHtml = '';
-                        $.each(res.data.permissions, function(module, actionsArray) {
-                            permsHtml += `<div class="mb-4">
-                                <h6 class="small fw-bold text-uppercase text-secondary border-bottom pb-2 mb-3">${module.replace('_', ' ')}</h6>
-                                <div class="d-flex flex-wrap gap-2">`;
-
-                            actionsArray.forEach(p => {
-                                let label = p.name.replace(module + '_', '').replace('_', ' ');
-                                permsHtml += `
-                                <label>
-                                    <input type="checkbox" class="perm-check-input perm-checkbox" value="${p.name}">
-                                    <span class="perm-pill">${label}</span>
-                                </label>`;
-                            });
-                            permsHtml += `</div></div>`;
-                        });
-                        $('#permissionsContainer').html(permsHtml);
+                        // 2. Render N-Level Permissions Tree
+                        let treeHtml = buildPermissionTreeHtml(res.data.module_tree, 0);
+                        $('#permissionsContainer').html(treeHtml);
                     }
                 });
 
                 refreshEmployeeTable();
             }
 
+            // ==========================================
+            // 🔥 NAYA: RECURSIVE HTML BUILDER (TREE VIEW)
+            // ==========================================
+            function buildPermissionTreeHtml(modules, depth = 0) {
+                let html = '';
+                let borderClass = depth === 0 ? 'border-bottom mb-3 pb-2' : 'mt-2 border-start border-2 border-primary ps-3 ms-2';
+
+                modules.forEach(mod => {
+                    let hasChildren = mod.children && mod.children.length > 0;
+                    let hasPerms = mod.permissions && mod.permissions.length > 0;
+
+                    html += `<div class="module-node ${borderClass}">`;
+                    html += `<div class="d-flex align-items-center mb-2">`;
+                    if (hasPerms || hasChildren) {
+                        html += `<input class="form-check-input shadow-sm border-secondary me-2 module-parent-cb child-of-${mod.parent_id || 'root'}" type="checkbox" data-id="${mod.id}" data-parent-id="${mod.parent_id || 'root'}" id="mod_${mod.id}">`;
+                    } else {
+                        html += `<i class="fas fa-circle text-muted" style="font-size: 6px; margin-right: 12px; margin-left: 6px;"></i>`;
+                    }
+                    html += `<label class="fw-bold ${depth === 0 ? 'text-uppercase text-primary fs-6' : 'text-dark'}" for="mod_${mod.id}" style="cursor:pointer;">${mod.module_name}</label></div>`;
+
+                    if (hasPerms) {
+                        html += `<div class="d-flex flex-wrap gap-2 ms-4 mb-3">`;
+                        mod.permissions.forEach(p => {
+                            let label = p.name.replace(mod.permission_base + '_', '').replace('_', ' ');
+                            html += `<label><input type="checkbox" class="perm-check-input perm-checkbox child-of-${mod.id}" data-parent-id="${mod.id}" value="${p.name}"><span class="perm-pill">${label}</span></label>`;
+                        });
+                        html += `</div>`;
+                    }
+
+                    if (hasChildren) {
+                        html += `<div class="sub-modules-container child-container-of-${mod.id}" data-parent-id="${mod.id}">`;
+                        html += buildPermissionTreeHtml(mod.children, depth + 1);
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                });
+                return html;
+            }
+
+            // ==========================================
+            // 🔥 NAYA: PARENT-CHILD CHECKBOX SYNC LOGIC
+            // ==========================================
+            $(document).on('change', '.module-parent-cb', function() {
+                let modId = $(this).data('id');
+                let isChecked = $(this).prop('checked');
+                $(`.child-of-${modId}`).prop('checked', isChecked);
+                $(`.child-container-of-${modId} input[type="checkbox"]`).prop('checked', isChecked);
+                updateParentStatus($(this)); 
+            });
+
+            $(document).on('change', '.perm-checkbox', function() {
+                updateParentStatus($(this));
+            });
+
+            function updateParentStatus(element) {
+                let parentId = element.data('parent-id');
+                if (!parentId || parentId === 'root') return;
+
+                let allSiblings = $(`.child-of-${parentId}, .child-container-of-${parentId} > .module-node > div > .module-parent-cb`);
+                let checkedSiblings = allSiblings.filter(':checked');
+                let parentCb = $(`#mod_${parentId}`);
+                
+                parentCb.prop('checked', checkedSiblings.length > 0);
+                if(parentCb.length) updateParentStatus(parentCb);
+            }
+
+
             function refreshEmployeeTable() {
-                // 🔥 URL FIXED: Removed /admin
                 $.ajax({
                     url: '/api/v1/role-manager/users',
                     type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
                     success: function(res) {
                         rawEmployeesDataset = res.data || [];
                         evaluateTargetEmployeeSelectionStream();
@@ -429,11 +452,9 @@
                     return;
                 }
 
-                // 🔥 URL FIXED: Removed /admin
                 $.ajax({
                     url: '/api/v1/branches',
                     type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
                     success: function(res) {
                         let html = '';
                         res.data.forEach(b => {
@@ -450,7 +471,6 @@
                 evaluateTargetEmployeeSelectionStream();
             });
 
-            // EMPLOYEE LIST MAPPING FIX
             function evaluateTargetEmployeeSelectionStream() {
                 let cmp = $('#scopeCompany').val() || [];
                 let brs = $('#scopeBranch').val() || [];
@@ -474,7 +494,7 @@
                 $('#scopeEmployee').html(optionsHtml).trigger('change');
             }
 
-            function initializeDataTable(dataset) {
+       function initializeDataTable(dataset) {
                 if (auditTableInstance) {
                     auditTableInstance.clear().rows.add(dataset).draw();
                     return;
@@ -483,7 +503,16 @@
                 auditTableInstance = $('#auditTable').DataTable({
                     data: dataset,
                     pageLength: 10,
-                    dom: '<"row align-items-center mb-3"<"col-md-6"l><"col-md-6"f>>rt<"row align-items-center mt-3"<"col-md-6"i><"col-md-6"p>>',
+                    // 🔥 EXCEL BUTTON SETTINGS 🔥
+                    dom: '<"row align-items-center mb-3"<"col-md-4"l><"col-md-4 text-center"B><"col-md-4"f>>rt<"row align-items-center mt-3"<"col-md-6"i><"col-md-6"p>>',
+                    buttons: [
+                        {
+                            extend: 'excelHtml5',
+                            className: 'btn btn-success btn-sm fw-bold',
+                            text: '<i class="fas fa-file-excel"></i> Export to Excel',
+                            title: 'Role & Permission Audit Matrix'
+                        }
+                    ],
                     columns: [{
                             data: null,
                             orderable: false,
@@ -492,16 +521,11 @@
                         },
                         {
                             data: null,
-                            render: d => {
-                                let name = d.name || d.full_name || d.employee_name || '-';
-                                let code = d.email || d.member_id || d.employee_code || 'ID:' + d.id;
-                                return `<div class="fw-bold text-dark">${name}</div><small class="text-muted font-monospace">${code}</small>`;
-                            }
+                            render: d => `<div class="fw-bold text-dark">${d.name || d.full_name || d.employee_name || '-'}</div><small class="text-muted font-monospace">${d.email || d.member_id || d.employee_code || 'ID:' + d.id}</small>`
                         },
                         {
                             data: null,
-                            render: d =>
-                                `<span class="badge bg-primary-subtle text-primary border">C:${d.company_id || '*'}</span> <span class="badge bg-secondary-subtle text-secondary border">B:${d.branch_id || '*'}</span>`
+                            render: d => `<span class="badge bg-primary-subtle text-primary border">C:${d.company_id || '*'}</span> <span class="badge bg-secondary-subtle text-secondary border">B:${d.branch_id || '*'}</span>`
                         },
                         {
                             data: null,
@@ -517,17 +541,22 @@
                         },
                         {
                             data: 'id',
-                            className: 'text-center',
-                            render: id => `<button class="btn btn-xs btn-light border text-danger clear-user-btn" data-id="${id}"><i class="fas fa-times me-1"></i>Clear</button>`
+                            className: 'text-center text-nowrap',
+                            render: (id, type, row) => `
+                                <button class="btn btn-xs btn-outline-primary border me-1" onclick="editUserPermissions(${id})" title="Edit Permissions"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-xs btn-light border text-danger clear-user-btn" data-id="${id}" title="Clear All"><i class="fas fa-times"></i> Clear</button>
+                            `
                         }
                     ],
                     order: [[1, 'asc']],
                     drawCallback: function() {
                         let pageData = this.api().rows({ page: 'current' }).data().toArray();
                         renderMobileCards(pageData);
+                        if (typeof window.applyPermissions === 'function') window.applyPermissions();
                     }
                 });
 
+                // 🔥 NAYA: MODULE WISE GROUPING LOGIC 🔥
                 $('#auditTable tbody').on('click', 'td.toggle-child-row', function() {
                     let tr = $(this).closest('tr');
                     let row = auditTableInstance.row(tr);
@@ -539,12 +568,47 @@
                         icon.removeClass('fa-chevron-down text-warning').addClass('fa-chevron-right text-primary');
                     } else {
                         let d = row.data();
-                        let permsHtml = (d.permissions && d.permissions.length) ? d.permissions.map(p =>
-                            `<span class="badge bg-success-subtle text-success border me-1 mb-1">${p.name}</span>`
-                            ).join('') : '<small class="text-muted">No custom permissions.</small>';
-                        row.child(
-                            `<div class="p-3 bg-light rounded shadow-sm border"><h6 class="small fw-bold text-uppercase text-secondary mb-2">Custom Permissions Map:</h6>${permsHtml}</div>`
-                            ).show();
+                        let perms = d.permissions || [];
+                        let permsHtml = '';
+
+                        if (perms.length === 0) {
+                            permsHtml = '<small class="text-muted">No custom permissions assigned.</small>';
+                        } else {
+                            // Group by prefix (Module name)
+                            let grouped = {};
+                            perms.forEach(p => {
+                                let lastUnderscore = p.name.lastIndexOf('_');
+                                let prefix = p.name.substring(0, lastUnderscore); // e.g., 'dashboard'
+                                let action = p.name.substring(lastUnderscore + 1); // e.g., 'view'
+                                if(!grouped[prefix]) grouped[prefix] = [];
+                                grouped[prefix].push({ full: p.name, action: action });
+                            });
+
+                            permsHtml += '<div class="row g-3">';
+                            for (const [prefix, actions] of Object.entries(grouped)) {
+                                let moduleName = prefix.replace(/_/g, ' ').toUpperCase();
+                                
+                                permsHtml += `
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="border rounded p-2 bg-white shadow-sm h-100">
+                                        <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-1">
+                                            <strong class="text-primary small">${moduleName}</strong>
+                                            <button class="btn btn-xs btn-outline-danger py-0 revoke-module-btn" data-uid="${d.id}" data-prefix="${prefix}" title="Clear this entire module"><i class="fas fa-trash-alt"></i> Clear</button>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-1">`;
+                                
+                                actions.forEach(act => {
+                                    permsHtml += `<span class="badge bg-success-subtle text-success border align-items-center" style="display:inline-flex;">
+                                        ${act.action.toUpperCase()} 
+                                        <i class="fas fa-times ms-2 text-danger revoke-single-perm" style="cursor:pointer;" data-uid="${d.id}" data-perm="${act.full}"></i>
+                                    </span>`;
+                                });
+                                permsHtml += `</div></div></div>`;
+                            }
+                            permsHtml += '</div>';
+                        }
+                        
+                        row.child(`<div class="p-3 bg-light rounded shadow-sm border"><h6 class="small fw-bold text-uppercase text-secondary mb-2">Custom Permissions Map (Grouped by Module):</h6>${permsHtml}</div>`).show();
                         tr.addClass('shown');
                         icon.removeClass('fa-chevron-right text-primary').addClass('fa-chevron-down text-warning');
                     }
@@ -553,7 +617,9 @@
 
             function renderMobileCards(dataset) {
                 let html = '';
-                if (dataset.length === 0) { html = '<div class="text-center p-3 text-muted">No records found.</div>'; }
+                if (dataset.length === 0) {
+                    html = '<div class="text-center p-3 text-muted">No records found.</div>';
+                }
 
                 dataset.forEach(d => {
                     let name = d.name || d.full_name || d.employee_name || 'Unknown';
@@ -566,7 +632,7 @@
                     <div class="mobile-audit-card">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div><h6 class="fw-bold mb-0 text-dark">${name}</h6><small class="text-muted font-monospace">${code}</small></div>
-                            <button class="btn btn-sm btn-light border text-danger clear-user-btn py-0 px-2" data-id="${d.id}"><i class="fas fa-times"></i></button>
+                            <button class="btn btn-sm btn-light border text-danger clear-user-btn py-0 px-2 secured-item" data-permission="role_manager_delete" data-id="${d.id}"><i class="fas fa-times"></i></button>
                         </div>
                         <div class="small mb-2"><i class="fas fa-building text-muted me-1"></i> Comp: ${d.company_id||'*'} | Branch: ${d.branch_id||'*'}</div>
                         <div class="small mb-2"><i class="fas fa-clock text-danger me-1"></i> ${dates}</div>
@@ -578,6 +644,7 @@
                     </div>`;
                 });
                 $('#mobileCardsContainer').html(html);
+                if (typeof window.applyPermissions === 'function') window.applyPermissions();
             }
 
             $('#saveBatchPowersBtn').on('click', function() {
@@ -595,11 +662,9 @@
                 let btn = $(this);
                 btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
 
-                // 🔥 URL FIXED: Removed /admin
                 $.ajax({
                     url: '/api/v1/role-manager/assign',
                     type: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
                     data: {
                         user_ids: targets,
                         roles: roles,
@@ -611,6 +676,18 @@
                     },
                     success: function() {
                         Swal.fire('Success', 'Permissions synced successfully.', 'success');
+                        
+                        // 🔥 NAYA: FORM RESET LOGIC 🔥
+                        // 1. Saare Select2 Dropdowns ko khali karo
+                        $('#scopeCompany, #scopeBranch, #scopeDepartment, #scopeDesignation, #scopeEmployee').val(null).trigger('change');
+                        
+                        // 2. Date aur Time ke dabbon ko khali karo
+                        $('#guardStartDate, #guardEndDate, #guardStartTime, #guardEndTime').val('');
+                        
+                        // 3. Roles aur Permissions ke Checkboxes se tick hatao
+                        $('.role-checkbox, .perm-check-input, .module-parent-cb').prop('checked', false);
+
+                        // Table ko refresh karo naye data ke sath
                         refreshEmployeeTable();
                     },
                     complete: function() {
@@ -630,16 +707,10 @@
                     confirmButtonText: 'Yes, Clear'
                 }).then((res) => {
                     if (res.isConfirmed) {
-                        // 🔥 URL FIXED: Removed /admin
                         $.ajax({
                             url: '/api/v1/role-manager/assign',
                             type: 'POST',
-                            headers: { 'Authorization': 'Bearer ' + apiToken },
-                            data: {
-                                user_ids: [id],
-                                roles: [],
-                                permissions: []
-                            },
+                            data: { user_ids: [id], roles: [], permissions: [] },
                             success: function() {
                                 Swal.fire('Cleared', 'User reset to default.', 'success');
                                 refreshEmployeeTable();
@@ -648,11 +719,188 @@
                     }
                 });
             });
+
+
+            // 🔥 NAYA: Edit Mode - Matrix me user ka data load karo
+            window.editUserPermissions = function(userId) {
+                let user = rawEmployeesDataset.find(u => u.id === userId);
+                if (!user) return;
+
+                // Reset all checkboxes first
+                $('.perm-check-input, .module-parent-cb, .role-checkbox').prop('checked', false);
+
+                // Auto-select user in dropdown
+                $('#scopeEmployee').val([userId]).trigger('change');
+
+                // Tick assigned roles
+                if (user.roles) {
+                    user.roles.forEach(r => $(`input.role-checkbox[value="${r.name}"]`).prop('checked', true));
+                }
+
+                // Tick assigned permissions and bubble up to parents
+                if (user.permissions) {
+                    user.permissions.forEach(p => {
+                        let cb = $(`input.perm-checkbox[value="${p.name}"]`);
+                        if (cb.length) {
+                            cb.prop('checked', true);
+                            updateParentStatus(cb);
+                        }
+                    });
+                }
+
+                // Set Time limits
+                $('#guardStartDate').val(user.access_start_date || '');
+                $('#guardEndDate').val(user.access_end_date || '');
+                $('#guardStartTime').val(user.access_start_date ? user.daily_start_time : '');
+                $('#guardEndTime').val(user.access_end_date ? user.daily_end_time : '');
+
+                // Change Save button to Update Mode
+                $('#saveBatchPowersBtn')
+                    .html('<i class="fas fa-sync-alt me-1"></i> Update Specific User')
+                    .data('mode', 'sync') // Set flag to sync
+                    .css('background-color', '#D69E2E'); // Warning/Gold color
+
+                // Scroll up smoothly
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            // 🔥 UPDATED: Save Button Logic
+            $('#saveBatchPowersBtn').on('click', function() {
+                let targets = $('#scopeEmployee').val();
+                if (!targets || targets.length === 0) {
+                    Swal.fire('Empty Target', 'Please select at least one employee from the list.', 'warning');
+                    return;
+                }
+
+                let roles = [];
+                $('.role-checkbox:checked').each(function() { roles.push($(this).val()); });
+                let perms = [];
+                $('.perm-checkbox:checked').each(function() { perms.push($(this).val()); });
+
+                let btn = $(this);
+                let currentMode = btn.data('mode') || 'append'; // Get mode
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+
+                $.ajax({
+                    url: '/api/v1/role-manager/assign',
+                    type: 'POST',
+                    data: {
+                        user_ids: targets,
+                        roles: roles,
+                        permissions: perms,
+                        mode: currentMode, // Send mode to backend
+                        access_start_date: $('#guardStartDate').val(),
+                        access_end_date: $('#guardEndDate').val(),
+                        daily_start_time: $('#guardStartTime').val(),
+                        daily_end_time: $('#guardEndTime').val()
+                    },
+                   success: function() {
+                        Swal.fire('Success', 'Permissions synced successfully.', 'success');
+                        
+                        // 🔥 NAYA: FORM RESET LOGIC 🔥
+                        $('#scopeCompany, #scopeBranch, #scopeDepartment, #scopeDesignation, #scopeEmployee').val(null).trigger('change');
+                        $('#guardStartDate, #guardEndDate, #guardStartTime, #guardEndTime').val('');
+                        $('.role-checkbox, .perm-check-input, .module-parent-cb').prop('checked', false);
+
+                        refreshEmployeeTable();
+                    },
+                    complete: function() {
+                        // Reset button back to normal Grant mode
+                        btn.prop('disabled', false)
+                           .html('<i class="fas fa-save me-1"></i> Grant & Sync Permissions')
+                           .data('mode', 'append')
+                           .css('background-color', 'var(--sidebar-bg)');
+                    }
+                });
+            });
+
+            // 🔥 UPDATED: Clear User
+            $(document).on('click', '.clear-user-btn', function() {
+                let id = $(this).data('id');
+                Swal.fire({
+                    title: 'Clear Permissions?',
+                    text: 'Remove all custom access?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Yes, Clear'
+                }).then((res) => {
+                    if (res.isConfirmed) {
+                        $.ajax({
+                            url: '/api/v1/role-manager/clear',
+                            type: 'POST',
+                            data: { user_id: id },
+                            success: function() {
+                                Swal.fire('Cleared', 'User reset to default.', 'success');
+                                refreshEmployeeTable();
+                            }
+                        });
+                    }
+                });
+            });
+
+            // 🔥 NAYA: Single Permission Delete (The 'X' inside badge)
+            $(document).on('click', '.revoke-single-perm', function() {
+                let uid = $(this).data('uid');
+                let perm = $(this).data('perm');
+                
+                Swal.fire({
+                    title: 'Remove Permission?',
+                    text: `Are you sure you want to remove '${perm}'?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Yes, Remove'
+                }).then((res) => {
+                    if (res.isConfirmed) {
+                        $.ajax({
+                            url: '/api/v1/role-manager/revoke-permission',
+                            type: 'POST',
+                            data: { user_id: uid, permission: perm },
+                            success: function() {
+                                refreshEmployeeTable(); // Auto reload table
+                            }
+                        });
+                    }
+                });
+            });
+
+// 🔥 NAYA: Revoke Entire Module Permissions
+            $(document).on('click', '.revoke-module-btn', function() {
+                let uid = $(this).data('uid');
+                let prefix = $(this).data('prefix');
+                let moduleName = prefix.replace(/_/g, ' ').toUpperCase();
+                
+                Swal.fire({
+                    title: 'Clear Module?',
+                    text: `Are you sure you want to remove ALL permissions for '${moduleName}'?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Yes, Clear Module'
+                }).then((res) => {
+                    if (res.isConfirmed) {
+                        $.ajax({
+                            url: '/api/v1/role-manager/revoke-module',
+                            type: 'POST',
+                            data: { user_id: uid, module_prefix: prefix },
+                            success: function() {
+                                refreshEmployeeTable(); 
+                            }
+                        });
+                    }
+                });
+            });
+
+
+
+
         });
 
         function toggleGlobalCheckboxes() {
-            let state = $('.perm-check-input').length === $('.perm-check-input:checked').length;
-            $('.perm-check-input').prop('checked', !state);
+            // Updated to select both actions and parent modules
+            let state = $('.perm-check-input, .module-parent-cb').length === $('.perm-check-input:checked, .module-parent-cb:checked').length;
+            $('.perm-check-input, .module-parent-cb').prop('checked', !state);
         }
     </script>
 @endpush

@@ -39,9 +39,16 @@ class IdCardController extends Controller
 
         return response()->json(['status' => 'success', 'data' => $staff]);
     }
-    // WEB: Print View Render karne ke liye
-    public function printPreview($type, $id)
+ // WEB: Print View Render karne ke liye
+    public function printPreview(\Illuminate\Http\Request $request, $type)
     {
+        // 🔥 NAYA: ID ab Query Parameter se aayegi URL path se nahi 🔥
+        $id = $request->query('member_id');
+
+        if (!$id) {
+            abort(404, 'ID is missing in the request!');
+        }
+
         $user = DB::table('adm_regist')->where('member_id', $id)->first();
         $isEmployee = true;
 
@@ -57,19 +64,16 @@ class IdCardController extends Controller
         // ==========================================
         // 🛡️ 2. PRINT OWNERSHIP CHECK
         // ==========================================
-        // Web route hai isliye sanctum guard check kar rahe hain
         $authUser = auth('sanctum')->user() ?? auth()->user(); 
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
 
         if ($authUser && !$authUser->hasRole(['CEO', 'Director']) && !in_array($authUser->email, $developerEmails)) {
-            // Check if the requested user's branch matches the logged-in user's branch
             if (isset($user->branch_id) && $user->branch_id != $authUser->branch_id) {
                 abort(403, 'Strict Security: You are not authorized to view or print ID Cards for other branches.');
             }
         }
         // ==========================================
 
-        // Safe Data Mapping (Taaki column name mismatch ka error na aaye)
         $userArr = (array) $user;
         
         $data = [
@@ -85,14 +89,10 @@ class IdCardController extends Controller
             'email' => $isEmployee ? ($userArr['email'] ?? '') : ($userArr['email'] ?? $userArr['m_email'] ?? ''),
         ];
 
-        // Format Date
         $data['dob'] = ($data['dob'] && $data['dob'] != '0000-00-00') ? date('d-m-Y', strtotime($data['dob'])) : '-';
-
-        // Photo aur Avatar logic
         $data['photo_url'] = !empty($data['photo']) ? asset("uploads/passport_photo/" . $data['photo']) : asset("image/default-user.png");
         $data['first_letter'] = !empty($data['name']) ? strtoupper(substr(trim($data['name']), 0, 1)) : 'A';
 
-        // 👇 YAHAN CHECK KAREIN: compact('data') miss nahi hona chahiye
         if ($type === 'id_card') return view('admin.prints.id_cards', compact('data'));
         if ($type === 'visiting_normal') return view('admin.prints.visiting_normal', compact('data'));
         if ($type === 'visiting_premium') return view('admin.prints.visiting_card2', compact('data'));

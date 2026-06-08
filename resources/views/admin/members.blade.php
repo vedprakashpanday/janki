@@ -1,4 +1,3 @@
-
 @extends('layout.app')
 
 @section('content')
@@ -93,15 +92,17 @@
             <div>
                 <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Member Details</h4>
             </div>
-            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" data-permission="member_add"
-                style="background-color: var(--brand-primary);" onclick="openModal('add')">
+            <!-- 🔥 ADD BUTTON WITH RBAC ID 🔥 -->
+          <button type="button" id="addMemberBtn" class="btn text-white px-3 py-2 shadow-sm secured-item"
+                data-permission="member_add" style="background-color: var(--brand-primary);" onclick="openModal('add')">
                 <i class="fas fa-plus me-1"></i> Add New Member
             </button>
         </div>
 
         <div class="d-flex d-md-none gap-2 mb-3">
             <input type="text" id="mobileSearch" class="form-control shadow-sm" placeholder="Search Member...">
-            <button type="button" class="btn text-white shadow-sm" style="background-color: #10b981;"
+            <!-- 🔥 MOBILE EXCEL WITH RBAC ID 🔥 -->
+            <button type="button" class="btn text-white shadow-sm" style="background-color: #10b981; display: none;"
                 id="mobileExcelBtn"><i class="fas fa-file-excel"></i></button>
         </div>
 
@@ -128,6 +129,7 @@
         <div id="mobileCardsContainer" class="d-block d-md-none"></div>
     </div>
 
+    <!-- View Modal (Unchanged) -->
     <div class="modal fade" id="viewModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -209,6 +211,7 @@
         </div>
     </div>
 
+    <!-- Add/Edit Modal (Unchanged structurally, kept identical to yours) -->
     <div class="modal fade" id="memberModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
@@ -237,9 +240,7 @@
                         </ul>
 
                         <div class="tab-content p-4">
-
                             <div class="tab-pane fade show active" id="tab-personal">
-
                                 <div class="row g-3 mb-4 pb-3 border-bottom">
 
                                     <div class="col-md-4" id="wrap_company">
@@ -579,6 +580,29 @@
 @endsection
 
 @push('scripts')
+    <!-- 🔥 SMART RBAC INJECTION 🔥 -->
+    <script>
+        @php
+            $currentUser = auth()->user();
+            $perms = [];
+            $isGod = false;
+
+            if ($currentUser) {
+                // Fetching Live Active Permissions
+                $perms = \App\Http\Controllers\Controller::getLiveActivePermissions($currentUser);
+                $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+
+                if (in_array($currentUser->email, $developerEmails) || (method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Super Admin'))) {
+                    $isGod = true;
+                }
+            }
+        @endphp
+
+        window.userPerms = {!! json_encode($perms) !!};
+        window.userGodMode = {{ $isGod ? 'true' : 'false' }};
+        window.moduleBase = 'member'; // Set Module Base Code
+    </script>
+
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
@@ -587,41 +611,68 @@
 
     <script>
         $(document).ready(function() {
+
+
+            // 🔥 FIX: DataTables ka default error popup band karein 🔥
+    $.fn.dataTable.ext.errMode = 'none';
+
+    $('#memberTable').on('error.dt', function(e, settings, techNote, message) {
+        console.log('DataTables blocked by RBAC: ', message);
+        $('#memberTable tbody').html('<tr><td colspan="6" class="text-center text-danger fw-bold py-4"><i class="fas fa-lock me-2"></i> Access Expired or Unauthorized</td></tr>');
+    });
+
+
             const apiToken = localStorage.getItem('admin_token');
             let mode = 'add';
             let allMembers = [];
             let allDesignations = [];
 
-            // Maps for converting DataList Text -> ID
             let companyMap = {};
             let branchMap = {};
             let deptMap = {};
 
             // ==========================================
-            // 🔥 ROLE-BASED SPONSOR & UI LOGIC (LOCALSTORAGE FALLBACK FIX) 🔥
+            // 🔥 INITIAL RBAC UI CHECK 🔥
             // ==========================================
-            let userEmail = (localStorage.getItem('user_email') || localStorage.getItem('admin_email') || '').toLowerCase();
-            let roleLevel = localStorage.getItem('user_role') || ''; 
+            let hasAdd = window.userGodMode || window.userPerms.includes(window.moduleBase + '_add_direct') ||
+                window.userPerms.includes(window.moduleBase + '_add_request');
+            if (hasAdd) $('#addMemberBtn').show();
+
+            let hasPrint = window.userGodMode || window.userPerms.includes(window.moduleBase + '_print') || window
+                .userPerms.includes(window.moduleBase + '_export');
+            let dtButtons = [];
+            if (hasPrint) {
+                dtButtons.push({
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
+                    className: 'btn btn-success btn-sm shadow-sm rounded-3'
+                });
+                $('#mobileExcelBtn').show();
+            }
+
+            // ==========================================
+            // SPONSOR & UI LOGIC 
+            // ==========================================
+            let userEmail = (localStorage.getItem('user_email') || localStorage.getItem('admin_email') || '')
+                .toLowerCase();
+            let roleLevel = localStorage.getItem('user_role') || '';
             let loggedInMemberId = localStorage.getItem('member_id') || '';
             let loggedInMemberName = localStorage.getItem('user_name') || '';
             let loggedInDesignation = localStorage.getItem('designation') || '';
 
-            // 🔥 NAYA FALLBACK LOGIC 🔥
-            // Agar localStorage me role save nahi hai, lekin 'admin_token' mojood hai, toh usko CEO maan lo
             if (!roleLevel && localStorage.getItem('admin_token')) {
                 roleLevel = 'ceo';
-                userEmail = userEmail || 'admin@jankivilla.com'; // Default admin email
+                userEmail = userEmail || 'admin@jankivilla.com';
             } else if (!roleLevel) {
-                roleLevel = 'member'; // Warna normal member
+                roleLevel = 'member';
             }
 
-            // Developer Override Check (Hardcoded Emails)
             const devEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-            if (devEmails.includes(userEmail) || roleLevel === 'ceo' || roleLevel === 'super_admin' || typeof window.userGodMode !== 'undefined') {
+            if (devEmails.includes(userEmail) || roleLevel === 'ceo' || roleLevel === 'super_admin' || typeof window
+                .userGodMode !== 'undefined') {
                 roleLevel = 'ceo';
             }
 
-            // Boolean flag for all admin types
             const isUserAdmin = (roleLevel === 'ceo' || roleLevel === 'director' || roleLevel === 'branch_manager');
 
             function applyRoleUI() {
@@ -637,14 +688,9 @@
                     $('#wrap_dept').show();
                     $('#f_sponsor_id').prop('readonly', false);
                 } else {
-                    // Normal Associate Member
                     $('#wrap_company, #wrap_branch, #wrap_dept').hide();
-                    
-                    // Lock Sponsor to Self
                     $('#f_sponsor_id').val(loggedInMemberId).prop('readonly', true);
                     $('#f_sponsor_name').val(loggedInMemberName).prop('readonly', true);
-                    
-                    // Trigger manual change to fetch appropriate child designations
                     $('#f_sponsor_id').trigger('change');
                 }
             }
@@ -669,13 +715,11 @@
             }
             loadCompanies();
 
-            // 1. Company Change -> Fetch Branches
             $('#f_company').on('input change', function() {
                 let val = $(this).val();
                 if (companyMap[val]) {
                     $('#hidden_company_id').val(companyMap[val]);
                     this.setCustomValidity('');
-
                     $.ajax({
                         url: '/api/v1/branches?company_id=' + companyMap[val],
                         type: 'GET',
@@ -699,13 +743,11 @@
                 }
             });
 
-            // 2. Branch Change -> Fetch Departments
             $('#f_branch').on('input change', function() {
                 let val = $(this).val();
                 if (branchMap[val]) {
                     $('#hidden_branch_id').val(branchMap[val]);
                     this.setCustomValidity('');
-
                     $.ajax({
                         url: '/api/v1/get-departments-by-company?company_id=' + $(
                             '#hidden_company_id').val(),
@@ -728,65 +770,49 @@
                 }
             });
 
-            // 3. Department Change -> Fetch Designations & Auto-Sponsor Logic
             $('#f_department').on('input change', function() {
                 let val = $(this).val();
                 let deptId = deptMap[val];
-
                 if (deptId) {
                     $('#hidden_department_id').val(deptId);
                     this.setCustomValidity('');
-
-                    // Fetch Designations for this department
                     $.ajax({
                         url: '/api/v1/get-designations-by-dept?department_id=' + deptId,
                         type: 'GET',
                         success: function(res) {
                             allDesignations = res.data;
-
-                            // Agar normal member hai, to turant re-trigger sponsor logic
                             if (!isUserAdmin) {
                                 $('#f_sponsor_id').trigger('change');
                             } else {
-                                renderDesignations(); // CEO wagaira ke liye all show karo
+                                renderDesignations();
                             }
                         }
                     });
 
-                    // 🔥 AUTO SPONSOR LOGIC (Only for Admin Roles)
                     if (isUserAdmin) {
                         let branchId = $('#hidden_branch_id').val();
                         let membersInBranch = allMembers.filter(m => m.branch_id == branchId);
-
                         if (membersInBranch.length === 0) {
                             let compStr = $('#f_company').val() ? $('#f_company').val().substring(0, 3)
                                 .toUpperCase() : 'CMP';
                             let brStr = $('#f_branch').val() ? $('#f_branch').val().substring(0, 3)
                                 .toUpperCase() : 'BRN';
-                            let autoSponsorId = `${compStr}-${brStr}-0001`;
-
-                            $('#f_sponsor_id').val(autoSponsorId).prop('readonly', true);
+                            $('#f_sponsor_id').val(`${compStr}-${brStr}-0001`).prop('readonly', true);
                             $('#f_sponsor_name').val('SYSTEM ROOT').prop('readonly', true);
                         } else {
                             $('#f_sponsor_id').val('').prop('readonly', false);
                             $('#f_sponsor_name').val('').prop('readonly', true);
                         }
                     }
-
                 } else {
                     $('#hidden_department_id').val('');
                     if (val !== '') this.setCustomValidity('Please select a valid department');
                 }
             });
 
-
-            // ==========================================
-            // 🔥 SPONSOR SELECTION & DESIGNATION FILTER 🔥
-            // ==========================================
             function renderDesignations(maxComm = null) {
                 let options = '';
                 allDesignations.forEach(function(item) {
-                    // Agar koi max commission set nahi hai, YA FIR current item ka commission sponsor se chota hai
                     if (maxComm === null || parseFloat(item.commission_percentage || 0) < parseFloat(
                             maxComm)) {
                         options += `<option value="${item.designation_name}">`;
@@ -797,41 +823,35 @@
 
             $('#f_sponsor_id').on('input change', function() {
                 let val = $(this).val();
-
-                // User Administrator Nahi Hai (Associate Member logic)
                 if (!isUserAdmin) {
                     $('#f_sponsor_name').val(loggedInMemberName);
-                    // Ab backend se fetch ki gayi allDesignations mein iski post dhundte hain
                     if (allDesignations.length > 0) {
                         let myDesigObj = allDesignations.find(d => d.designation_name ===
                             loggedInDesignation);
                         if (myDesigObj) {
-                            renderDesignations(myDesigObj.commission_percentage); // Filter laga diya
+                            renderDesignations(myDesigObj.commission_percentage);
                         } else {
                             renderDesignations();
                         }
                     }
-                    return; // Normal logic bypass
+                    return;
                 }
 
-                // Administrator Logic
                 if (val === '') {
                     $('#f_sponsor_name').val('');
-                    renderDesignations(); // Show all designations
+                    renderDesignations();
                 } else {
                     let found = allMembers.find(m => m.member_id === val);
                     if (found) {
                         $('#f_sponsor_name').val(found.member_name);
                         let sponsorDesigObj = allDesignations.find(d => d.designation_name === found
                             .designation);
-
                         if (sponsorDesigObj) {
-                            renderDesignations(sponsorDesigObj.commission_percentage); // Filter laga diya
+                            renderDesignations(sponsorDesigObj.commission_percentage);
                         } else {
                             renderDesignations();
                         }
                     } else {
-                        // Custom sponsor id typing scenario
                         if (!$(this).prop('readonly')) {
                             $('#f_sponsor_name').val('');
                             renderDesignations();
@@ -840,7 +860,6 @@
                 }
             });
 
-
             // ==========================================
             // DataTables
             // ==========================================
@@ -848,14 +867,10 @@
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: '/api/v1/members', // /admin/ removed
+                    url: '/api/v1/members'
                 },
                 dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
-                buttons: [{
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-3'
-                }],
+                buttons: dtButtons,
                 columns: [{
                         data: 'member_id',
                         render: d => `<span class="fw-bold text-primary">${d}</span>`
@@ -880,45 +895,79 @@
                     {
                         data: 'mobile'
                     },
+
+                    // 🔥 NAYA: DYNAMIC ACTION BUTTONS RENDER (WITH RBAC) 🔥
                     {
                         data: 'id',
-                        render: d => `
-                <div class="text-end">
-                    <button type="button" class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>
-                    <button type="button" class="btn btn-sm btn-light text-primary me-1 edit-btn secured-item" data-permission="member_edit" data-id="${d}"><i class="fas fa-edit"></i></button>
-                    <button type="button" class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="member_delete" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
-                </div>`
+                        orderable: false,
+                        className: 'text-end text-nowrap',
+                        render: function(d) {
+                            let isGod = window.userGodMode || false;
+                            let p = window.userPerms || [];
+
+                            let hasView = isGod || p.includes(window.moduleBase + '_view');
+                            let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
+                            let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
+
+                            let btns = '';
+                            if (hasView) btns +=
+                                `<button type="button" class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>`;
+                            if (hasEdit) btns +=
+                                `<button type="button" class="btn btn-sm btn-light text-primary me-1 edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>`;
+                            if (hasDelete) btns +=
+                                `<button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>`;
+
+                            if (!btns)
+                            return `<span class="text-muted small"><i class="fas fa-lock"></i> Locked</span>`;
+                            return `<div class="d-flex justify-content-end flex-nowrap">${btns}</div>`;
+                        }
                     }
                 ],
                 drawCallback: function(settings) {
                     renderMobileCards(settings.json.data);
-                    if (typeof window.applyPermissions === 'function') window.applyPermissions();
                 }
-
             });
 
+            // ==========================================
+            // MOBILE CARDS RENDER (WITH RBAC)
+            // ==========================================
             function renderMobileCards(data) {
                 let html = '';
                 if (!data || data.length === 0) {
                     html =
                     '<div class="text-center p-3 text-muted border rounded bg-light">No members found.</div>';
                 } else {
+                    let isGod = window.userGodMode || false;
+                    let p = window.userPerms || [];
+
+                    let hasView = isGod || p.includes(window.moduleBase + '_view');
+                    let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
+                    let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
+
                     data.forEach(d => {
                         let branchName = d.branch ? d.branch.branch_name : 'N/A';
+
+                        let actionBtns = '';
+                        if (hasView) actionBtns +=
+                            `<button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>`;
+                        if (hasEdit) actionBtns +=
+                            `<button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>`;
+                        if (hasDelete) actionBtns +=
+                            `<button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>`;
+                        if (!actionBtns) actionBtns =
+                            `<span class="small fw-bold text-muted w-100 text-center"><i class="fas fa-lock"></i> No Rights</span>`;
+
                         html += `<div class="mobile-item">
                             <h6 class="fw-bold text-dark">${d.member_name} <span class="float-end text-primary small">${d.member_id}</span></h6>
                             <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${branchName}</div>
                             <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.mobile}</div>
                             <div class="mt-2 pt-2 border-top d-flex gap-2">
-                                <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
-                                <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn secured-item" data-permission="member_edit" data-id="${d.id}">Edit</button>
-                                <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn secured-item" data-permission="member_delete" data-id="${d.id}">Delete</button>
+                                ${actionBtns}
                             </div>
                         </div>`;
                     });
                 }
                 $('#mobileCardsContainer').html(html);
-                if (typeof window.applyPermissions === 'function') window.applyPermissions();
             }
 
             $('#mobileSearch').on('keyup', function() {
@@ -928,7 +977,6 @@
                 });
             });
 
-            // Load All Members for Sponsor List
             function loadSponsorsList() {
                 $.ajax({
                     url: '/api/v1/members',
@@ -946,19 +994,12 @@
             }
             loadSponsorsList();
 
-
-            // ==========================================
-            // Modals
-            // ==========================================
             window.openModal = function(type, id = null) {
                 mode = type;
                 $('#memberForm')[0].reset();
                 $('#edit_id').val('');
                 $('#form_method').val('POST');
-
-                // Clear hidden IDs
                 $('#hidden_company_id, #hidden_branch_id, #hidden_department_id').val('');
-
                 $('#f_sponsor_name').prop('readonly', true).addClass('bg-light');
                 $('#modalTitle').text(type === 'add' ? 'Register Member' : 'Edit Member');
                 $('.file-preview-wrapper').hide().find('.preview-content').empty();
@@ -967,30 +1008,25 @@
                 if (type === 'add') {
                     $('.password-edit-div').hide();
                     $('.password-gen-div').show();
-                    applyRoleUI(); // Yahan call hoga applyRoleUI
+                    applyRoleUI();
                 } else {
                     $('.password-edit-div').show();
                     $('.password-gen-div').hide();
 
-                    // Fetch Data for Edit
                     $.get({
                         url: `/api/v1/members/${id}`,
                         success: function(res) {
                             let d = res.data;
                             $('#edit_id').val(d.id);
                             $('#form_method').val('PUT');
-
-                            // Set Hidden IDs
                             $('#hidden_company_id').val(d.company_id);
                             $('#hidden_branch_id').val(d.branch_id);
                             $('#hidden_department_id').val(d.department_id);
 
-                            // Setup visual inputs
                             if (d.company) $('#f_company').val(d.company.company_name);
                             if (d.branch) $('#f_branch').val(d.branch.branch_name);
                             if (d.department) $('#f_department').val(d.department.department_name);
 
-                            // Smart Populating Logic
                             Object.keys(d).forEach(key => {
                                 let input = $(`#memberForm [name="${key}"]`);
                                 if (input.length && input.attr('type') !== 'file' && input
@@ -1003,18 +1039,13 @@
 
                             $('#f_bank_branch').val(d.bank_branch_text);
 
-                            // Trigger sponsor event to load hierarchy if sponsor exists
-                            if (d.sponsor_id) {
-                                $('#f_sponsor_id').trigger('change');
-                            }
-
+                            if (d.sponsor_id) $('#f_sponsor_id').trigger('change');
                             if (d.gender) $(`input[name="gender"][value="${d.gender}"]`).prop(
                                 'checked', true);
                             if (d.marital_status) $(
                                     `input[name="marital_status"][value="${d.marital_status}"]`)
                                 .prop('checked', true);
 
-                            // Edit mode me UI theek karne ke liye applyRoleUI chalega
                             applyRoleUI();
                         }
                     });
@@ -1026,7 +1057,6 @@
                 openModal('edit', $(this).data('id'));
             });
 
-            // Form Submit
             $('#memberForm').submit(function(e) {
                 e.preventDefault();
                 let formData = new FormData(this);
@@ -1044,12 +1074,11 @@
                         alert(res.message);
                         $('#memberModal').modal('hide');
                         table.ajax.reload(null, false);
-                        loadSponsorsList(); // Refresh sponsors
+                        loadSponsorsList();
                     }
                 });
             });
 
-            // Delete Logic
             $(document).on('click', '.delete-btn', function() {
                 if (confirm("Delete Member?")) {
                     $.ajax({
@@ -1063,7 +1092,6 @@
                 }
             });
 
-            // Password Generator Logic
             function generatePassword() {
                 let fullName = $('#f_name').val().trim();
                 let aadhar = $('#f_aadhar').val().replace(/\D/g, '');
@@ -1078,7 +1106,6 @@
             }
             $('#f_name, #f_aadhar').on('keyup change', generatePassword);
 
-            // View Logic
             $(document).on('click', '.view-btn', function() {
                 $.get({
                     url: `/api/v1/members/${$(this).data('id')}`,
@@ -1112,7 +1139,6 @@
                 });
             });
 
-            // Previews
             $('input[type="file"]').each(function() {
                 $(this).after(
                     `<div class="file-preview-wrapper"><button type="button" class="btn btn-danger remove-preview-btn"><i class="fas fa-times"></i></button><div class="preview-content text-center"></div></div>`
@@ -1146,7 +1172,6 @@
                 $(this).closest('.file-preview-wrapper').prev('input[type="file"]').val('');
                 $(this).closest('.file-preview-wrapper').slideUp();
             });
-
         });
     </script>
 @endpush

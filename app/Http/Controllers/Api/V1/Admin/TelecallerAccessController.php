@@ -94,4 +94,22 @@ class TelecallerAccessController extends Controller
             return response()->json(['status' => 'success', 'message' => 'Access Granted Successfully', 'has_access' => true]);
         }
     }
+
+    // Class me sabse upar ye function add karein:
+    private function isExecutiveAccess($user)
+    {
+        if (!$user) return false;
+        
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        if (in_array($user->email ?? '', $developerEmails)) return true;
+        
+        if (method_exists($user, 'hasRole')) {
+            try {
+                if ($user->hasRole(['CEO', 'Director', 'Super Admin'])) return true;
+            } catch (\Exception $e) {
+                return false; 
+            }
+        }
+        return false;
+    }
 }

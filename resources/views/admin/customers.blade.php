@@ -28,7 +28,6 @@
             box-shadow: 0 4px 6px var(--shadow-color);
         }
 
-        /* Tabs Styling - Make them horizontal and scrollable on mobile */
         .nav-tabs {
             flex-wrap: nowrap;
             overflow-x: auto;
@@ -41,7 +40,6 @@
             display: none;
         }
 
-        /* Hide scrollbar */
         .nav-tabs .nav-link {
             font-weight: 600;
             color: #6b7280;
@@ -62,7 +60,6 @@
             color: #4b5563;
         }
 
-        /* File Preview Box Styling */
         .file-preview-wrapper {
             display: none;
             position: relative;
@@ -88,22 +85,51 @@
             justify-content: center;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
         }
+
+        .created-badge {
+            background-color: #e0e7ff;
+            color: #2b6cb0;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            border: 1px solid #c3dafe;
+        }
     </style>
+
+    @php
+        // 🔥 SERVER SIDE PERMISSION LOGIC 🔥
+        $currentUser = auth()->user() ?? auth('sanctum')->user();
+        $perms = [];
+        $isGod = false;
+        $globalContext = null;
+
+        if ($currentUser) {
+            $controller = new \App\Http\Controllers\Controller();
+            $perms = $controller::getLiveActivePermissions($currentUser);
+            $globalContext = $controller->getGlobalContext();
+            $isGod = $globalContext->is_god ?? false;
+        }
+
+        $canExport = $isGod || in_array('customer_print', $perms) || in_array('customer_export', $perms);
+    @endphp
 
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Customer Details</h4>
             </div>
-            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" data-permission="customer_add" style="background-color: var(--brand-primary);" onclick="openModal('add')">
-    <i class="fas fa-plus me-1"></i> Register Customer
-</button>
+            <div>
+                <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" id="addCustomerBtn"
+                    data-permission="customer_add" style="background-color: var(--brand-primary);"
+                    onclick="openModal('add')">
+                    <i class="fas fa-plus me-1"></i> Register Customer
+                </button>
+            </div>
         </div>
 
         <div class="d-flex d-md-none gap-2 mb-3">
-            <input type="text" id="mobileSearch" class="form-control shadow-sm" placeholder="Search Customer...">
-            <button type="button" class="btn text-white shadow-sm" style="background-color: #10b981;"
-                id="mobileExcelBtn"><i class="fas fa-file-excel"></i></button>
+            <input type="text" id="mobileSearch" class="form-control shadow-sm w-100" placeholder="Search Customer...">
         </div>
 
         <div class="card border-0 shadow-sm d-none d-md-block">
@@ -116,6 +142,8 @@
                                 <th>Branch</th>
                                 <th>Name</th>
                                 <th>Mobile</th>
+                                <th>Status</th>
+                                <th>Created By</th>
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -128,6 +156,7 @@
         <div id="mobileCardsContainer" class="d-block d-md-none"></div>
     </div>
 
+    <!-- MODAL STARTS HERE -->
     <div class="modal fade" id="customerModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
@@ -161,29 +190,43 @@
 
                         <div class="tab-content p-4">
 
+                            <!-- TAB 1: PERSONAL INFO -->
                             <div class="tab-pane fade show active" id="tab-personal">
                                 <div class="row g-3">
-                                  <div class="col-md-4">
-                                    <label class="form-label text-secondary small">Select Branch <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="f_branch" list="branchList" placeholder="Search Branch..." required autocomplete="off">
-                                    <input type="hidden" name="branch_id" id="branch_id_hidden" required>
-                                    <datalist id="branchList"></datalist>
-                                </div>
 
+                                    <div class="col-md-4" id="wrap_company">
+                                        <label class="form-label text-secondary small">Select Company <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="f_company" list="companyList"
+                                            placeholder="Search Company..." autocomplete="nope">
+                                        <input type="hidden" name="company_id" id="hidden_company_id">
+                                        <datalist id="companyList"></datalist>
+                                    </div>
+
+                                    <div class="col-md-4" id="wrap_branch">
+                                        <label class="form-label text-secondary small">Select Branch <span
+                                                class="text-info">(Leave blank for Head Office)</span></label>
+                                        <input type="text" class="form-control" id="f_branch" list="branchList"
+                                            placeholder="Search Branch..." autocomplete="nope">
+                                        <input type="hidden" name="branch_id" id="branch_id_hidden">
+                                        <datalist id="branchList"></datalist>
+                                        <!-- Error Message Box -->
+                                        <small id="branch_error" class="text-danger fw-bold mt-1"
+                                            style="display: none;"></small>
+                                    </div>
 
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Name in Full <span
                                                 class="text-danger">*</span></label>
                                         <input type="text" name="customer_name" class="form-control" id="f_name"
-                                            required>
+                                            required autocomplete="off">
                                     </div>
+
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Associate Member (Optional)</label>
                                         <input type="text" id="member_search_input" class="form-control"
-                                            list="memberListOptions" placeholder="Search Member..." autocomplete="off">
-
+                                            list="memberListOptions" placeholder="Search Member..." autocomplete="nope">
                                         <input type="hidden" name="member_id" id="f_member_id">
-
                                         <datalist id="memberListOptions"></datalist>
                                     </div>
 
@@ -191,11 +234,18 @@
                                         <label class="form-label text-secondary small">Login Password <span
                                                 class="text-info">(Editable)</span></label>
                                         <input type="text" name="password" class="form-control"
-                                            placeholder="Enter new password to change">
+                                            placeholder="Enter new password to change" autocomplete="new-password">
                                     </div>
 
-
-
+                                    <div class="col-md-4 status-div" style="display: none;">
+                                        <label class="form-label text-secondary small">Customer Status <span
+                                                class="text-danger">*</span></label>
+                                        <select class="form-select fw-bold" name="status" id="f_status">
+                                            <option value="active" class="text-success">Active</option>
+                                            <option value="pending" class="text-warning">Pending</option>
+                                            <option value="inactive" class="text-danger">Inactive</option>
+                                        </select>
+                                    </div>
 
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Booking Date <span
@@ -242,15 +292,21 @@
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small d-block">Marital Status</label>
                                         <div class="form-check form-check-inline mt-2">
-                                            <input class="form-check-input" type="radio" name="marital_status"
-                                                value="Married" id="ms_married">
+                                            <input class="form-check-input marital-radio" type="radio"
+                                                name="marital_status" value="Married" id="ms_married">
                                             <label class="form-check-label" for="ms_married">Married</label>
                                         </div>
                                         <div class="form-check form-check-inline mt-2">
-                                            <input class="form-check-input" type="radio" name="marital_status"
-                                                value="Unmarried" id="ms_unmarried">
+                                            <input class="form-check-input marital-radio" type="radio"
+                                                name="marital_status" value="Unmarried" id="ms_unmarried">
                                             <label class="form-check-label" for="ms_unmarried">Unmarried</label>
                                         </div>
+                                    </div>
+
+                                    <div class="col-md-4" id="wrap_anniversary" style="display: none;">
+                                        <label class="form-label text-secondary small">Date of Anniversary</label>
+                                        <input type="date" name="date_of_anniversary" class="form-control"
+                                            id="f_anniversary">
                                     </div>
 
                                     <div class="col-md-4">
@@ -316,6 +372,7 @@
                                 </div>
                             </div>
 
+                            <!-- TAB 2: BANK DETAILS -->
                             <div class="tab-pane fade" id="tab-bank">
                                 <div class="row g-3">
                                     <div class="col-md-4">
@@ -356,6 +413,7 @@
                                 </div>
                             </div>
 
+                            <!-- TAB 3: NOMINEE DETAILS -->
                             <div class="tab-pane fade" id="tab-nominee">
                                 <div class="row g-3">
                                     <div class="col-md-3">
@@ -427,6 +485,7 @@
                                 </div>
                             </div>
 
+                            <!-- TAB 4: DOCUMENTS -->
                             <div class="tab-pane fade" id="tab-docs">
 
                                 <h6 class="text-primary fw-bold border-bottom pb-2 mb-3"><i
@@ -571,6 +630,7 @@
         </div>
     </div>
 
+    <!-- VIEW MODAL -->
     <div class="modal fade" id="viewModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -625,6 +685,14 @@
                             <p class="small text-muted mb-0">Booking Date</p>
                             <h6 class="fw-bold" id="v_booking"></h6>
                         </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Marital Status</p>
+                            <h6 class="fw-bold" id="v_marital"></h6>
+                        </div>
+                        <div class="col-md-4" id="view_anniversary_wrap" style="display:none;">
+                            <p class="small text-muted mb-0">Date of Anniversary</p>
+                            <h6 class="fw-bold" id="v_anniversary"></h6>
+                        </div>
 
                         <div class="col-12 mt-3">
                             <h6 class="fw-bold text-secondary border-bottom pb-2">Nominee Basic Info</h6>
@@ -650,7 +718,7 @@
         </div>
     </div>
 
-
+    <!-- RESPONSE MODAL -->
     <div class="modal fade" id="responseModal" tabindex="-1" style="z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -660,20 +728,28 @@
                 </div>
                 <div class="modal-body text-center p-4">
                     <i id="responseModalIcon" class="fas fa-3x mb-3"></i>
-                    <p id="responseModalMessage" class="mb-0 fw-medium" style="word-wrap: break-word; font-size: 14px;"></p>
+                    <p id="responseModalMessage" class="mb-0 fw-medium" style="word-wrap: break-word; font-size: 14px;">
+                    </p>
                 </div>
                 <div class="modal-footer border-top-0 justify-content-center pb-4">
-                    <button type="button" class="btn px-5 text-white fw-bold shadow-sm" id="responseModalBtn" data-bs-dismiss="modal">OK</button>
+                    <button type="button" class="btn px-5 text-white fw-bold shadow-sm" id="responseModalBtn"
+                        data-bs-dismiss="modal">OK</button>
                 </div>
             </div>
         </div>
     </div>
-
-
-
 @endsection
 
 @push('scripts')
+    <script>
+        // Server variables initialization
+        window.userPerms = {!! json_encode($perms) !!};
+        window.userGodMode = {{ $isGod ? 'true' : 'false' }};
+        window.userContext = {!! json_encode($globalContext) !!};
+        window.moduleBase = 'customer';
+        window.canExport = {{ $canExport ? 'true' : 'false' }};
+    </script>
+
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
@@ -681,15 +757,79 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
     <script>
-        $(document).ready(function() {
-            const apiToken = localStorage.getItem('admin_token');
+       $(document).ready(function() {
+            const apiToken = localStorage.getItem('admin_token') || localStorage.getItem('emp_token');
             let mode = 'add';
-            let branchMap = {}; // Branch ki hidden ID ke liye
-            let memberMap = {}; // Member ki hidden ID ke liye
+            let branchMap = {};
+            let companyMap = {};
+            let memberMap = {};
 
-            // ==========================================
-            // 1. SMART RESPONSE MODAL
-            // ==========================================
+            // 👇 NAYA CODE: Check Request vs Direct Access 👇
+            let permsArray = window.userPerms || [];
+            let isGod = window.userGodMode || false;
+            let hasDirectAdd = isGod || permsArray.includes('customer_add_direct') || permsArray.includes('customer_add'); 
+            let hasRequestAdd = permsArray.includes('customer_add_request');
+
+            // Top Add Button ka Text Change
+            if (!hasDirectAdd && hasRequestAdd) {
+                $('#addCustomerBtn').html('<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
+            }
+
+            if (window.userGodMode) {
+                $('.secured-item').css('visibility', 'visible');
+            }
+
+           $(document).ajaxSuccess(function(event, xhr, settings) {
+                if (settings.url.indexOf('/auth/me') !== -1) {
+                    if (typeof window.applyPermissions === 'function') {
+                        window.applyPermissions();
+                    }
+                    if (typeof table !== 'undefined') table.draw(false);
+
+                    // 🔥 Dynamic Add Button Text Logic (After API load) 🔥
+                    let p = window.userPerms || [];
+                    let isG = window.userGodMode || false;
+                    let hasDirect = isG || p.includes('customer_add_direct') || p.includes('customer_add');
+                    let hasReq = p.includes('customer_add_request');
+
+                    if (!hasDirect && hasReq) {
+                        $('#addCustomerBtn').html('<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
+                    }
+                }
+            });
+
+            $(document).on('change', '.marital-radio', function() {
+                if ($(this).val() === 'Married') {
+                    $('#wrap_anniversary').slideDown();
+                } else {
+                    $('#wrap_anniversary').slideUp();
+                    $('#f_anniversary').val('');
+                }
+            });
+
+            function applyScopeUI() {
+                let isGod = window.userGodMode || false;
+                let isDir = false;
+
+                if (window.userContext) {
+                    isGod = isGod || window.userContext.is_god || window.userContext.role_level === 'developer';
+                    isDir = window.userContext.is_director || window.userContext.role_level === 'director';
+                } else {
+                    let roleText = $('.user-role-display').text().toLowerCase();
+                    if (roleText.includes('director')) isDir = true;
+                }
+
+                if (isGod) {
+                    $('#wrap_company, #wrap_branch').show();
+                    $('#f_company').prop('required', true);
+                } else if (isDir) {
+                    $('#wrap_company').hide();
+                    $('#wrap_branch').show();
+                } else {
+                    $('#wrap_company, #wrap_branch').hide();
+                }
+            }
+
             window.showMessage = function(message, type = 'success') {
                 let modal = $('#responseModal');
                 let header = modal.find('.modal-header');
@@ -721,75 +861,304 @@
                 modal.modal('show');
             };
 
-            // ==========================================
-            // 2. DATATABLES & EXCEL TRICK (10-10 Server Side)
-            // ==========================================
+            function loadCompanies() {
+                $.ajax({
+                    url: '/api/v1/get-active-companies',
+                    type: 'GET',
+                    success: function(res) {
+                        let opts = '';
+                        companyMap = {};
+                        res.data.forEach(c => {
+                            opts += `<option value="${c.company_name}">`;
+                            companyMap[c.company_name] = c.id;
+                        });
+                        $('#companyList').html(opts);
+                    }
+                });
+            }
+            loadCompanies();
+
+            function loadMembersForDatalist(cId = '', bId = '') {
+                let url = '/api/v1/members?';
+                if (cId) url += 'company_id=' + cId + '&';
+                if (bId) url += 'branch_id=' + bId;
+
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        let options = '';
+                        memberMap = {};
+                        res.data.forEach(m => {
+                            let disp = `${m.member_name} (${m.member_id})`;
+                            options += `<option value="${disp}">`;
+                            memberMap[disp] = m.member_id;
+                        });
+                        $('#memberListOptions').html(options);
+                    }
+                });
+            }
+            loadMembersForDatalist();
+
+            // 🔥 SMART BRANCH VALIDATION (BLUR / CHANGE ONLY) 🔥
+            function validateBranchField() {
+                let val = $('#f_branch').val().trim();
+                let errorSpan = $('#branch_error');
+                let hiddenId = $('#branch_id_hidden');
+                let companyId = $('#hidden_company_id').val();
+
+                if (val === '') {
+                    // Blank = Head Office
+                    hiddenId.val('');
+                    errorSpan.hide().text('');
+                    document.getElementById('f_branch').setCustomValidity('');
+                    loadMembersForDatalist(companyId, '');
+                } else if (branchMap[val]) {
+                    // Exact Match (Perfect)
+                    hiddenId.val(branchMap[val]);
+                    errorSpan.hide().text('');
+                    document.getElementById('f_branch').setCustomValidity('');
+                    loadMembersForDatalist(companyId, branchMap[val]);
+                } else {
+                    // Check if user is currently typing a valid substring
+                    let isTyping = false;
+                    for (let key in branchMap) {
+                        if (key.toLowerCase().includes(val.toLowerCase())) {
+                            isTyping = true;
+                            break;
+                        }
+                    }
+
+                    if (isTyping) {
+                        // Matching partially (Don't show error yet)
+                        hiddenId.val('');
+                        errorSpan.hide().text('');
+                        document.getElementById('f_branch').setCustomValidity('Incomplete branch name');
+                    } else {
+                        // Completely wrong or Wrong Autofill Selection
+                        hiddenId.val('');
+                        errorSpan.text('❌ This branch does not belong to the selected company!').show();
+                        document.getElementById('f_branch').setCustomValidity('Invalid branch');
+                        loadMembersForDatalist(companyId, '');
+                    }
+                }
+            }
+
+            $('#f_company').on('change blur', function() {
+                let val = $(this).val();
+                if (companyMap[val]) {
+                    $('#hidden_company_id').val(companyMap[val]);
+                    loadMembersForDatalist(companyMap[val], $('#branch_id_hidden').val());
+
+                    $.ajax({
+                        url: '/api/v1/branches?company_id=' + companyMap[val],
+                        type: 'GET',
+                        success: function(res) {
+                            let bOpts = '';
+                            branchMap = {};
+                            res.data.forEach(b => {
+                                bOpts += `<option value="${b.branch_name}">`;
+                                branchMap[b.branch_name] = b.id;
+                            });
+                            $('#branchList').html(bOpts);
+                            validateBranchField();
+                        }
+                    });
+                }
+            });
+
+            // Trigger on input, change, and blur to catch Autofill instantly
+            $('#f_branch').on('input change blur', function() {
+                validateBranchField();
+            });
+
+            // 🔥 NATIVE DATATABLES EXCEL BUTTON 🔥
+           // 🔥 PHP ka dependency khatam kiya. Button humesha push hoga, par 'secured-item' usko hide/show karega 🔥
+            let dtButtons = [{
+                extend: 'excelHtml5',
+                className: 'btn btn-success btn-sm shadow-sm rounded-3 mt-1 secured-item', // secured-item class zaroori hai
+                attr: {
+                    'data-permission': 'customer_export' // Action Slug yahan aayega
+                },
+                text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
+                action: function(e, dt, button, config) {
+                    let oldLength = dt.page.len();
+                    dt.page.len(-1).draw();
+                    dt.one('draw', function() {
+                        $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt, button, config);
+                        dt.page.len(oldLength).draw();
+                    });
+                }
+            }];
+            if (window.canExport) {
+                dtButtons.push({
+                    extend: 'excelHtml5',
+                    className: 'btn btn-success btn-sm shadow-sm rounded-3 mt-1',
+                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
+                    action: function(e, dt, button, config) {
+                        let oldLength = dt.page.len();
+                        dt.page.len(-1).draw();
+                        dt.one('draw', function() {
+                            $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt,
+                                button, config);
+                            dt.page.len(oldLength).draw();
+                        });
+                    }
+                });
+            }
+
             let table = $('#customerTable').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
                     url: '/api/v1/customers',
-                    type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + apiToken }
-                },
-                dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
-                buttons: [{
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export All to Excel',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-3',
-                    action: function(e, dt, button, config) {
-                        let oldLength = dt.page.len();
-                        dt.page.len(-1).draw(); // Saara data laao
-                        dt.one('draw', function() {
-                            $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt, button, config);
-                            dt.page.len(oldLength).draw(); // Wapas 10 pe set karo
-                        });
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
                     }
-                }],
-                columns: [
-                    { data: 'customer_id', render: d => `<span class="fw-bold text-primary">${d}</span>` },
-                    { data: 'branch_id', render: (d, t, row) => {
-                            if (!row.branch) return 'N/A';
-                            let compName = row.branch.company ? row.branch.company.company_name : 'Master Company';
+                },
+                // 🔥 DOM layout fixed: Excel on left (col-sm-6), Search on right (col-sm-6) 🔥
+                dom: '<"row mb-3 align-items-center"<"col-sm-6"B><"col-sm-6 text-md-end"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
+                buttons: dtButtons,
+                columns: [{
+                        data: 'customer_id',
+                        render: d => `<span class="fw-bold text-primary">${d}</span>`
+                    },
+                    {
+                        data: 'branch_id',
+                        render: (d, t, row) => {
+                            let compName = 'N/A';
+                            let branchName = 'Head Office';
+
+                            if (row.branch && row.branch.company) {
+                                compName = row.branch.company.company_name;
+                                branchName = row.branch.branch_name;
+                            } else if (row.company_id) {
+                                compName = 'HQ - Primary Company';
+                            }
                             return `<div class="small fw-bold text-primary"><i class="fas fa-building me-1"></i> ${compName}</div>
-                                    <div class="small text-muted"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${row.branch.branch_name}</div>`;
-                    }},
-                    { data: 'customer_name' },
-                    { data: 'customer_mobile' },
-                 // 1. DataTables action column render ke andar
-{ data: 'id', orderable: false, className: 'text-end text-nowrap', render: d => `
-    <div class="d-flex justify-content-end flex-nowrap gap-1">
-        <button type="button" class="btn btn-sm btn-light text-info view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>
-        <button type="button" class="btn btn-sm btn-light text-primary edit-btn secured-item" data-permission="customer_edit" data-id="${d}"><i class="fas fa-edit"></i></button>
-        <button type="button" class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="customer_delete" data-id="${d}"><i class="fas fa-trash-alt"></i></button>
-    </div>`
-}
+                                    <div class="small text-muted"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${branchName}</div>`;
+                        }
+                    },
+                    {
+                        data: 'customer_name'
+                    },
+                    {
+                        data: 'customer_mobile'
+                    },
+                    {
+                        data: 'status',
+                        render: function(d) {
+                            let badgeClass = 'bg-secondary';
+                            if (d === 'active') badgeClass = 'bg-success';
+                            else if (d === 'pending') badgeClass = 'bg-warning text-dark';
+                            else if (d === 'inactive') badgeClass = 'bg-danger';
+                            return `<span class="badge ${badgeClass}">${d ? d.toUpperCase() : 'N/A'}</span>`;
+                        }
+                    },
+                    {
+                        data: 'created_by',
+                        render: function(d) {
+                            if (!d) return '<span class="text-muted">N/A</span>';
+                            
+                            // Check if format is "Name (ID)"
+                            let match = d.match(/(.*)\s*\((.*?)\)/);
+                            if (match) {
+                                return `
+                                <div class="text-start">
+                                    <span class="d-block fw-bold text-dark" style="font-size:12px;"><i class="fas fa-user-tie text-secondary me-1"></i> ${match[1]}</span>
+                                    <span class="badge bg-primary-subtle text-primary border mt-1" style="font-size:10.5px;">ID: ${match[2]}</span>
+                                </div>`;
+                            }
+                            // Fallback
+                            return `<span class="created-badge"><i class="fas fa-user-edit me-1"></i>${d}</span>`;
+                        }
+                    },
+                    {
+                        data: 'id',
+                        orderable: false,
+                        className: 'text-end text-nowrap',
+                        render: function(d) {
+                            let isGod = window.userGodMode || false;
+                            let p = window.userPerms || [];
+
+                            let hasView = isGod || p.includes(window.moduleBase + '_view');
+                            let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
+                            let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
+                            let hasRestore = isGod || p.includes(window.moduleBase + '_restore');
+
+                            let btns = '';
+                            if (hasView) btns +=
+                                `<button type="button" class="btn btn-sm btn-light text-info view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>`;
+                            if (hasEdit) btns +=
+                                `<button type="button" class="btn btn-sm btn-light text-primary edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>`;
+                            if (hasDelete) btns +=
+                                `<button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>`;
+                            if (hasRestore) btns +=
+                                `<button type="button" class="btn btn-sm btn-light text-success restore-btn" data-id="${d}" title="Restore"><i class="fas fa-trash-restore"></i></button>`;
+
+                            if (!btns)
+                            return `<span class="text-muted small"><i class="fas fa-lock"></i> Locked</span>`;
+                            return `<div class="d-flex justify-content-end gap-1">${btns}</div>`;
+                        }
+                    }
                 ],
                 drawCallback: function(settings) {
                     renderMobileCards(settings.json.data);
                 }
             });
 
-            // ==========================================
-            // 3. MOBILE CARDS RENDER
-            // ==========================================
             function renderMobileCards(data) {
                 let html = '';
                 if (!data || data.length === 0) {
-                    html = '<div class="text-center p-3 text-muted border rounded bg-light">No customers found.</div>';
+                    html =
+                        '<div class="text-center p-3 text-muted border rounded bg-light">No customers found.</div>';
                 } else {
+                    let isGod = window.userGodMode || false;
+                    let p = window.userPerms || [];
+
+                    let hasView = isGod || p.includes(window.moduleBase + '_view');
+                    let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
+                    let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
+                    let hasRestore = isGod || p.includes(window.moduleBase + '_restore');
+
                     data.forEach(d => {
-                        let compName = d.branch && d.branch.company ? d.branch.company.company_name : 'Master Company';
-                        let branchName = d.branch ? d.branch.branch_name : 'N/A';
+                        let compName = d.branch && d.branch.company ? d.branch.company.company_name :
+                            'HQ - Primary Company';
+                        let branchName = d.branch ? d.branch.branch_name : 'Head Office';
+                        let creator = d.created_by ?
+                            `<span class="created-badge float-end"><i class="fas fa-user-edit me-1"></i>${d.created_by}</span>` :
+                            '';
+
+                        let statusBadge = '';
+                        if (d.status === 'active') statusBadge =
+                            `<span class="badge bg-success float-end mt-1">Active</span>`;
+                        else if (d.status === 'pending') statusBadge =
+                            `<span class="badge bg-warning text-dark float-end mt-1">Pending</span>`;
+                        else if (d.status === 'inactive') statusBadge =
+                            `<span class="badge bg-danger float-end mt-1">Inactive</span>`;
+
+                        let actionBtns = '';
+                        if (hasView) actionBtns +=
+                            `<button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>`;
+                        if (hasEdit) actionBtns +=
+                            `<button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>`;
+                        if (hasDelete) actionBtns +=
+                            `<button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>`;
+                        if (hasRestore) actionBtns +=
+                            `<button type="button" class="btn btn-sm btn-light text-success flex-fill restore-btn" data-id="${d.id}">Restore</button>`;
+
+                        if (!actionBtns) actionBtns =
+                            `<span class="small fw-bold text-muted w-100 text-center"><i class="fas fa-lock"></i> Locked</span>`;
+
                         html += `<div class="mobile-item">
-                            <h6 class="fw-bold text-dark">${d.customer_name} <span class="float-end text-primary small">${d.customer_id}</span></h6>
+                            <h6 class="fw-bold text-dark">${d.customer_name} ${creator}</h6>
+                            <div class="small fw-bold text-primary mt-2">${d.customer_id} ${statusBadge}</div>
                             <div class="small text-muted mb-1"><i class="fas fa-building text-info me-1"></i> ${compName} - ${branchName}</div>
                             <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.customer_mobile}</div>
-                           <div class="mt-2 pt-2 border-top d-flex gap-2">
-    <button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>
-    <button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn secured-item" data-permission="customer_edit" data-id="${d.id}">Edit</button>
-    <button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn secured-item" data-permission="customer_delete" data-id="${d.id}">Delete</button>
-</div>
+                           <div class="mt-2 pt-2 border-top d-flex gap-2">${actionBtns}</div>
                         </div>`;
                     });
                 }
@@ -798,45 +1167,11 @@
 
             $('#mobileSearch').on('keyup', function() {
                 let v = $(this).val().toLowerCase();
-                $('.mobile-item').filter(function() { $(this).toggle($(this).text().toLowerCase().indexOf(v) > -1) });
-            });
-            $('#mobileExcelBtn').click(() => $('.buttons-excel').click());
-
-            // ==========================================
-            // 4. DATALIST MAPPING (Branch & Member)
-            // ==========================================
-            
-            // Branch Input Mapping
-            $('#f_branch').on('input change', function() {
-                let val = $(this).val();
-                if (branchMap[val]) {
-                    $('#branch_id_hidden').val(branchMap[val]); 
-                    this.setCustomValidity('');
-                } else {
-                    $('#branch_id_hidden').val('');
-                    this.setCustomValidity('Please select a valid branch from the list');
-                }
-            });
-
-            // Member Load & Mapping
-            function loadMembersForDatalist() {
-                $.ajax({
-                    url: '/api/v1/members', type: 'GET', headers: { 'Authorization': 'Bearer ' + apiToken },
-                    success: function(res) {
-                        let options = '';
-                        memberMap = {};
-                        res.data.forEach(m => {
-                            let disp = `${m.member_name} (${m.member_id})`;
-                            options += `<option value="${disp}">`;
-                            memberMap[disp] = m.member_id; // Hidden ID store kar li
-                        });
-                        $('#memberListOptions').html(options);
-                    }
+                $('.mobile-item').filter(function() {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(v) > -1)
                 });
-            }
-            loadMembersForDatalist();
+            });
 
-            // Member Input Mapping
             $('#member_search_input').on('input change', function() {
                 let val = $(this).val();
                 if (memberMap[val]) {
@@ -846,9 +1181,6 @@
                 }
             });
 
-            // ==========================================
-            // 5. FILE PREVIEWS LOGIC
-            // ==========================================
             $('input[type="file"]').each(function() {
                 $(this).after(`
                     <div class="file-preview-wrapper">
@@ -867,13 +1199,18 @@
                     if (file.type.startsWith('image/')) {
                         let reader = new FileReader();
                         reader.onload = function(event) {
-                            content.html(`<img src="${event.target.result}" style="max-height:90px; border-radius:6px; object-fit:contain;">`);
+                            content.html(
+                                `<img src="${event.target.result}" style="max-height:90px; border-radius:6px; object-fit:contain;">`
+                                );
                             wrapper.slideDown();
                         }
                         reader.readAsDataURL(file);
                     } else {
-                        let icon = file.type === 'application/pdf' ? 'fa-file-pdf text-danger' : 'fa-file-alt text-primary';
-                        content.html(`<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas ${icon} fs-3"></i><span style="font-size:12px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</span></div>`);
+                        let icon = file.type === 'application/pdf' ? 'fa-file-pdf text-danger' :
+                            'fa-file-alt text-primary';
+                        content.html(
+                            `<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas ${icon} fs-3"></i><span style="font-size:12px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</span></div>`
+                            );
                         wrapper.slideDown();
                     }
                 } else {
@@ -888,117 +1225,184 @@
                 wrapper.slideUp();
             });
 
-            // ==========================================
-            // 6. OPEN MODAL & FORM SUBMIT
-            // ==========================================
-            window.openModal = function(type, id = null) {
+           window.openModal = function(type, id = null) {
                 mode = type;
                 $('#customerForm')[0].reset();
-                $('#branch_id_hidden').val('');
-                $('#f_member_id').val('');
+                $('#branch_id_hidden, #hidden_company_id, #f_member_id').val('');
+                $('#wrap_anniversary').hide();
+                $('#branch_error').hide();
+                document.getElementById('f_branch').setCustomValidity('');
+
+                // 🔥 NAYA FOOLPROOF TEXT LOGIC 🔥
+                // Seedha bahar wale button ka text padho, agar usme Request likha hai to modal bhi Request mode me jayega
+                let isReq = $('#addCustomerBtn').text().toLowerCase().includes('request');
+
+                if (type === 'add') {
+                    if (isReq) {
+                        $('#modalTitle').html('<i class="fas fa-paper-plane me-2 text-warning"></i> Request Customer Registration');
+                        $('#saveBtn').text('Submit Customer Request');
+                    } else {
+                        $('#modalTitle').html('<i class="fas fa-user-plus me-2 text-primary"></i> Register Customer');
+                        $('#saveBtn').text('Save Customer Details');
+                    }
+                    $('.password-div').hide();
+                    $('.status-div').hide();
+                } else {
+                    $('#modalTitle').html('<i class="fas fa-edit me-2 text-primary"></i> Edit Customer Details');
+                    $('#saveBtn').text('Update Customer Details');
+                    $('.password-div').show();
+                    $('.status-div').show();
+                }
+
+                applyScopeUI();
+
+
                 $('#modalTitle').text(type === 'add' ? 'Register Customer' : 'Edit Customer');
-                $('.nav-tabs button:first').tab('show'); 
+                $('.nav-tabs button:first').tab('show');
                 $('.file-preview-wrapper').hide().find('.preview-content').empty();
 
-                if(type === 'add') { $('.password-div').hide(); } 
-                else { $('.password-div').show(); }
+                applyScopeUI();
 
-                $.ajax({
-                    url: '/api/v1/branches', headers: { 'Authorization': 'Bearer ' + apiToken },
-                    success: function(res) {
-                        let options = '';
-                        branchMap = {}; 
-                        res.data.forEach(b => {
-                            let compName = b.company ? b.company.company_name : 'Master Company';
-                            let disp = `${compName} - ${b.branch_name} (${b.branch_id})`;
-                            options += `<option value="${disp}">`;
-                            branchMap[disp] = b.id;
-                        });
-                        $('#branchList').html(options);
+                if (type === 'add') {
+                    $('.password-div').hide();
+                    $('.status-div').hide();
+                } else {
+                    $('.password-div').show();
+                    $('.status-div').show();
+                }
 
-                        if(type === 'edit') {
-                            $.get({
-                                url: `/api/v1/customers/${id}`, headers: { 'Authorization': 'Bearer ' + apiToken },
-                                success: function(res) {
-                                    let cust = res.data;
-                                    $('#edit_id').val(cust.id);
-                                    
-                                    // Branch Auto-fill
-                                    if(cust.branch) {
-                                        let compName = cust.branch.company ? cust.branch.company.company_name : 'Master Company';
-                                        let disp = `${compName} - ${cust.branch.branch_name} (${cust.branch.branch_id})`;
-                                        $('#f_branch').val(disp);
-                                        $('#branch_id_hidden').val(cust.branch_id);
+                if (window.userGodMode) {
+                    $('#branchList').empty();
+                    $('#f_branch').val('');
+                } else if (window.userContext && window.userContext.company_id) {
+                    $.ajax({
+                        url: '/api/v1/branches?company_id=' + window.userContext.company_id,
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        success: function(res) {
+                            let options = '';
+                            branchMap = {};
+                            res.data.forEach(b => {
+                                let compName = b.company ? b.company.company_name :
+                                    'Master Company';
+                                let disp =
+                                `${compName} - ${b.branch_name} (${b.branch_id})`;
+                                options += `<option value="${disp}">`;
+                                branchMap[disp] = b.id;
+                            });
+                            $('#branchList').html(options);
+                        }
+                    });
+                }
+
+                if (type === 'edit') {
+                    $.get({
+                        url: `/api/v1/customers/${id}`,
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        success: function(res) {
+                            let cust = res.data;
+                            $('#edit_id').val(cust.id);
+
+                            if (cust.status) $('#f_status').val(cust.status);
+
+                            if (cust.branch) {
+                                let compName = cust.branch.company ? cust.branch.company
+                                    .company_name : 'Master Company';
+                                let disp =
+                                    `${compName} - ${cust.branch.branch_name} (${cust.branch.branch_id})`;
+                                $('#f_branch').val(disp);
+                                $('#branch_id_hidden').val(cust.branch_id);
+                            }
+
+                            if (cust.member_id) {
+                                let memberDisp = Object.keys(memberMap).find(key => memberMap[
+                                    key] === cust.member_id);
+                                if (memberDisp) {
+                                    $('#member_search_input').val(memberDisp);
+                                    $('#f_member_id').val(cust.member_id);
+                                }
+                            }
+
+                            Object.keys(cust).forEach(key => {
+                                let input = $(`#customerForm [name="${key}"]`);
+                                if (input.length && input.attr('type') !== 'file' && input
+                                    .attr('type') !== 'radio') {
+                                    if (typeof cust[key] === 'object' && cust[key] !== null)
+                                        return;
+                                    if (key !== 'branch_id' && key !== 'member_id' &&
+                                        key !== 'status') input.val(cust[key]);
+                                }
+                            });
+
+                            $('#f_bank_branch').val(cust.bank_branch_text);
+
+                            if (cust.gender) $(`input[name="gender"][value="${cust.gender}"]`).prop(
+                                'checked', true);
+
+                            if (cust.marital_status) {
+                                $(`input[name="marital_status"][value="${cust.marital_status}"]`)
+                                    .prop('checked', true);
+                                if (cust.marital_status === 'Married') {
+                                    $('#wrap_anniversary').show();
+                                    $('#f_anniversary').val(cust.date_of_anniversary);
+                                }
+                            }
+
+                            let fileFields = [
+                                'aadharcard', 'pancard', 'bank_passbook_pdf', 'drivinglicense',
+                                'passport', 'passport_photo',
+                                'tenthmarksheet', 'twelvethmarksheet', 'graduationcertificate',
+                                'pgcertificate', 'otherdoc',
+                                'nom_aadharcard', 'nom_pancard', 'nom_bankpassbook',
+                                'nom_drivinglicense', 'nom_passport',
+                                'nom_passport_photo', 'nom_tenthmarksheet',
+                                'nom_twelvethmarksheet', 'nom_graduationcertificate',
+                                'nom_pgcertificate', 'nom_otherdoc'
+                            ];
+
+                            fileFields.forEach(function(field) {
+                                let filePath = cust[field];
+                                let input = $(`#customerForm input[name="${field}"]`);
+                                if (input.length > 0 && filePath) {
+                                    let wrapper = input.next('.file-preview-wrapper');
+                                    let content = wrapper.find('.preview-content');
+                                    let fullUrl = filePath.startsWith('/') ? filePath :
+                                        '/' + filePath;
+                                    let ext = filePath.split('.').pop().toLowerCase();
+                                    let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
+
+                                    if (imageExts.includes(ext)) {
+                                        content.html(
+                                            `<img src="${fullUrl}" style="max-height:90px; border-radius:6px; object-fit:contain;">`
+                                            );
+                                    } else {
+                                        let icon = ext === 'pdf' ?
+                                            'fa-file-pdf text-danger' :
+                                            'fa-file-alt text-primary';
+                                        content.html(
+                                            `<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas ${icon} fs-3"></i><a href="${fullUrl}" target="_blank" class="text-decoration-none" style="font-size:12px;">View Document</a></div>`
+                                            );
                                     }
-
-                                    // Member Auto-fill
-                                    if (cust.member_id) {
-                                        // Reverse search in map
-                                        let memberDisp = Object.keys(memberMap).find(key => memberMap[key] === cust.member_id);
-                                        if(memberDisp) {
-                                            $('#member_search_input').val(memberDisp);
-                                            $('#f_member_id').val(cust.member_id);
-                                        }
-                                    }
-
-                                    // Text fields Auto-fill
-                                    Object.keys(cust).forEach(key => {
-                                        let input = $(`#customerForm [name="${key}"]`);
-                                        if(input.length && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
-                                            if (typeof cust[key] === 'object' && cust[key] !== null) return; 
-                                            if (key !== 'branch_id' && key !== 'member_id') input.val(cust[key]);
-                                        }
-                                    });
-
-                                    $('#f_bank_branch').val(cust.bank_branch_text); // Bank branch conflict bypass
-
-                                    // Radios
-                                    if (cust.gender) $(`input[name="gender"][value="${cust.gender}"]`).prop('checked', true);
-                                    if (cust.marital_status) $(`input[name="marital_status"][value="${cust.marital_status}"]`).prop('checked', true);
-
-                                    // Files Auto-fill
-                                    let fileFields = [
-                                        'aadharcard', 'pancard', 'bank_passbook_pdf', 'drivinglicense', 'passport', 'passport_photo', 
-                                        'tenthmarksheet', 'twelvethmarksheet', 'graduationcertificate', 'pgcertificate', 'otherdoc',
-                                        'nom_aadharcard', 'nom_pancard', 'nom_bankpassbook', 'nom_drivinglicense', 'nom_passport',
-                                        'nom_passport_photo', 'nom_tenthmarksheet', 'nom_twelvethmarksheet', 'nom_graduationcertificate',
-                                        'nom_pgcertificate', 'nom_otherdoc'
-                                    ];
-
-                                    fileFields.forEach(function(field) {
-                                        let filePath = cust[field];
-                                        let input = $(`#customerForm input[name="${field}"]`);
-                                        if (input.length > 0 && filePath) {
-                                            let wrapper = input.next('.file-preview-wrapper');
-                                            let content = wrapper.find('.preview-content');
-                                            let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
-                                            let ext = filePath.split('.').pop().toLowerCase();
-                                            let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
-
-                                            if (imageExts.includes(ext)) {
-                                                content.html(`<img src="${fullUrl}" style="max-height:90px; border-radius:6px; object-fit:contain;">`);
-                                            } else {
-                                                let icon = ext === 'pdf' ? 'fa-file-pdf text-danger' : 'fa-file-alt text-primary';
-                                                content.html(`<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas ${icon} fs-3"></i><a href="${fullUrl}" target="_blank" class="text-decoration-none" style="font-size:12px;">View Document</a></div>`);
-                                            }
-                                            wrapper.show();
-                                        }
-                                    });
+                                    wrapper.show();
                                 }
                             });
                         }
-                    }
-                });
+                    });
+                }
+
                 $('#customerModal').modal('show');
             };
 
-            $(document).on('click', '.edit-btn', function() {
-                openModal('edit', $(this).data('id'));
-            });
-
-            // BULLETPROOF FORM SUBMIT
             $('#customerForm').submit(function(e) {
                 e.preventDefault();
+
+                if (!this.checkValidity()) {
+                    return;
+                }
+
                 let formData = new FormData(this);
                 let id = $('#edit_id').val();
                 let url = mode === 'add' ? '/api/v1/customers' : `/api/v1/customers/${id}`;
@@ -1010,7 +1414,9 @@
                 $.ajax({
                     url: url,
                     type: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
                     data: formData,
                     processData: false,
                     contentType: false,
@@ -1021,7 +1427,8 @@
                     },
                     error: function(err) {
                         let errMsg = 'Something went wrong!';
-                        if (err.responseJSON && err.responseJSON.message) errMsg = err.responseJSON.message; 
+                        if (err.responseJSON && err.responseJSON.message) errMsg = err
+                            .responseJSON.message;
                         showMessage(errMsg, 'error');
                     },
                     complete: function() {
@@ -1030,21 +1437,25 @@
                 });
             });
 
-            // 7. VIEW & DELETE
             $(document).on('click', '.view-btn', function() {
                 let id = $(this).data('id');
                 $.get({
                     url: `/api/v1/customers/${id}`,
-                    headers: { 'Authorization': 'Bearer ' + apiToken },
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
                     success: function(res) {
                         let d = res.data;
                         $('#v_cust_id').text(d.customer_id || 'N/A');
-                        $('#v_password').text(d.password || 'N/A'); 
-                        
+                        $('#v_password').text(d.password || 'N/A');
+
                         let branchText = 'N/A';
-                        if(d.branch) {
-                            let compName = d.branch.company ? d.branch.company.company_name : 'Master Company';
+                        if (d.branch) {
+                            let compName = d.branch.company ? d.branch.company.company_name :
+                                'Master Company';
                             branchText = compName + ' - ' + d.branch.branch_name;
+                        } else if (d.company_id) {
+                            branchText = 'HQ - Primary Company (Head Office)';
                         }
                         $('#v_branch').text(branchText);
 
@@ -1054,6 +1465,14 @@
                         $('#v_aadhar').text(d.aadhar_number || 'N/A');
                         $('#v_pan').text(d.pan_number || 'N/A');
                         $('#v_booking').text(d.booking_date || 'N/A');
+                        $('#v_marital').text(d.marital_status || 'N/A');
+
+                        if (d.marital_status === 'Married' && d.date_of_anniversary) {
+                            $('#view_anniversary_wrap').show();
+                            $('#v_anniversary').text(d.date_of_anniversary);
+                        } else {
+                            $('#view_anniversary_wrap').hide();
+                        }
 
                         $('#v_nom_name').text(d.nominee_name || 'N/A');
                         $('#v_nom_relation').text(d.nominee_relation || 'N/A');
@@ -1064,19 +1483,53 @@
                 });
             });
 
+            // 🔥 YAHAN EDIT BUTTON KA LISTENER ADD KIYA GAYA HAI 🔥
+            $(document).on('click', '.edit-btn', function() {
+                let id = $(this).data('id');
+                window.openModal('edit', id);
+            });
+
+
             $(document).on('click', '.delete-btn', function() {
                 if (confirm("Delete Customer?")) {
                     $.ajax({
                         url: `/api/v1/customers/${$(this).data('id')}`,
                         type: 'DELETE',
-                        headers: { 'Authorization': 'Bearer ' + apiToken },
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
                         success: function() {
                             table.ajax.reload(null, false);
                             showMessage('Deleted successfully!', 'success');
+                        },
+                        error: function(err) {
+                            showMessage(err.responseJSON?.message || 'Unauthorized Action',
+                                'error');
                         }
                     });
                 }
             });
+
+            $(document).on('click', '.restore-btn', function() {
+                if (confirm("Restore Customer?")) {
+                    $.ajax({
+                        url: `/api/v1/customers/${$(this).data('id')}/restore`,
+                        type: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        success: function() {
+                            table.ajax.reload(null, false);
+                            showMessage('Restored successfully!', 'success');
+                        },
+                        error: function(err) {
+                            showMessage(err.responseJSON?.message || 'Unauthorized Action',
+                                'error');
+                        }
+                    });
+                }
+            });
+
         });
     </script>
 @endpush

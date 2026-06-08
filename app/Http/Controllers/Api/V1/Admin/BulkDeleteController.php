@@ -25,6 +25,7 @@ class BulkDeleteController extends Controller
             'designations',     // Designations Table
             'companies',        // Companies Table
             'branches',         // Branches Table
+            'departments',
         ];
 
         if (!in_array($table, $allowedTables)) {

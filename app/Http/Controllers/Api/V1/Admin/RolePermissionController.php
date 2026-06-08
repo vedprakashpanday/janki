@@ -15,12 +15,10 @@ class RolePermissionController extends Controller
     private function isMasterAdmin($user)
     {
         if (!$user) return false;
-        
-        // 1. Seedha Email Check (Master Developers)
+
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
         if (in_array($user->email, $developerEmails)) return true;
-        
-        // 2. Safe Role Check
+
         if (method_exists($user, 'hasRole') && $user->hasRole('Super Admin')) return true;
 
         return false;
@@ -30,105 +28,237 @@ class RolePermissionController extends Controller
     {
         try {
             $user = auth()->user();
+            $today = date('Y-m-d');
+            $time = date('H:i:s'); // 🔥 NAYA: Current Time bhi nikal liya
 
-            // Employee model se saara data without column restrictions laayenge taaki koi missing field error na ho
-            $query = Employee::with(['roles', 'permissions']);
+            $query = Employee::with([
+                'roles' => function($q) use ($today, $time) {
+                    // DATE Check
+                    $q->where(function($query) use ($today) {
+                        $query->whereNull('model_has_roles.access_end_date')
+                              ->orWhere('model_has_roles.access_end_date', '>=', $today);
+                    })
+                    // 🔥 TIME Check (Agar daily time diya hai, toh usko bhi check karega)
+                    ->where(function($query) use ($time) {
+                        $query->whereNull('model_has_roles.daily_end_time')
+                              ->orWhere('model_has_roles.daily_end_time', '>=', $time);
+                    });
+                },
+                'permissions' => function($q) use ($today, $time) {
+                    // DATE Check
+                    $q->where(function($query) use ($today) {
+                        $query->whereNull('model_has_permissions.access_end_date')
+                              ->orWhere('model_has_permissions.access_end_date', '>=', $today);
+                    })
+                    // 🔥 TIME Check (1:50 PM ke baad Admin screen se hide kar dega)
+                    ->where(function($query) use ($time) {
+                        $query->whereNull('model_has_permissions.daily_end_time')
+                              ->orWhere('model_has_permissions.daily_end_time', '>=', $time);
+                    });
+                }
+            ]);
 
-            if (!$this->isMasterAdmin($user)) {
+            // Scope Filtering
+            if (!$this->isMasterAdmin($user) && !$user->hasRole(['CEO', 'Director'])) {
+                $query->where('company_id', $user->company_id)
+                      ->where('branch_id', $user->branch_id)
+                      ->where('department_id', $user->department_id); 
+            } elseif (!$this->isMasterAdmin($user)) {
                 $query->where('company_id', $user->company_id);
             }
 
-            $employees = $query->get();
-
-            return response()->json([
-                'status' => 'success',
-                'data' => $employees
-            ]);
+            return response()->json(['status' => 'success', 'data' => $query->get()]);
         } catch (\Exception $e) {
-            // Agar koi error aayega toh API 500 error me message bhejegi, silent fail nahi hogi
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    private function buildModulePermissionTree($parentId, $allModules, $allPermissions)
+    {
+        $tree = [];
+        $children = $allModules->where('parent_id', $parentId)->sortBy('sequence');
+
+        foreach ($children as $child) {
+            $modulePerms = [];
+            if (!empty($child->permission_base)) {
+                $modulePerms = $allPermissions->filter(function ($p) use ($child) {
+                    return str_starts_with($p->name, $child->permission_base . '_');
+                })->values();
+            }
+
+            $tree[] = [
+                'id' => $child->id,
+                'module_name' => $child->module_name,
+                'permission_base' => $child->permission_base,
+                'permissions' => $modulePerms,
+                'children' => $this->buildModulePermissionTree($child->id, $allModules, $allPermissions)
+            ];
+        }
+
+        return $tree;
     }
 
     public function getRolesAndPermissions()
     {
         $roles = Role::where('name', '!=', 'Super Admin')->get();
+        $allModules = \App\Models\Module::where('status', 'active')->get();
+        $allPermissions = Permission::all();
 
-        $permissions = Permission::all()->groupBy(function ($data) {
-            return explode('_', $data->name)[0];
-        });
+        $moduleTree = $this->buildModulePermissionTree(null, $allModules, $allPermissions);
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'roles' => $roles,
-                'permissions' => $permissions
+                'module_tree' => $moduleTree
             ]
         ]);
     }
 
+
+    // ==========================================
+    // 🔥 ADVANCED PIVOT ASSIGNMENT LOGIC 🔥
+    // ==========================================
     public function assignPowers(Request $request)
     {
-        // 1. Validation ko 'user_id' se badalkar 'user_ids' (Array) kar diya gaya hai
         $request->validate([
             'user_ids' => 'required|array|min:1',
-            'user_ids.*' => 'exists:adm_regist,id', 
             'roles' => 'nullable|array',
-            'permissions' => 'nullable|array'
+            'permissions' => 'nullable|array',
+            'model_type' => 'nullable|string'
         ]);
 
         $currentUser = auth()->user();
-
-        // ==========================================
-        // 🛡️ STRICT ROLE ASSIGNMENT CHECK
-        // ==========================================
-        // Agar Master Admin nahi hai, aur CEO/Director bhi nahi hai, toh block kar do
-        if (!$this->isMasterAdmin($currentUser) && (!$currentUser->hasRole(['CEO', 'Director']))) {
-            return response()->json(['status' => 'error', 'message' => 'Strict Restriction: You do not have the authority to assign roles or powers.'], 403);
-        }
-        // ==========================================
+        $modelClass = $request->model_type ?? \App\Models\Employee::class;
 
         DB::beginTransaction();
         try {
-            // 2. Ab array par loop chalega, taaki ek saath 10 employees ka data update ho sake
             foreach ($request->user_ids as $userId) {
-                
-                $targetUser = Employee::findOrFail($userId);
+                $targetUser = $modelClass::findOrFail($userId);
+                $mode = $request->mode ?? 'append';
 
-                // Scope Security Check: Kya admin limits cross kar raha hai?
-                if (!$this->isMasterAdmin($currentUser) && $currentUser->company_id != $targetUser->company_id) {
-                    throw new \Exception('Unauthorized Scope for Employee ID: ' . $userId);
+                if ($modelClass === \App\Models\Employee::class) {
+                    if (!$this->isMasterAdmin($currentUser) && !$currentUser->hasRole(['CEO', 'Director'])) {
+                        if (
+                            $currentUser->company_id != $targetUser->company_id ||
+                            $currentUser->branch_id != $targetUser->branch_id ||
+                            $currentUser->department_id != $targetUser->department_id
+                        ) {
+                            throw new \Exception('Scope Restriction: You cannot assign powers outside your branch/department.');
+                        }
+                    }
                 }
 
-                // Roles Assign (purane hatenge, naye lagenge)
-                if ($request->has('roles')) {
-                    $targetUser->syncRoles($request->roles);
-                } else {
-                    $targetUser->syncRoles([]);
+                // Agar 'Sync' mode hai, toh pehle wali sab clear karo
+                if ($mode === 'sync') {
+                    DB::table('model_has_roles')->where('model_id', $targetUser->id)->where('model_type', $modelClass)->delete();
+                    DB::table('model_has_permissions')->where('model_id', $targetUser->id)->where('model_type', $modelClass)->delete();
                 }
 
-                // Permissions Assign
-                if ($request->has('permissions')) {
-                    $targetUser->syncPermissions($request->permissions);
-                } else {
-                    $targetUser->syncPermissions([]);
+                // ROLES ASSIGN
+                if ($request->has('roles') && !empty($request->roles)) {
+                    $roles = Role::whereIn('name', $request->roles)->get();
+                    foreach ($roles as $role) {
+                        DB::table('model_has_roles')->updateOrInsert(
+                            ['role_id' => $role->id, 'model_id' => $targetUser->id, 'model_type' => $modelClass],
+                            [
+                                'access_start_date' => $request->access_start_date,
+                                'access_end_date'   => $request->access_end_date,
+                                'daily_start_time'  => $request->daily_start_time,
+                                'daily_end_time'    => $request->daily_end_time,
+                            ]
+                        );
+                    }
                 }
 
-                // Time Limits Save
-                $targetUser->access_start_date = $request->access_start_date;
-                $targetUser->access_end_date = $request->access_end_date;
-                $targetUser->daily_start_time = $request->daily_start_time;
-                $targetUser->daily_end_time = $request->daily_end_time;
-                
-                $targetUser->save();
+                // PERMISSIONS ASSIGN
+                if ($request->has('permissions') && !empty($request->permissions)) {
+                    $permissions = Permission::whereIn('name', $request->permissions)->get();
+                    foreach ($permissions as $perm) {
+                        DB::table('model_has_permissions')->updateOrInsert(
+                            ['permission_id' => $perm->id, 'model_id' => $targetUser->id, 'model_type' => $modelClass],
+                            [
+                                'access_start_date' => $request->access_start_date,
+                                'access_end_date'   => $request->access_end_date,
+                                'daily_start_time'  => $request->daily_start_time,
+                                'daily_end_time'    => $request->daily_end_time,
+                            ]
+                        );
+                    }
+                }
             }
 
+            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
             DB::commit();
-            return response()->json(['status' => 'success', 'message' => 'Powers Assigned Successfully to all selected targets!']);
-            
+            return response()->json(['status' => 'success', 'message' => 'Powers with Time Matrices Assigned Successfully!']);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+
+    // ==========================================
+    // 🔥 CLEAR USER POWERS (UPDATED) 🔥
+    // ==========================================
+    public function clearUserPowers(Request $request)
+    {
+        $request->validate(['user_id' => 'required']);
+        $currentUser = auth()->user();
+        $targetUser = Employee::findOrFail($request->user_id);
+        $modelClass = \App\Models\Employee::class;
+
+        if (!$this->isMasterAdmin($currentUser) && $currentUser->company_id != $targetUser->company_id) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
+        }
+
+        // Sirf Spatie Pivot tables ko khali karna hai
+        DB::table('model_has_roles')->where('model_id', $targetUser->id)->where('model_type', $modelClass)->delete();
+        DB::table('model_has_permissions')->where('model_id', $targetUser->id)->where('model_type', $modelClass)->delete();
+
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        return response()->json(['status' => 'success', 'message' => 'User powers cleared completely.']);
+    }
+
+    public function revokeSinglePermission(Request $request)
+    {
+        $request->validate(['user_id' => 'required', 'permission' => 'required']);
+        $currentUser = auth()->user();
+        $targetUser = Employee::findOrFail($request->user_id);
+
+        if (!$this->isMasterAdmin($currentUser) && $currentUser->company_id != $targetUser->company_id) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
+        }
+
+        $targetUser->revokePermissionTo($request->permission);
+        return response()->json(['status' => 'success', 'message' => 'Permission revoked.']);
+    }
+
+    public function revokeModulePermissions(Request $request)
+    {
+        $request->validate(['user_id' => 'required', 'module_prefix' => 'required']);
+        $currentUser = auth()->user();
+        $targetUser = Employee::findOrFail($request->user_id);
+
+        if (!$this->isMasterAdmin($currentUser) && !$currentUser->hasRole(['CEO', 'Director'])) {
+            if ($currentUser->branch_id != $targetUser->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
+            }
+        }
+
+        $prefix = $request->module_prefix;
+        $userPerms = $targetUser->permissions()->pluck('name');
+
+        $permsToRemove = $userPerms->filter(function ($name) use ($prefix) {
+            return str_starts_with($name, $prefix . '_');
+        });
+
+        if ($permsToRemove->count() > 0) {
+            $targetUser->revokePermissionTo($permsToRemove->toArray());
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'Module permissions cleared.']);
     }
 }

@@ -44,4 +44,18 @@ class Member extends Model
     {
         return array_key_exists('branch', $this->attributes) ? $this->attributes['branch'] : '';
     }
+
+
+    // Tasks jo is Member ko mile
+    public function tasksReceived()
+    {
+        return $this->morphMany(Task::class, 'assignee');
+    }
+
+    // Is Member ke replies
+    public function taskProgressLogs()
+    {
+        return $this->morphMany(TaskProgressLog::class, 'actor');
+    }
+
 }

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Workspace | Portal</title>
+    <title>JankiVila | Portal</title>
 
     <link rel="shortcut icon" href="{{ asset('uploads/harihomes1-fevicon.png') }}" type="image/x-icon" id="dynamicFavicon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,6 +16,7 @@
         :root {
             --sidebar-bg: #1A365D;
             --sidebar-hover: #2A4365;
+            --sidebar-active: #314E73;
             --brand-primary: #D69E2E;
             --bg-light: #F7FAFC;
             --border-color: #E2E8F0;
@@ -29,9 +30,9 @@
             color: var(--text-main);
         }
 
-        /* HIDDEN BY DEFAULT TO PREVENT UI FLICKER */
-        .secured-item {
-            display: none;
+        /* 🚀 MASTER FIX: Smart UI Hiding Engine 🚀 */
+        .secured-item:not(.is-visible-node) {
+            display: none !important;
         }
 
         @media (min-width: 768px) {
@@ -40,7 +41,7 @@
             }
 
             .app-header-wrapper {
-                position: fixed;
+                position: sticky;
                 top: 0;
                 left: 0;
                 right: 0;
@@ -63,14 +64,13 @@
                 min-height: 50px;
                 display: flex;
                 align-items: center;
-                padding: 0 30px;
+                position: relative;
             }
 
             .app-main {
                 margin-left: 0;
                 padding: 30px;
-                padding-top: 150px;
-                min-height: 100vh;
+                min-height: calc(100vh - 120px);
             }
 
             .mobile-bottom-nav,
@@ -78,17 +78,72 @@
                 display: none !important;
             }
 
+            .nav-scroll-btn {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 35px;
+                background-color: var(--sidebar-bg);
+                border: none;
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 14px;
+                z-index: 10;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: color 0.2s, background 0.2s;
+            }
+
+            .nav-scroll-btn:hover {
+                color: #ffffff;
+                background-color: var(--sidebar-hover);
+            }
+
+            .nav-scroll-btn.left-btn {
+                left: 0;
+                box-shadow: 4px 0 8px rgba(0, 0, 0, 0.1);
+            }
+
+            .nav-scroll-btn.right-btn {
+                right: 0;
+                box-shadow: -4px 0 8px rgba(0, 0, 0, 0.1);
+            }
+
+            .nav-scroll-wrapper {
+                width: 100%;
+                padding: 0 35px;
+                position: relative;
+            }
+
             .desktop-nav {
                 list-style: none;
                 margin: 0;
                 padding: 0;
                 display: flex;
-                flex-wrap: wrap;
+                flex-wrap: nowrap;
                 gap: 5px;
+                width: 100%;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding-bottom: 3000px;
+                margin-bottom: -3000px;
+                pointer-events: none;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+                scroll-behavior: smooth;
+            }
+
+            .desktop-nav::-webkit-scrollbar {
+                display: none;
             }
 
             .desktop-nav>li {
                 position: relative;
+                flex: 0 0 auto;
+                pointer-events: auto;
+                margin-top: 5px;
+                margin-bottom: 5px;
             }
 
             .desktop-nav>li>a {
@@ -96,21 +151,30 @@
                 text-decoration: none;
                 font-size: 13.5px;
                 font-weight: 500;
-                padding: 14px 16px;
+                padding: 10px 16px;
                 display: block;
                 border-radius: 4px;
-                transition: 0.2s;
-            }
-
-            .desktop-nav>li>a:hover,
-            .desktop-nav>li>a.active {
-                color: #ffffff;
-                background-color: rgba(255, 255, 255, 0.1);
+                transition: all 0.2s ease-in-out;
+                white-space: nowrap;
+                user-select: none;
+                border: 1px solid transparent;
             }
 
             .desktop-nav>li>a i {
                 margin-right: 6px;
                 color: var(--brand-primary);
+            }
+
+            .desktop-nav>li>a:hover {
+                color: #ffffff;
+                background-color: var(--sidebar-hover);
+            }
+
+            .desktop-nav>li>a.active {
+                color: #ffffff;
+                background-color: var(--sidebar-active);
+                border-color: rgba(255, 255, 255, 0.1);
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
             }
 
             .desktop-dropdown {
@@ -126,16 +190,33 @@
                 visibility: hidden;
                 transform: translateY(10px);
                 transition: all 0.2s ease;
-                display: flex;
-                flex-direction: column;
+                display: block;
+                list-style: none;
                 padding: 8px 0;
+                margin: 0;
                 z-index: 1050;
+                pointer-events: auto;
             }
 
-            .desktop-nav>li:hover .desktop-dropdown {
+            .desktop-nav li.has-sub {
+                position: relative;
+            }
+
+            .desktop-dropdown li {
+                position: relative;
+            }
+
+            .desktop-nav li:hover>.desktop-dropdown {
                 opacity: 1;
                 visibility: visible;
                 transform: translateY(0);
+            }
+
+            .desktop-dropdown li.has-sub>.desktop-dropdown {
+                top: 0;
+                left: 100%;
+                margin-top: -8px;
+                margin-left: 1px;
             }
 
             .desktop-dropdown a {
@@ -147,6 +228,7 @@
                 transition: 0.2s;
                 display: flex;
                 align-items: center;
+                white-space: nowrap;
             }
 
             .desktop-dropdown a i {
@@ -314,16 +396,229 @@
 
 <body>
     @php
-        // Fetch active modules database structure (Will automatically hide/show based on JS Permissions)
-        $navModules = \App\Models\Module::whereNull('parent_id')
-            ->where('status', 'active')
-            ->orderBy('sequence', 'asc')
-            ->with([
-                'children' => function ($q) {
-                    $q->where('status', 'active')->orderBy('sequence', 'asc');
-                },
-            ])
-            ->get();
+        $allModules = \App\Models\Module::where('status', 'active')->orderBy('sequence', 'asc')->get();
+        $rootModules = $allModules->whereNull('parent_id');
+
+        $currentPortalPrefix = 'admin';
+        if (request()->is('employee/*')) {
+            $currentPortalPrefix = 'employee';
+        } elseif (request()->is('customer/*')) {
+            $currentPortalPrefix = 'customer';
+        }
+
+        if (!function_exists('buildDesktopMenu')) {
+            function buildDesktopMenu($modules, $allModules, $portalPrefix, $isRoot = true)
+            {
+                $html = '';
+                foreach ($modules as $mod) {
+                    $children = $allModules->where('parent_id', $mod->id);
+                    $hasChildren = $children->isNotEmpty();
+
+                    $perm = $mod->permission_base ? $mod->permission_base . '_view' : 'node_parent';
+                    $parentIdAttr = $mod->parent_id ? 'data-parent-id="' . $mod->parent_id . '"' : '';
+
+                    $rawRoute = trim($mod->route, '/');
+                    if ($rawRoute && $rawRoute !== '#') {
+                        $cleanRoute = preg_replace('/^(admin|employee|customer)\//', '', $rawRoute);
+                        $url = url($portalPrefix . '/' . $cleanRoute);
+                        $active = request()->is($portalPrefix . '/' . $cleanRoute . '*') ? 'active' : '';
+                    } else {
+                        $url = '#';
+                        $active = '';
+                    }
+
+                    $icon = $mod->icon ? '<i class="' . $mod->icon . '"></i>' : '';
+
+                    if ($isRoot) {
+                        if (!$hasChildren) {
+                            $html .=
+                                '<li class="secured-item" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '"><a href="' .
+                                $url .
+                                '" class="' .
+                                $active .
+                                '">' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                '</a></li>';
+                        } else {
+                            $html .=
+                                '<li class="secured-item parent-item has-sub" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '"><a href="#" class="' .
+                                $active .
+                                '">' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                ' <i class="fas fa-chevron-down ms-1" style="font-size: 10px;"></i></a>';
+                            $html .= '<ul class="desktop-dropdown">';
+                            $html .= buildDesktopMenu($children, $allModules, $portalPrefix, false);
+                            $html .= '</ul></li>';
+                        }
+                    } else {
+                        if (!$hasChildren) {
+                            $html .=
+                                '<li class="secured-item child-item" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '"><a href="' .
+                                $url .
+                                '" class="' .
+                                $active .
+                                '">' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                '</a></li>';
+                        } else {
+                            $html .=
+                                '<li class="secured-item parent-item has-sub" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '"><a href="#" class="d-flex justify-content-between align-items-center"><span>' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                '</span> <i class="fas fa-chevron-right" style="font-size: 10px;"></i></a>';
+                            $html .= '<ul class="desktop-dropdown">';
+                            $html .= buildDesktopMenu($children, $allModules, $portalPrefix, false);
+                            $html .= '</ul></li>';
+                        }
+                    }
+                }
+                return $html;
+            }
+        }
+
+        if (!function_exists('buildMobileMenu')) {
+            function buildMobileMenu($modules, $allModules, $portalPrefix, $isRoot = true, $depth = 1)
+            {
+                $html = '';
+                $padding = 24 + $depth * 20;
+
+                foreach ($modules as $mod) {
+                    $children = $allModules->where('parent_id', $mod->id);
+                    $hasChildren = $children->isNotEmpty();
+
+                    $perm = $mod->permission_base ? $mod->permission_base . '_view' : 'node_parent';
+                    $parentIdAttr = $mod->parent_id ? 'data-parent-id="' . $mod->parent_id . '"' : '';
+
+                    $rawRoute = trim($mod->route, '/');
+                    if ($rawRoute && $rawRoute !== '#') {
+                        $cleanRoute = preg_replace('/^(admin|employee|customer)\//', '', $rawRoute);
+                        $url = url($portalPrefix . '/' . $cleanRoute);
+                        $active = request()->is($portalPrefix . '/' . $cleanRoute . '*') ? 'active' : '';
+                    } else {
+                        $url = '#';
+                        $active = '';
+                    }
+
+                    $icon = $mod->icon ? '<i class="' . $mod->icon . ' menu-icon"></i>' : '';
+
+                    if ($isRoot) {
+                        if (!$hasChildren) {
+                            $html .=
+                                '<a href="' .
+                                $url .
+                                '" class="nav-item-custom secured-item ' .
+                                $active .
+                                '" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '"><div>' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                '</div></a>';
+                        } else {
+                            $html .=
+                                '<div class="secured-item parent-item" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '">';
+                            $html .=
+                                '<a href="#mobileMenu_' .
+                                $mod->id .
+                                '" data-bs-toggle="collapse" class="nav-item-custom" aria-expanded="false"><div>' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                '</div><i class="fas fa-chevron-down dropdown-caret"></i></a>';
+                            $html .= '<div class="collapse nav-sub-menu" id="mobileMenu_' . $mod->id . '">';
+                            $html .= buildMobileMenu($children, $allModules, $portalPrefix, false, 1);
+                            $html .= '</div></div>';
+                        }
+                    } else {
+                        if (!$hasChildren) {
+                            $html .=
+                                '<a href="' .
+                                $url .
+                                '" class="nav-item-sub secured-item child-item ' .
+                                $active .
+                                '" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '" style="padding-left: ' .
+                                $padding .
+                                'px;">' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                '</a>';
+                        } else {
+                            $html .=
+                                '<div class="secured-item parent-item" data-id="' .
+                                $mod->id .
+                                '" ' .
+                                $parentIdAttr .
+                                ' data-permission="' .
+                                $perm .
+                                '">';
+                            $html .=
+                                '<a href="#mobileMenu_' .
+                                $mod->id .
+                                '" data-bs-toggle="collapse" class="nav-item-sub d-flex justify-content-between align-items-center" aria-expanded="false" style="padding-left: ' .
+                                $padding .
+                                'px;"><div>' .
+                                $icon .
+                                ' ' .
+                                $mod->module_name .
+                                '</div><i class="fas fa-chevron-down dropdown-caret" style="font-size:10px;"></i></a>';
+                            $html .= '<div class="collapse nav-sub-menu" id="mobileMenu_' . $mod->id . '">';
+                            $html .= buildMobileMenu($children, $allModules, $portalPrefix, false, $depth + 1);
+                            $html .= '</div></div>';
+                        }
+                    }
+                }
+                return $html;
+            }
+        }
     @endphp
 
     <header class="app-header-wrapper">
@@ -332,8 +627,14 @@
                 <img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="Workspace Logo" height="35"
                     class="brand-logo-img">
             </div>
-
             <div class="d-flex align-items-center gap-3">
+
+                <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm"
+                    onclick="window.location.href='{{ url($currentPortalPrefix . '/terms-conditions') }}'"
+                    title="Terms & Conditions">
+                    <i class="fas fa-file-signature text-primary"></i>
+                </button>
+
                 <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm"><i
                         class="fas fa-bell"></i></button>
                 <div class="dropdown">
@@ -344,6 +645,13 @@
                         <span class="d-none d-md-block fw-medium fs-6 user-name-display">Loading...</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3">
+                        <li><a class="dropdown-item py-2 fw-medium"
+                                href="{{ url($currentPortalPrefix . '/terms-conditions') }}"><i
+                                    class="fas fa-file-contract me-2 text-primary"></i> Terms & Conditions</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+
                         <li><a class="dropdown-item py-2 fw-medium handle-logout" href="#"
                                 style="color: #E53E3E;"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
                     </ul>
@@ -351,35 +659,27 @@
             </div>
         </div>
 
-        <div class="header-bottom">
-            <ul class="desktop-nav">
-                @foreach ($navModules as $parent)
-                    @if ($parent->children->isEmpty())
-                        <li class="secured-item"
-                            data-permission="{{ $parent->permission_base ? $parent->permission_base . '_view' : 'public' }}">
-                            <a href="{{ url($parent->route ?? '#') }}"
-                                class="{{ request()->is(trim($parent->route, '/') . '*') ? 'active' : '' }}">
-                                <i class="{{ $parent->icon }}"></i> {{ $parent->module_name }}
-                            </a>
-                        </li>
-                    @else
-                        <li class="secured-item parent-item" data-parent-id="{{ $parent->id }}">
-                            <a href="#"><i class="{{ $parent->icon }}"></i> {{ $parent->module_name }} <i
-                                    class="fas fa-chevron-down ms-1" style="font-size: 10px;"></i></a>
-                            <div class="desktop-dropdown">
-                                @foreach ($parent->children as $child)
-                                    <a href="{{ url($child->route ?? '#') }}"
-                                        class="secured-item child-item {{ request()->is(trim($child->route, '/') . '*') ? 'active' : '' }}"
-                                        data-parent-id="{{ $parent->id }}"
-                                        data-permission="{{ $child->permission_base ? $child->permission_base . '_view' : 'public' }}">
-                                        <i class="{{ $child->icon }}"></i> {{ $child->module_name }}
-                                    </a>
-                                @endforeach
-                            </div>
-                        </li>
-                    @endif
-                @endforeach
-            </ul>
+        <div class="header-bottom" id="desktopNavContainer">
+            <button class="nav-scroll-btn left-btn" id="btnScrollLeft"><i class="fas fa-chevron-left"></i></button>
+
+            <div class="nav-scroll-wrapper">
+                <ul class="desktop-nav" id="desktopNavScrollArea">
+                    <li class="secured-item" data-permission="public">
+                        <a href="{{ url($currentPortalPrefix . '/dashboard') }}"
+                            class="dynamic-dashboard-btn text-decoration-none">
+                            <i class="fas fa-home text-warning"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="secured-item" data-permission="public">
+                        <a href="{{ url('employee/welcome-letter') }}">
+                            <i class="fas fa-envelope-open-text text-info"></i> Welcome Letter
+                        </a>
+                    </li>
+                    {!! buildDesktopMenu($rootModules, $allModules, $currentPortalPrefix) !!}
+                </ul>
+            </div>
+
+            <button class="nav-scroll-btn right-btn" id="btnScrollRight"><i class="fas fa-chevron-right"></i></button>
         </div>
     </header>
 
@@ -394,36 +694,24 @@
         <div class="offcanvas-body p-0 d-flex flex-column">
             <div class="flex-grow-1 overflow-auto py-2">
                 <div class="nav-label">Main Menu</div>
+                <a href="{{ url($currentPortalPrefix . '/dashboard') }}"
+                    class="nav-item-custom secured-item dynamic-dashboard-btn border-bottom mb-2"
+                    data-permission="public">
+                    <div><i class="fas fa-home text-warning menu-icon"></i> Dashboard</div>
+                </a>
 
-                @foreach ($navModules as $parent)
-                    @if ($parent->children->isEmpty())
-                        <a href="{{ url($parent->route ?? '#') }}"
-                            class="nav-item-custom secured-item {{ request()->is(trim($parent->route, '/') . '*') ? 'active' : '' }}"
-                            data-permission="{{ $parent->permission_base ? $parent->permission_base . '_view' : 'public' }}">
-                            <div><i class="{{ $parent->icon }} menu-icon"></i> {{ $parent->module_name }}</div>
-                        </a>
-                    @else
-                        <a href="#mobileMenu_{{ $parent->id }}" data-bs-toggle="collapse"
-                            class="nav-item-custom secured-item parent-item" aria-expanded="false"
-                            data-parent-id="{{ $parent->id }}">
-                            <div><i class="{{ $parent->icon }} menu-icon"></i> {{ $parent->module_name }}</div>
-                            <i class="fas fa-chevron-down dropdown-caret"></i>
-                        </a>
-                        <div class="collapse nav-sub-menu secured-item parent-item" id="mobileMenu_{{ $parent->id }}"
-                            data-parent-id="{{ $parent->id }}">
-                            @foreach ($parent->children as $child)
-                                <a href="{{ url($child->route ?? '#') }}"
-                                    class="nav-item-sub secured-item child-item {{ request()->is(trim($child->route, '/') . '*') ? 'active' : '' }}"
-                                    data-parent-id="{{ $parent->id }}"
-                                    data-permission="{{ $child->permission_base ? $child->permission_base . '_view' : 'public' }}">
-                                    <i class="{{ $child->icon }} me-2"></i> {{ $child->module_name }}
-                                </a>
-                            @endforeach
-                        </div>
-                    @endif
-                @endforeach
+                <a href="{{ url('employee/welcome-letter') }}" class="nav-item-custom secured-item border-bottom mb-2"
+                    data-permission="public">
+                    <div><i class="fas fa-envelope-open-text text-info menu-icon"></i> Welcome Letter</div>
+                </a>
+
+                <a href="{{ url($currentPortalPrefix . '/terms-conditions') }}"
+                    class="nav-item-custom border-bottom mb-2 text-info">
+                    <div><i class="fas fa-file-contract text-info menu-icon"></i> Terms & Conditions</div>
+                </a>
+
+                {!! buildMobileMenu($rootModules, $allModules, $currentPortalPrefix) !!}
             </div>
-
             <div class="sidebar-user-card mt-auto">
                 <div class="d-flex align-items-center mb-3">
                     <img src="https://ui-avatars.com/api/?name=User&background=D69E2E&color=fff"
@@ -446,10 +734,10 @@
     </main>
 
     <nav class="mobile-bottom-nav shadow-sm">
-        <a href="#" onclick="window.location.href = '/' + currentPortal + '/dashboard'" class="active"><i
+        <a href="{{ url($currentPortalPrefix . '/dashboard') }}" class="active"><i
                 class="fas fa-layer-group"></i>Home</a>
-        <a href="#" class="secured-item" data-permission="voucher_view"><i
-                class="fas fa-file-invoice-dollar"></i>Vouchers</a>
+        <a href="{{ url('employee/welcome-letter') }}" class="secured-item" data-permission="public"><i
+                class="fas fa-envelope-open-text"></i>Letter</a>
         <a href="#" class="secured-item" data-permission="employee_view"><i
                 class="fas fa-user-tie"></i>Staff</a>
         <a href="#" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar"><i
@@ -460,19 +748,18 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
- <script>
+    <script>
         (function() {
-            // MULTI-PORTAL DYNAMIC CONTEXT RESOLVER
             let currentPath = window.location.pathname;
-            let currentPortal = 'admin'; // Default
+            let currentPortal = 'admin';
             let tokenKey = 'admin_token';
             let loginUrl = '/admin/login';
 
             let authApiUrl = '/api/v1/admin/auth/me';
             let logoutApiUrl = '/api/v1/admin/auth/logout-current';
 
-            // Detect Context based on URL and assign proper endpoints
             if (currentPath.startsWith('/employee')) {
                 currentPortal = 'employee';
                 tokenKey = 'emp_token';
@@ -489,9 +776,6 @@
 
             const layoutToken = localStorage.getItem(tokenKey);
 
-            // ========================================================
-            // 🛡️ 1. GLOBAL AJAX & ZERO-TRUST SECURITY SETUP
-            // ========================================================
             if (layoutToken) {
                 $.ajaxSetup({
                     headers: {
@@ -501,120 +785,335 @@
                 });
             }
 
-            // Global Error Handler: Agar koi bhi API 401 (Unauthorized) ya 403 (Forbidden) return karti hai
             $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
-                if (jqxhr.status === 401 || jqxhr.status === 403) {
-                    // Ignore auth/login endpoints to prevent infinite loops
-                    if(settings.url.indexOf('/auth/login') === -1 && settings.url.indexOf('/verify-id') === -1) {
-                        console.error("Security Breach or Token Expired! Logging out...");
-                        localStorage.removeItem(tokenKey);
-                        window.location.href = loginUrl;
+                if (jqxhr.status === 401) {
+                    if (settings.url.indexOf('/auth/login') === -1 && settings.url.indexOf('/verify-id') === -
+                        1) {
+                        clearLocalDataAndRedirect();
                     }
                 }
             });
 
+            window.clearLocalDataAndRedirect = function() {
+                localStorage.removeItem(tokenKey);
+                if (currentPortal === 'employee') localStorage.removeItem('emp_panel_id');
+                sessionStorage.removeItem('attendance_marked_today');
+                window.location.href = loginUrl;
+            };
+
+            window.performNormalLogout = function() {
+                let payload = {};
+                if (currentPortal === 'employee') payload = {
+                    panel_id: localStorage.getItem('emp_panel_id')
+                };
+                Swal.fire({
+                    title: 'Logging out...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                $.ajax({
+                    url: logoutApiUrl,
+                    type: 'POST',
+                    data: payload,
+                    success: function() {
+                        clearLocalDataAndRedirect();
+                    },
+                    error: function() {
+                        clearLocalDataAndRedirect();
+                    }
+                });
+            };
+
             $(document).ready(function() {
-                // Kick out if no token matches the portal
+
+                const navArea = document.getElementById('desktopNavScrollArea');
+                const btnLeft = document.getElementById('btnScrollLeft');
+                const btnRight = document.getElementById('btnScrollRight');
+
+                if (navArea && btnLeft && btnRight) {
+                    const updateScrollButtons = () => {
+                        if (navArea.scrollWidth <= navArea.clientWidth) {
+                            btnLeft.style.display = 'none';
+                            btnRight.style.display = 'none';
+                            return;
+                        }
+
+                        btnLeft.style.display = navArea.scrollLeft > 0 ? 'flex' : 'none';
+                        btnRight.style.display = (navArea.scrollLeft + navArea.clientWidth) >= (navArea
+                            .scrollWidth - 1) ? 'none' : 'flex';
+                    };
+
+                    btnLeft.addEventListener('click', () => {
+                        navArea.scrollBy({
+                            left: -250,
+                            behavior: 'smooth'
+                        });
+                    });
+
+                    btnRight.addEventListener('click', () => {
+                        navArea.scrollBy({
+                            left: 250,
+                            behavior: 'smooth'
+                        });
+                    });
+
+                    navArea.addEventListener('scroll', updateScrollButtons);
+                    window.addEventListener('resize', updateScrollButtons);
+
+                    navArea.addEventListener('wheel', function(e) {
+                        if (e.deltaY !== 0) {
+                            e.preventDefault();
+                            navArea.scrollBy({
+                                left: e.deltaY > 0 ? 100 : -100,
+                                behavior: 'auto'
+                            });
+                        }
+                    }, {
+                        passive: false
+                    });
+
+                    setTimeout(updateScrollButtons, 300);
+                }
+
+                if (typeof $.fn.dataTable !== 'undefined') {
+                    $.fn.dataTable.ext.errMode = 'none';
+                }
+                $(document).on('error.dt', function(e, settings, techNote, message) {
+                    console.warn('DataTables Blocked: Access Expired or Unauthorized');
+                });
+
                 if (!layoutToken) {
                     window.location.href = loginUrl;
                     return;
                 }
 
-                // ========================================================
-                // 🛡️ 2. FETCH USER AUTHORITY & ROLE
-                // ========================================================
                 $.ajax({
                     url: authApiUrl,
                     type: 'GET',
                     success: function(res) {
                         let u = res.data;
-                        
-                        // 🔥 NAYA: Master Developers (God Mode) Array Update Kiya Hai
-                        let developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-                        let isGodMode = developerEmails.includes(u.email);
+                        let emailStr = u.email ? u.email.toLowerCase() : '';
+                        let developerEmails = ['admin@jankivilla.com', 'superadmin@example.com',
+                            'vedprakash@infoera.in'
+                        ];
 
-                        // Safely handle permissions array
+                        let isGodMode = developerEmails.includes(emailStr);
+                        let isCEOorDirector = u.designation_name && (u.designation_name
+                            .toLowerCase().includes('ceo') || u.designation_name.toLowerCase()
+                            .includes('director'));
+
                         let perms = Array.isArray(u.permissions) ? u.permissions : [];
                         if (u.permissions && !Array.isArray(u.permissions)) {
                             perms = Object.values(u.permissions).map(p => p.name || p);
                         }
 
-                        // Dynamic Identity Map
-                        let displayName = u.name || u.full_name || u.employee_name || 'User';
-                        $('.user-name-display').text(displayName);
-                        $('.user-avatar-img').attr('src', `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1A365D&color=fff`);
+                        $('.user-name-display').text(u.name || u.full_name || u.employee_name ||
+                            'User');
+                        $('.user-role-display').text(isGodMode ? 'Master Access' : (u
+                            .designation_name || currentPortal.toUpperCase()));
 
-                        let roleDisplay = isGodMode ? 'Master Access' : (u.designation_name || currentPortal.toUpperCase());
-                        $('.user-role-display').text(roleDisplay);
-
-                        // DYNAMIC COMPANY LOGO FIX
                         if (u.company_logo) {
                             $('.brand-logo-img').attr('src', u.company_logo);
                             $('#dynamicFavicon').attr('href', u.company_logo);
                         }
 
-                        
-                        // ========================================================
-// 🛡️ 3. ZERO-TRUST DYNAMIC MENU & BUTTON RENDERER
-// ========================================================
-// Global variables set kar rahe hain
-window.userGodMode = isGodMode;
-window.userPerms = perms;
+                        window.userGodMode = isGodMode;
+                        window.userPerms = perms;
 
-window.applyPermissions = function() {
-    $('.secured-item').each(function() {
-        let reqPerm = $(this).data('permission');
+                        window.applyPermissions = function() {
+                            $('.secured-item').each(function() {
+                                let reqPerm = $(this).data('permission');
+                                let isPermitted = false;
 
-        if (reqPerm === 'public' || window.userGodMode || window.userPerms.includes(reqPerm)) {
-            $(this).show(); // Button/Menu dikhao
-            if ($(this).hasClass('child-item')) {
-                let parentId = $(this).data('parent-id');
-                $('.parent-item[data-parent-id="' + parentId + '"]').show();
-            }
-        } else {
-            $(this).remove(); // Jiske paas power nahi, uska button uda do
-        }
-    });
-};
+                                if (reqPerm === 'public' || window.userGodMode) {
+                                    isPermitted = true;
+                                } else if (reqPerm && reqPerm !== 'node_parent') {
+                                    let base = reqPerm.replace('_view', '');
+                                    isPermitted = window.userPerms.some(p => p ===
+                                        reqPerm || p.startsWith(base + '_'));
+                                }
 
-// Pehli baar menu ke liye run karo
-window.applyPermissions(); 
+                                if (isPermitted) {
+                                    $(this).addClass('is-visible-node');
+                                } else {
+                                    $(this).removeClass('is-visible-node');
+                                }
+                            });
 
-// 🔥 MASTER STROKE: Jab bhi koi Datatable naya data load karega, ye automatically buttons ko show/hide karega!
-$(document).on('draw.dt', function() {
-    if(typeof window.applyPermissions === 'function') {
-        window.applyPermissions();
-    }
-});
-
-                        // ECHO BROADCAST (Auto Logout)
-                        if (typeof window.Echo !== 'undefined') {
-                            const currentTokenId = layoutToken.split('|')[0];
-                            window.Echo.channel(`${currentPortal}.logout.${u.id}`)
-                                .listen('.user.logged.out', (e) => {
-                                    if (e.tokenId === null || e.tokenId == currentTokenId) {
-                                        localStorage.removeItem(tokenKey);
-                                        window.location.href = loginUrl;
+                            let bubbling = true;
+                            while (bubbling) {
+                                bubbling = false;
+                                $('.secured-item.is-visible-node').each(function() {
+                                    let pId = $(this).data('parent-id');
+                                    if (pId) {
+                                        $('.secured-item[data-id="' + pId +
+                                            '"]:not(.is-visible-node)').each(
+                                            function() {
+                                                $(this).addClass('is-visible-node');
+                                                bubbling = true;
+                                            });
                                     }
                                 });
+                            }
+                            if (typeof updateScrollButtons !== 'undefined') {
+                                setTimeout(updateScrollButtons, 100);
+                            }
+                        };
+
+                        window.applyPermissions();
+
+                        $(document).on('draw.dt', function() {
+                            if (typeof window.applyPermissions === 'function') window
+                                .applyPermissions();
+                        });
+
+                        // Javascript dashboard redirection handlers
+                        let targetDashboard = '/' + currentPortal + '/dashboard';
+                        $('.brand-logo-img').css('cursor', 'pointer').on(
+                            'click',
+                            function(e) {
+                                e.preventDefault();
+                                window.location.href = targetDashboard;
+                            });
+
+                        let bypassAutoLogout = isGodMode || isCEOorDirector || currentPortal !==
+                            'employee';
+
+                        if (!bypassAutoLogout) {
+                            let idleTime = 0;
+                            let idleInterval = setInterval(function() {
+                                idleTime++;
+                                if (idleTime >= 15) {
+                                    clearInterval(idleInterval);
+                                    Swal.fire({
+                                        title: 'Session Expired!',
+                                        text: 'Inactivity detected. Auto-logging out.',
+                                        icon: 'warning',
+                                        allowOutsideClick: false
+                                    }).then(() => {
+                                        let pId = localStorage.getItem(
+                                            'emp_panel_id');
+                                        if (pId) {
+                                            $.ajax({
+                                                url: logoutApiUrl,
+                                                type: 'POST',
+                                                data: {
+                                                    panel_id: pId,
+                                                    is_auto: 1
+                                                },
+                                                complete: function() {
+                                                    clearLocalDataAndRedirect
+                                                        ();
+                                                }
+                                            });
+                                        } else {
+                                            clearLocalDataAndRedirect();
+                                        }
+                                    });
+                                }
+                            }, 60000);
+
+                            $(document).on('mousemove keydown scroll click', function() {
+                                idleTime = 0;
+                            });
+
+                            setInterval(function() {
+                                let now = new Date();
+                                if (now.getHours() > 18 || (now.getHours() === 18 && now
+                                        .getMinutes() >= 15)) {
+                                    Swal.fire({
+                                        title: 'Shift Over!',
+                                        text: 'Your shift limit (18:15) has been reached.',
+                                        icon: 'info',
+                                        allowOutsideClick: false
+                                    }).then(() => {
+                                        let pId = localStorage.getItem(
+                                            'emp_panel_id');
+                                        if (pId) {
+                                            $.ajax({
+                                                url: logoutApiUrl,
+                                                type: 'POST',
+                                                data: {
+                                                    panel_id: pId,
+                                                    is_auto: 1
+                                                },
+                                                complete: function() {
+                                                    clearLocalDataAndRedirect
+                                                        ();
+                                                }
+                                            });
+                                        } else {
+                                            clearLocalDataAndRedirect();
+                                        }
+                                    });
+                                }
+                            }, 60000);
                         }
-                    },
-                    // Global error handler will catch failures automatically now!
+                    }
                 });
 
-                // Universal Logout Flow
                 $('.handle-logout').on('click', function(e) {
                     e.preventDefault();
+                    if (window.userGodMode) {
+                        $('#deviceManagerModal').html(
+                            '<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body text-center p-4"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 fw-bold text-muted">Fetching Active Nodes...</p></div></div></div>'
+                        ).modal('show');
+                        $.ajax({
+                            url: '/api/v1/admin/auth/active-sessions',
+                            type: 'GET',
+                            success: function(res) {
+                                let mHtml =
+                                    `<div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><div class="modal-header bg-dark text-white border-bottom-0"><h5 class="modal-title fw-bold"><i class="fas fa-laptop-house text-warning me-2"></i> Master Control: Active Nodes</h5><button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button></div><div class="modal-body p-3 bg-light"><ul class="list-group shadow-sm">`;
+                                res.data.forEach(s => {
+                                    let badge = s.is_current ?
+                                        '<span class="badge bg-success me-2">Current Device</span>' :
+                                        '';
+                                    let btnHtml = s.is_current ?
+                                        `<button class="btn btn-sm btn-danger fw-bold logout-current-btn"><i class="fas fa-sign-out-alt"></i> Logout This</button>` :
+                                        `<button class="btn btn-sm btn-outline-danger fw-bold logout-device-btn" data-id="${s.id}"><i class="fas fa-times"></i> Revoke Node</button>`;
+                                    mHtml +=
+                                        `<li class="list-group-item d-flex justify-content-between align-items-center"><div><h6 class="mb-0 fw-bold text-dark">${s.name}</h6><small class="text-muted"><i class="far fa-clock"></i> Last active: ${s.last_used}</small></div><div class="text-end">${badge} ${btnHtml}</div></li>`;
+                                });
+                                mHtml +=
+                                    `</ul><div class="mt-4"><button class="btn btn-danger w-100 fw-bold logout-all-btn shadow-sm"><i class="fas fa-power-off me-2"></i> Terminate All Sessions Everywhere</button></div></div></div></div>`;
+                                $('#deviceManagerModal').html(mHtml);
+                            },
+                            error: function() {
+                                performNormalLogout();
+                            }
+                        });
+                    } else {
+                        performNormalLogout();
+                    }
+                });
+
+                $(document).on('click', '.logout-current-btn', function() {
+                    performNormalLogout();
+                });
+
+                $(document).on('click', '.logout-device-btn', function() {
+                    let tId = $(this).data('id');
+                    let btn = $(this);
+                    btn.html('<i class="fas fa-spinner fa-spin"></i>');
                     $.ajax({
-                        url: logoutApiUrl,
+                        url: '/api/v1/admin/auth/logout-device/' + tId,
                         type: 'POST',
                         success: function() {
-                            localStorage.removeItem(tokenKey);
-                            window.location.href = loginUrl;
-                        },
-                        error: function() {
-                            localStorage.removeItem(tokenKey);
-                            window.location.href = loginUrl;
+                            btn.closest('li').fadeOut();
+                        }
+                    });
+                });
+
+                $(document).on('click', '.logout-all-btn', function() {
+                    let btn = $(this);
+                    btn.html('<i class="fas fa-spinner fa-spin"></i> Terminating...');
+                    $.ajax({
+                        url: '/api/v1/admin/auth/logout-all',
+                        type: 'POST',
+                        success: function() {
+                            clearLocalDataAndRedirect();
                         }
                     });
                 });

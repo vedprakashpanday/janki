@@ -41,9 +41,27 @@
             font-size: 11px;
         }
 
-        .status-inactive {
+        .status-inactive,
+        .status-terminated,
+        .status-resigned {
             background: #fee2e2;
             color: #991b1b;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+        }
+
+        .status-transferred {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #9a3412;
             padding: 2px 8px;
             border-radius: 20px;
             font-size: 11px;
@@ -190,11 +208,10 @@
         </div>
     </div>
 
-    <!-- Registration Modal -->
     <div class="modal fade" id="employeeModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header border-bottom pb-3">
+                <div class="modal-header border-bottom pb-3 bg-light">
                     <h5 class="modal-title fw-bold" style="color: var(--sidebar-bg);" id="modalTitle">
                         <i class="fas fa-user-plus me-2 text-primary"></i> Register New Employee
                     </h5>
@@ -205,6 +222,31 @@
                     <form id="empForm" enctype="multipart/form-data">
                         <input type="hidden" name="id" id="edit_id">
                         <input type="hidden" name="_method" id="form_method" value="POST">
+
+                        <div class="card border-0 shadow-sm mb-4 bg-white" id="transferSectionCard">
+                            <div class="card-body p-3 border rounded border-primary">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="is_transfer_toggle"
+                                        style="cursor: pointer; transform: scale(1.3); margin-top: 5px;">
+                                    <label class="form-check-label fw-bold text-primary ms-2" style="font-size: 15px;"
+                                        for="is_transfer_toggle">Is this a Transferred Employee?</label>
+                                </div>
+
+                                <div id="liveSearchBox" style="display: none;" class="mt-3 position-relative">
+                                    <input type="hidden" name="is_transfer" id="is_transfer" value="0">
+                                    <input type="hidden" name="transfer_old_id" id="transfer_old_id">
+
+                                    <label class="small fw-bold text-secondary">Search Old Record (ID, Email, Phone,
+                                        Aadhar) <i class="fas fa-search text-primary"></i></label>
+                                    <input type="text" class="form-control border-primary shadow-sm"
+                                        id="transfer_search_input" placeholder="Start typing to search old employee...">
+
+                                    <div class="list-group position-absolute w-100 shadow mt-1"
+                                        id="transfer_search_results"
+                                        style="z-index: 1050; max-height: 250px; overflow-y: auto; display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
 
                         <ul class="nav nav-pills mb-4 bg-light p-1 rounded-3 shadow-sm flex-nowrap overflow-auto">
                             <li class="nav-item"><a class="nav-link active small py-2 px-3" data-bs-toggle="tab"
@@ -221,7 +263,6 @@
                         </ul>
 
                         <div class="tab-content">
-                            <!-- PERSONAL TAB -->
                             <div class="tab-pane fade show active" id="personal">
                                 <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Personal
                                     Details</h6>
@@ -261,34 +302,59 @@
                                     </div>
                                 </div>
 
+                                <div class="row g-3 mb-3 p-3 bg-light border rounded">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Generated ID (Editable)
+                                            <span class="text-danger">*</span></label>
+                                        <input type="text"
+                                            class="form-control fw-bold text-primary bg-white border-primary"
+                                            name="member_id" id="m_member_id" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold text-secondary">Role Level <span
+                                                class="text-danger">*</span></label>
+                                        <select class="form-select border-primary" name="role" id="m_role"
+                                            required>
+                                            <option value="employee">Employee</option>
+                                            <option value="manager">Manager</option>
+                                            <option value="director">Director</option>
+                                            <option value="ceo">CEO</option>
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <div class="row g-3">
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Full Name <span
                                                 class="text-danger">*</span></label>
-                                        <input type="text" name="full_name" id="full_name" class="form-control"
-                                            placeholder="Enter Full Name" required>
+                                        <input type="text" name="full_name" id="full_name"
+                                            class="form-control auto-fill-field" placeholder="Enter Full Name" required>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">S/O, D/O, Spouse's Name</label>
                                         <input type="text" name="father_spouse_name" id="father_spouse_name"
-                                            class="form-control">
+                                            class="form-control auto-fill-field">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Mother's Name</label>
-                                        <input type="text" name="mother_name" id="mother_name" class="form-control">
+                                        <input type="text" name="mother_name" id="mother_name"
+                                            class="form-control auto-fill-field">
                                     </div>
 
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Gender</label>
                                         <div class="mt-2">
-                                            <div class="form-check form-check-inline"><input class="form-check-input"
-                                                    type="radio" name="gender" value="Male" id="g_male"> <label
+                                            <div class="form-check form-check-inline"><input
+                                                    class="form-check-input auto-fill-field" type="radio"
+                                                    name="gender" value="Male" id="g_male"> <label
                                                     class="form-check-label" for="g_male">Male</label></div>
-                                            <div class="form-check form-check-inline"><input class="form-check-input"
-                                                    type="radio" name="gender" value="Female" id="g_female"> <label
+                                            <div class="form-check form-check-inline"><input
+                                                    class="form-check-input auto-fill-field" type="radio"
+                                                    name="gender" value="Female" id="g_female"> <label
                                                     class="form-check-label" for="g_female">Female</label></div>
-                                            <div class="form-check form-check-inline"><input class="form-check-input"
-                                                    type="radio" name="gender" value="Others" id="g_others"> <label
+                                            <div class="form-check form-check-inline"><input
+                                                    class="form-check-input auto-fill-field" type="radio"
+                                                    name="gender" value="Others" id="g_others"> <label
                                                     class="form-check-label" for="g_others">Others</label></div>
                                         </div>
                                     </div>
@@ -296,32 +362,35 @@
                                         <label class="form-label small fw-bold">Marital Status</label>
                                         <div class="mt-2">
                                             <div class="form-check form-check-inline"><input
-                                                    class="form-check-input marital-radio" type="radio"
+                                                    class="form-check-input marital-radio auto-fill-field" type="radio"
                                                     name="marital_status" value="Married" id="m_married"> <label
                                                     class="form-check-label" for="m_married">Married</label></div>
                                             <div class="form-check form-check-inline"><input
-                                                    class="form-check-input marital-radio" type="radio"
+                                                    class="form-check-input marital-radio auto-fill-field" type="radio"
                                                     name="marital_status" value="Unmarried" id="m_unmarried" checked>
-                                                <label class="form-check-label" for="m_unmarried">Unmarried</label></div>
+                                                <label class="form-check-label" for="m_unmarried">Unmarried</label>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-4" id="doa_container" style="display:none;">
-                                        <label class="form-label small fw-bold">Date of Anniversary</label>
+                                        <label class="form-label small fw-bold text-danger">Date of Anniversary</label>
                                         <input type="date" name="anniversary_date" id="anniversary_date"
-                                            class="form-control">
+                                            class="form-control auto-fill-field border-danger">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label small fw-bold">Nationality</label>
-                                        <input type="text" name="nationality" id="nationality" class="form-control"
-                                            value="Indian">
+                                        <label class="form-label small fw-bold">Nationality<span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" name="nationality" id="nationality"
+                                            class="form-control auto-fill-field" value="Indian">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Date of Birth</label>
-                                        <input type="date" name="dob" id="dob" class="form-control">
+                                        <input type="date" name="dob" id="dob"
+                                            class="form-control auto-fill-field">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Blood Group</label>
-                                        <select name="blood_group" id="blood_group" class="form-select">
+                                        <select name="blood_group" id="blood_group" class="form-select auto-fill-field">
                                             <option value="">-- Select --</option>
                                             <option value="A+">A+</option>
                                             <option value="A-">A-</option>
@@ -334,52 +403,58 @@
                                         </select>
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label small fw-bold">Date of Joining</label>
-                                        <input type="date" name="doj" id="doj" class="form-control">
+                                        <label class="form-label small fw-bold text-primary">Date of Joining<span
+                                                class="text-danger">*</span></label>
+                                        <input type="date" name="doj" id="doj" class="form-control"
+                                            required>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Contact No <span
                                                 class="text-danger">*</span></label>
-                                        <input type="text" name="contact_no" id="contact_no" class="form-control"
-                                            maxlength="10" required>
+                                        <input type="text" name="contact_no" id="contact_no"
+                                            class="form-control auto-fill-field" maxlength="10" required>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Alternate No</label>
-                                        <input type="text" name="alternate_no" id="alternate_no" class="form-control"
-                                            maxlength="10">
+                                        <input type="text" name="alternate_no" id="alternate_no"
+                                            class="form-control auto-fill-field" maxlength="10">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Email ID</label>
-                                        <input type="email" name="email" id="email" class="form-control">
+                                        <input type="email" name="email" id="email"
+                                            class="form-control auto-fill-field">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">PAN No</label>
-                                        <input type="text" name="pan_no" id="pan_no" class="form-control"
-                                            style="text-transform:uppercase;" maxlength="10">
+                                        <input type="text" name="pan_no" id="pan_no"
+                                            class="form-control auto-fill-field" style="text-transform:uppercase;"
+                                            maxlength="10">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Aadhar Card No <span
                                                 class="text-danger">*</span></label>
-                                        <input type="text" name="aadhar_no" id="aadhar_no" class="form-control"
-                                            maxlength="12" required>
+                                        <input type="text" name="aadhar_no" id="aadhar_no"
+                                            class="form-control auto-fill-field" maxlength="12" required>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Native Place</label>
                                         <input type="text" name="native_place" id="native_place"
-                                            class="form-control">
+                                            class="form-control auto-fill-field">
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label small fw-bold">Communication Address</label>
-                                        <textarea name="communication_address" id="communication_address" class="form-control" rows="2"></textarea>
+                                        <textarea name="communication_address" id="communication_address" class="form-control auto-fill-field"
+                                            rows="2"></textarea>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">City/Town/Village</label>
-                                        <input type="text" name="city" id="city" class="form-control">
+                                        <input type="text" name="city" id="city"
+                                            class="form-control auto-fill-field">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Pin Code</label>
-                                        <input type="text" name="pin_code" id="pin_code" class="form-control"
-                                            maxlength="6">
+                                        <input type="text" name="pin_code" id="pin_code"
+                                            class="form-control auto-fill-field" maxlength="6">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold text-primary">Auto Generated
@@ -390,63 +465,62 @@
                                 </div>
                             </div>
 
-                            <!-- BANK TAB -->
                             <div class="tab-pane fade" id="bank">
                                 <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Bank
                                     Details</h6>
                                 <div class="row g-3">
                                     <div class="col-md-4"><label class="form-label small fw-bold">Account Holder
                                             Name</label><input type="text" name="account_name" id="account_name"
-                                            class="form-control"></div>
+                                            class="form-control auto-fill-field"></div>
                                     <div class="col-md-4"><label class="form-label small fw-bold">Bank A/c
                                             No</label><input type="text" name="account_no" id="account_no"
-                                            class="form-control"></div>
+                                            class="form-control auto-fill-field"></div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Account Type</label>
-                                        <select class="form-select" name="account_type" id="account_type">
+                                        <select class="form-select auto-fill-field" name="account_type"
+                                            id="account_type">
                                             <option value="">-- Select Type --</option>
                                             <option value="saving">Saving Account</option>
                                             <option value="current">Current Account</option>
                                         </select>
                                     </div>
                                     <div class="col-md-4"><label class="form-label small fw-bold">Bank Name</label><input
-                                            type="text" name="bank_name" id="bank_name" class="form-control"></div>
+                                            type="text" name="bank_name" id="bank_name"
+                                            class="form-control auto-fill-field"></div>
                                     <div class="col-md-4"><label class="form-label small fw-bold">Branch
                                             Name</label><input type="text" name="bank_branch" id="bank_branch"
-                                            class="form-control"></div>
+                                            class="form-control auto-fill-field"></div>
                                     <div class="col-md-4"><label class="form-label small fw-bold">IFSC Code</label><input
-                                            type="text" name="ifsc_code" id="ifsc_code" class="form-control"
-                                            style="text-transform:uppercase;"></div>
+                                            type="text" name="ifsc_code" id="ifsc_code"
+                                            class="form-control auto-fill-field" style="text-transform:uppercase;"></div>
                                 </div>
                             </div>
 
-                            <!-- NOMINEE TAB -->
                             <div class="tab-pane fade" id="nominee">
                                 <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Nominee
                                     Details</h6>
                                 <div class="row g-3">
                                     <div class="col-md-3"><label class="form-label small fw-bold">Nominee
                                             Name</label><input type="text" name="nominee_name" id="nominee_name"
-                                            class="form-control"></div>
+                                            class="form-control auto-fill-field"></div>
                                     <div class="col-md-3"><label class="form-label small fw-bold">Relation</label><input
                                             type="text" name="nominee_relation" id="nominee_relation"
-                                            class="form-control"></div>
+                                            class="form-control auto-fill-field"></div>
                                     <div class="col-md-3"><label class="form-label small fw-bold">S/o, D/o,
                                             W/o</label><input type="text" name="nominee_so_do_wo"
-                                            id="nominee_so_do_wo" class="form-control"></div>
+                                            id="nominee_so_do_wo" class="form-control auto-fill-field"></div>
                                     <div class="col-md-3"><label class="form-label small fw-bold">Date of
                                             Birth</label><input type="date" name="nominee_dob" id="nominee_dob"
-                                            class="form-control"></div>
+                                            class="form-control auto-fill-field"></div>
                                     <div class="col-md-4"><label class="form-label small fw-bold">Mobile No</label><input
                                             type="text" name="nominee_mobile" id="nominee_mobile"
-                                            class="form-control" maxlength="10"></div>
+                                            class="form-control auto-fill-field" maxlength="10"></div>
                                     <div class="col-md-4"><label class="form-label small fw-bold">Aadhar
                                             Card</label><input type="text" name="nominee_aadhar" id="nominee_aadhar"
-                                            class="form-control" maxlength="12"></div>
+                                            class="form-control auto-fill-field" maxlength="12"></div>
                                 </div>
                             </div>
 
-                            <!-- EMPLOYEE DOCS TAB -->
                             <div class="tab-pane fade" id="empDocs">
                                 <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Upload
                                     Documents</h6>
@@ -487,7 +561,6 @@
                                 </div>
                             </div>
 
-                            <!-- NOMINEE DOCS & STATUS TAB -->
                             <div class="tab-pane fade" id="nomDocsStatus">
                                 <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Nominee
                                     Docs</h6>
@@ -526,14 +599,28 @@
                                 <div class="row g-3">
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Employee Status</label>
-                                        <select class="form-select" name="emp_status" id="emp_status">
+                                        <select class="form-select border-primary" name="emp_status" id="emp_status">
                                             <option value="active">Active</option>
+                                            <option value="pending">Pending</option>
                                             <option value="inactive">In-Active</option>
+                                            <option value="transferred">Transferred</option>
+                                            <option value="terminated">Terminated</option>
+                                            <option value="resigned">Resigned</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-4 leave-fields" style="display:none;"><label
-                                            class="form-label small fw-bold">Date of Leaving</label><input type="date"
-                                            name="d_o_l" id="d_o_l" class="form-control"></div>
+                                    <div class="col-md-4 leave-fields" style="display:none;">
+                                        <label class="form-label small fw-bold text-danger">Date of Leaving (D.O.L)</label>
+                                        <input type="date" name="d_o_l" id="d_o_l"
+                                            class="form-control border-danger">
+                                    </div>
+                                    <div class="col-md-4 transferred-fields" style="display:none;">
+                                        <label class="form-label small fw-bold text-primary">Transferred To (Company) <span
+                                                class="text-danger">*</span></label>
+                                        <select class="form-select border-primary" name="transferred_to_company"
+                                            id="transferred_to_company">
+                                            <option value="">-- Select Company --</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -548,7 +635,6 @@
         </div>
     </div>
 
-    <!-- View Modal -->
     <div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
@@ -576,48 +662,83 @@
 
     <script>
         let table;
-        // GLOBAL TOKEN RETAINED SO NOTHING CRASHES
         const apiToken = localStorage.getItem('admin_token');
         let fullBranchesData = [];
-
-        // 🔥 MOCK ROLES FOR TESTING 🔥
-        const loggedInRole = 'super_admin';
-        const loggedInCompanyId = 1;
-        const loggedInBranchId = 1;
+        let currentPortal = window.location.pathname.split('/')[1] || 'admin';
+        let currentUserData = null;
 
         window.openAddModal = function() {
             $('#empForm')[0].reset();
             $('#edit_id').val('');
             $('#form_method').val('POST');
 
-            $('#m_company_id').val('').trigger('change');
-            $('#m_branch_id').val('').trigger('change');
-            $('#designation_input').val('').trigger('change');
+            $('#transferSectionCard').show();
+            $('#is_transfer_toggle').prop('checked', false).trigger('change');
+            $('#transfer_search_results').hide();
 
-            if (loggedInRole === 'super_admin') {
-                $('#m_branch_id').html('<option value="">-- Master Head Office (No Branch) --</option>');
-                loadDesignations('', '');
-            } else if (loggedInRole === 'director') {
-                $('#m_company_id').val(loggedInCompanyId).trigger('change');
-            } else if (loggedInRole === 'branch_manager') {
-                $('#m_company_id').html(`<option value="${loggedInCompanyId}">Assigned Company</option>`);
-                $('#m_branch_id').html(`<option value="${loggedInBranchId}">Assigned Branch</option>`);
-                loadDesignations(loggedInCompanyId, loggedInBranchId);
+            let perms = window.userPerms || [];
+            let isGod = window.userGodMode || false;
+            let isDirector = currentUserData?.designation_name?.toLowerCase().includes('director');
+            let hasDirect = isGod || isDirector || perms.includes('employee_add_direct');
+
+            if (isGod) {
+                $('#m_company_id, #m_branch_id').prop('disabled', false);
+                $('#m_company_id').val('').trigger('change');
+            } else if (currentUserData) {
+                let newOption = new Option(currentUserData.company_name || 'Assigned Company', currentUserData
+                    .company_id, true, true);
+                $('#m_company_id').empty().append(newOption).prop('disabled', true);
+
+                if (isDirector) {
+                    $('#m_branch_id').prop('disabled', false).val('').trigger('change');
+                } else {
+                    let branchOption = new Option(currentUserData.branch_name || 'Assigned Branch', currentUserData
+                        .branch_id, true, true);
+                    $('#m_branch_id').empty().append(branchOption).prop('disabled', true);
+                }
+                $('#m_company_id').trigger('change');
             }
 
-            $('#modalTitle').html('<i class="fas fa-user-plus me-2 text-primary"></i> Register New Employee');
-            $('#doa_container, .leave-fields').hide();
+            if (!hasDirect) {
+                $('#emp_status').html('<option value="pending" selected>Pending (Request)</option>').prop('disabled',
+                    true);
+                $('#modalTitle').html('<i class="fas fa-paper-plane me-2 text-warning"></i> Request Employee Entry');
+                $('#saveBtn').text('Submit Request');
+            } else {
+                $('#emp_status').html(`
+                    <option value="active">Active</option>
+                    <option value="inactive">In-Active</option>
+                    <option value="transferred">Transferred</option>
+                    <option value="terminated">Terminated</option>
+                    <option value="resigned">Resigned</option>
+                `).val('active').prop('disabled', false);
+                $('#modalTitle').html('<i class="fas fa-user-plus me-2 text-primary"></i> Register New Employee');
+                $('#saveBtn').text('Save Employee Record');
+            }
+
+            $('.leave-fields').hide();
+
+            // Modal kholte hi Unmarried set hoga aur Date of Anniversary chhip jayegi
+            $('#m_unmarried').prop('checked', true);
+            $('#doa_container').hide();
+            $('#anniversary_date').val('');
+
             $('.nav-pills a:first').tab('show');
-            $('#m_unmarried').prop('checked', true).trigger('change');
-
-            // Clear File Previews
             $('.file-preview-wrapper').hide().find('.preview-content').empty();
-
             $('#employeeModal').modal('show');
         };
 
         $(document).ready(function() {
             $.fn.dataTable.ext.errMode = 'none';
+
+            $.ajax({
+                url: `/api/v1/${currentPortal}/auth/me`,
+                type: 'GET',
+                success: function(res) {
+                    currentUserData = res.data;
+                    applyRoleRestrictions();
+                }
+            });
 
             $('.select2-search').select2({
                 dropdownParent: $('#employeeModal'),
@@ -627,36 +748,15 @@
             });
 
             function applyRoleRestrictions() {
-                if (loggedInRole === 'director' || loggedInRole === 'company_head') {
+                if (!currentUserData) return;
+                let isDirector = currentUserData?.designation_name?.toLowerCase().includes('director');
+                let isGod = window.userGodMode || false;
+
+                if (isDirector) {
                     $('#filterCompanyContainer, #modalCompanyContainer').hide();
-                } else if (loggedInRole === 'branch_manager' || loggedInRole === 'branch_employee') {
+                } else if (!isGod) {
                     $('#globalFilterCard, #modalCompanyContainer, #modalBranchContainer').hide();
                 }
-            }
-            applyRoleRestrictions();
-
-            // 🔥 DYNAMIC DESIGNATION LOADER 🔥
-            window.loadDesignations = function(compId = '', branchId = '') {
-                $('#designation_input').html('<option value="">-- Loading... --</option>').trigger('change');
-                $.ajax({
-                    url: '/api/v1/designations',
-                    type: 'GET',
-                    data: {
-                        strict_filter: true,
-                        company_id: compId,
-                        branch_id: branchId
-                    },
-                    success: function(res) {
-                        let opts = '<option value="">-- Select Designation --</option>';
-                        res.data.forEach(item => {
-                            if (item.status === 'active') {
-                                opts +=
-                                    `<option value="${item.id}">${item.designation_name} (${item.level})</option>`;
-                            }
-                        });
-                        $('#designation_input').html(opts).trigger('change');
-                    }
-                });
             }
 
             function fetchCompanies() {
@@ -669,12 +769,7 @@
                             opts +=
                                 `<option value="${c.id}">${c.company_name} (${c.company_code})</option>`;
                         });
-                        $('#filter_company').html(opts);
-                        $('#m_company_id').html(opts);
-                        if (loggedInRole === 'director') {
-                            $('#filter_company, #m_company_id').val(loggedInCompanyId).trigger(
-                            'change');
-                        }
+                        $('#filter_company, #m_company_id, #transferred_to_company').html(opts);
                     }
                 });
             }
@@ -698,34 +793,121 @@
             fetchCompanies();
             fetchBranches();
 
-            // Cascading Form Triggers
-            $('#m_company_id').on('change', function() {
-                let compId = $(this).val();
-                let bOpts = '<option value="">-- Head Office (No Branch) --</option>';
-                if (compId) {
-                    fullBranchesData.filter(b => b.company_id == compId && b.branch_status === 'active')
-                        .forEach(b => {
-                            bOpts += `<option value="${b.id}">${b.branch_name}</option>`;
-                        });
-                }
-                $('#m_branch_id').html(bOpts).trigger('change');
-
-                $('#m_department_id').html('<option value="">-- Loading... --</option>').trigger('change');
+            function fetchNextSmartId(compId) {
+                if (!compId || $('#edit_id').val()) return;
+                $('#m_member_id').val('Generating...');
                 $.ajax({
-                    url: '/api/v1/get-departments-by-company',
-                    type: 'GET',
+                    url: '/api/v1/employees/next-id',
+                    type: 'POST',
                     data: {
                         company_id: compId
                     },
                     success: function(res) {
-                        let opts = '<option value="">-- Select Department --</option>';
-                        res.data.forEach(d => {
-                            opts +=
-                                `<option value="${d.id}">${d.department_name}</option>`;
-                        });
-                        $('#m_department_id').html(opts).trigger('change');
+                        $('#m_member_id').val(res.next_id);
+                    },
+                    error: function() {
+                        $('#m_member_id').val('');
                     }
                 });
+            }
+
+            $('#m_company_id').on('change', function() {
+                let compId = $(this).val();
+
+                if (!compId && $('#m_company_id').prop('disabled') && currentUserData) {
+                    compId = currentUserData.company_id;
+                }
+
+                if (!$('#m_branch_id').prop('disabled')) {
+                    let bOpts = '<option value="">-- Head Office (No Branch) --</option>';
+                    if (compId) {
+                        fullBranchesData.filter(b => b.company_id == compId && b.branch_status === 'active')
+                            .forEach(b => {
+                                bOpts += `<option value="${b.id}">${b.branch_name}</option>`;
+                            });
+                    }
+                    $('#m_branch_id').html(bOpts).trigger('change');
+                }
+
+                $('#m_department_id').html('<option value="">-- Loading... --</option>').trigger('change');
+
+                if (compId) {
+                    $.ajax({
+                        url: '/api/v1/get-departments-by-company',
+                        type: 'GET',
+                        data: {
+                            company_id: compId
+                        },
+                        success: function(res) {
+                            let opts = '<option value="">-- Select Department --</option>';
+                            if (res.data && res.data.length > 0) {
+                                res.data.forEach(d => {
+                                    opts +=
+                                        `<option value="${d.id}">${d.department_name}</option>`;
+                                });
+                            } else {
+                                opts = '<option value="">-- No Departments Found --</option>';
+                            }
+                            $('#m_department_id').html(opts).trigger('change');
+                        }
+                    });
+                } else {
+                    $('#m_department_id').html('<option value="">-- Select Company First --</option>')
+                        .trigger('change');
+                }
+
+                fetchNextSmartId(compId);
+            });
+
+            let searchTimeout;
+            $('#transfer_search_input').on('keyup', function() {
+                clearTimeout(searchTimeout);
+                let keyword = $(this).val();
+                let resultsBox = $('#transfer_search_results');
+                let targetCompanyId = $('#m_company_id').val();
+
+                if (!targetCompanyId) {
+                    resultsBox.html(
+                        '<div class="list-group-item text-danger small"><i class="fas fa-exclamation-triangle"></i> Please select a Company above first!</div>'
+                    ).show();
+                    return;
+                }
+
+                if (keyword.length < 3) {
+                    resultsBox.hide();
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    $.ajax({
+                        url: '/api/v1/employees/search-transfer',
+                        type: 'POST',
+                        data: {
+                            keyword: keyword,
+                            target_company_id: targetCompanyId
+                        },
+                        success: function(res) {
+                            resultsBox.empty().show();
+                            if (res.data.length === 0) {
+                                resultsBox.html(
+                                    '<div class="list-group-item text-danger small">No employee transferred to this company found.</div>'
+                                );
+                                return;
+                            }
+                            res.data.forEach(emp => {
+                                let compName = emp.branch && emp.branch
+                                    .company ? emp.branch.company.company_name :
+                                    'Master HO';
+                                let itemHtml = `
+                                <a href="#" class="list-group-item list-group-item-action search-select-item" data-full='${JSON.stringify(emp)}'>
+                                    <div class="fw-bold text-primary">${emp.full_name} <span class="badge bg-secondary float-end">${emp.member_id}</span></div>
+                                    <small class="text-muted"><i class="fas fa-sign-out-alt text-danger"></i> From: ${compName} | <i class="fas fa-phone"></i> ${emp.contact_no}</small>
+                                </a>`;
+                                resultsBox.append(itemHtml);
+                            });
+                        }
+                    });
+                }, 400);
             });
 
             $('#m_department_id').on('change', function() {
@@ -752,13 +934,6 @@
                 }
             });
 
-            $('#m_branch_id').on('change', function() {
-                let compId = $('#m_company_id').val();
-                let branchId = $(this).val();
-                if (compId !== null || branchId !== null) loadDesignations(compId, branchId);
-            });
-
-            // Table Filters
             $('#filter_company').change(function() {
                 let compId = $(this).val();
                 let bOpts = '<option value="">-- All Branches --</option>';
@@ -771,11 +946,11 @@
                 $('#filter_branch').html(bOpts);
                 table.ajax.reload();
             });
+
             $('#filter_branch').change(function() {
                 table.ajax.reload();
             });
 
-            // Table Init
             table = $('#empTable').DataTable({
                 serverSide: false,
                 autoWidth: false,
@@ -783,10 +958,8 @@
                     url: '/api/v1/employees',
                     type: 'GET',
                     data: function(d) {
-                        d.company_id = $('#filter_company').val() || (loggedInRole === 'director' ?
-                            loggedInCompanyId : '');
-                        d.branch_id = $('#filter_branch').val() || (loggedInRole === 'branch_manager' ?
-                            loggedInBranchId : '');
+                        d.company_id = $('#filter_company').val();
+                        d.branch_id = $('#filter_branch').val();
                     },
                     dataSrc: 'data'
                 },
@@ -816,9 +989,8 @@
                     {
                         data: null,
                         render: function(data, type, row) {
-                            if (typeof row.designation === 'object' && row.designation !== null) {
+                            if (typeof row.designation === 'object' && row.designation !== null)
                                 return row.designation.designation_name || '-';
-                            }
                             return row.designation || '-';
                         }
                     },
@@ -833,8 +1005,18 @@
                     },
                     {
                         data: 'emp_status',
-                        render: s => s === 'active' ? `<span class="status-active">Active</span>` :
-                            `<span class="status-inactive">Inactive</span>`
+                        render: s => {
+                            if (s === 'active') return `<span class="status-active">Active</span>`;
+                            if (s === 'pending')
+                                return `<span class="status-pending">Pending</span>`;
+                            if (s === 'transferred')
+                                return `<span class="status-transferred">Transferred</span>`;
+                            if (s === 'terminated')
+                                return `<span class="status-terminated">Terminated</span>`;
+                            if (s === 'resigned')
+                                return `<span class="status-resigned">Resigned</span>`;
+                            return `<span class="status-inactive">Inactive</span>`;
+                        }
                     },
                     {
                         data: 'id',
@@ -851,15 +1033,13 @@
                     } else if (this.api().data().length > 0) {
                         loadMobileCards(this.api().data().toArray());
                     } else {
-                        loadMobileCards([]); // Clean if empty
+                        loadMobileCards([]);
                     }
-
                     $('#selectAll').prop('checked', false);
                     toggleBulkDeleteBtn();
                 }
             });
 
-            // Mobile Real-Time Search
             $('#mobileSearch').on('keyup', function() {
                 let value = $(this).val().toLowerCase();
                 $('.mobile-emp-item').filter(function() {
@@ -867,7 +1047,6 @@
                 });
             });
 
-            // Mobile Cards Logic
             function loadMobileCards(data) {
                 $('#cardsLoader').hide();
                 let html = '';
@@ -876,17 +1055,18 @@
                         '<div class="text-center text-muted p-3 border rounded bg-light">No employees found.</div>';
                 } else {
                     data.forEach(emp => {
-                        let statusHtml = emp.emp_status === 'active' ?
-                            `<span class="status-active">Active</span>` :
-                            `<span class="status-inactive">Inactive</span>`;
-                        let branchName = emp.branch ? emp.branch.branch_name : 'Master HO';
+                        let statusHtml = '';
+                        if (emp.emp_status === 'active') statusHtml =
+                            `<span class="status-active">Active</span>`;
+                        else if (emp.emp_status === 'pending') statusHtml =
+                            `<span class="status-pending">Pending</span>`;
+                        else if (emp.emp_status === 'transferred') statusHtml =
+                            `<span class="status-transferred">Transferred</span>`;
+                        else statusHtml = `<span class="status-inactive">${emp.emp_status}</span>`;
 
-                        let desigName = '-';
-                        if (typeof emp.designation === 'object' && emp.designation !== null) {
-                            desigName = emp.designation.designation_name;
-                        } else if (emp.designation) {
-                            desigName = emp.designation;
-                        }
+                        let branchName = emp.branch ? emp.branch.branch_name : 'Master HO';
+                        let desigName = (typeof emp.designation === 'object' && emp.designation !== null) ?
+                            emp.designation.designation_name : (emp.designation || '-');
 
                         html += `
                         <div class="emp-card mobile-emp-item">
@@ -909,27 +1089,70 @@
                 $('#mobileCardsContainer').html(html);
             }
 
-            // Save Form
-            $('#empForm').on('submit', function(e) {
+            $('#is_transfer_toggle').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#liveSearchBox').slideDown();
+                    $('#is_transfer').val('1');
+                    $('.auto-fill-field').val('').prop('readonly', true);
+                    $('#m_member_id').val('');
+                } else {
+                    $('#liveSearchBox').slideUp();
+                    $('#is_transfer').val('0');
+                    $('#transfer_old_id').val('');
+                    $('.auto-fill-field').val('').prop('readonly', false);
+                    if ($('#m_company_id').val()) $('#m_company_id').trigger('change');
+                }
+            });
+
+            $(document).on('click', '.search-select-item', function(e) {
                 e.preventDefault();
-                let id = $('#edit_id').val();
-                let formData = new FormData(this);
-                if (loggedInRole === 'branch_manager') {
-                    formData.append('branch_id', loggedInBranchId);
-                    formData.append('company_id', loggedInCompanyId);
+                let emp = JSON.parse($(this).attr('data-full'));
+
+                $('#transfer_old_id').val(emp.id);
+                $('#transfer_search_input').val(emp.full_name + ' (' + emp.member_id + ')');
+                $('#transfer_search_results').hide();
+
+                $('.auto-fill-field').prop('readonly', false);
+
+                Object.keys(emp).forEach(key => {
+                    let input = $(`#empForm [name="${key}"]`);
+                    if (input.length && input.attr('type') !== 'file' && input.attr('type') !==
+                        'radio' && !['company_id', 'branch_id', 'department_id', 'designation_id',
+                            'doj', 'emp_status', 'd_o_l', 'member_id', 'role', 'service_id'
+                        ].includes(key)) {
+                        input.val(emp[key]);
+                    }
+                });
+
+                if (emp.gender) $(`input[name="gender"][value="${emp.gender}"]`).prop('checked', true);
+                if (emp.marital_status) {
+                    $(`input[name="marital_status"][value="${emp.marital_status}"]`).prop('checked', true)
+                        .trigger('change');
                 }
 
+                if ($('#m_company_id').val()) $('#m_company_id').trigger('change');
+            });
+
+            $('#empForm').on('submit', function(e) {
+                e.preventDefault();
+                $('#m_company_id, #m_branch_id, #emp_status').prop('disabled', false);
+
+                let id = $('#edit_id').val();
+                let formData = new FormData(this);
+
                 let btn = $('#saveBtn');
-                btn.html('<i class="fas fa-spinner fa-spin"></i> Saving...').prop('disabled', true);
+                let originalText = btn.text();
+                btn.html('<i class="fas fa-spinner fa-spin"></i> Processing...').prop('disabled', true);
+
                 $.ajax({
                     url: id ? `/api/v1/employees/${id}` : `/api/v1/employees`,
                     type: 'POST',
                     data: formData,
                     contentType: false,
                     processData: false,
-                    success: function() {
+                    success: function(res) {
                         $('#employeeModal').modal('hide');
-                        Swal.fire('Success', 'Saved Successfully', 'success');
+                        Swal.fire('Success', res.message, 'success');
                         table.ajax.reload(null, false);
                     },
                     error: function(xhr) {
@@ -937,12 +1160,11 @@
                             'Failed', 'error');
                     },
                     complete: function() {
-                        btn.html('Save Employee Record').prop('disabled', false);
+                        btn.text(originalText).prop('disabled', false);
                     }
                 });
             });
 
-            // Edit Form
             $(document).on('click', '.edit-btn', function() {
                 let id = $(this).data('id');
                 $.get({
@@ -952,6 +1174,30 @@
                         $('#edit_id').val(emp.id);
                         $('#form_method').val('PUT');
 
+                        $('#transferSectionCard').hide();
+
+                        let perms = window.userPerms || [];
+                        let isGod = window.userGodMode || false;
+                        let isDirector = currentUserData?.designation_name?.toLowerCase()
+                            .includes('director');
+                        let hasDirect = isGod || isDirector || perms.includes(
+                            'employee_edit_direct');
+
+                        $('#emp_status').html(`
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="inactive">In-Active</option>
+                            <option value="transferred">Transferred</option>
+                            <option value="terminated">Terminated</option>
+                            <option value="resigned">Resigned</option>
+                        `);
+
+                        if (!hasDirect) {
+                            $('#emp_status').val('pending').prop('disabled', true);
+                        } else {
+                            $('#emp_status').val(emp.emp_status).prop('disabled', false);
+                        }
+
                         Object.keys(emp).forEach(key => {
                             let input = $(`#empForm [name="${key}"]`);
                             if (input.attr('type') !== 'file' && input.attr('type') !==
@@ -960,41 +1206,60 @@
                             }
                         });
 
+                        $('#m_role').val(emp.role || 'employee');
                         if (emp.gender) $(`input[name="gender"][value="${emp.gender}"]`).prop(
                             'checked', true);
-                        if (emp.marital_status) $(
-                                `input[name="marital_status"][value="${emp.marital_status}"]`)
-                            .prop('checked', true).trigger('change');
-                        if (emp.emp_status) $('#emp_status').val(emp.emp_status).trigger(
-                            'change');
 
-                        if (loggedInRole === 'super_admin' || loggedInRole === 'director') {
+                        // 🔥 EDIT KE TIME BHI ANNIVERSARY YAHAN HANDLE HOGI 🔥
+                        if (emp.marital_status) {
+                            $(`input[name="marital_status"][value="${emp.marital_status}"]`)
+                                .prop('checked', true).trigger('change');
+                        }
+                        $('#emp_status').trigger('change');
+
+                        if (isGod) {
+                            $('#m_company_id, #m_branch_id').prop('disabled', false);
                             $('#m_company_id').val(emp.company_id || '').trigger('change');
-                            setTimeout(() => {
-                                $('#m_branch_id').val(emp.branch_id || '').trigger(
-                                    'change');
-                                $('#m_department_id').val(emp.department_id || '')
-                                    .trigger('change');
-                                setTimeout(() => {
-                                    $('#designation_input').val(emp
-                                        .designation_id || '').trigger(
-                                        'change');
-                                }, 400);
-                            }, 400);
+                        } else if (currentUserData) {
+                            let compOption = new Option(currentUserData.company_name ||
+                                'Assigned Company', currentUserData.company_id, true, true);
+                            $('#m_company_id').empty().append(compOption).prop('disabled',
+                                true);
+
+                            if (isDirector) {
+                                $('#m_branch_id').prop('disabled', false);
+                            } else {
+                                let branchOption = new Option(currentUserData.branch_name ||
+                                    'Assigned Branch', currentUserData.branch_id, true, true
+                                );
+                                $('#m_branch_id').empty().append(branchOption).prop('disabled',
+                                    true);
+                            }
+
+                            $('#m_company_id').trigger('change');
                         }
 
-                        // Preview Files handling
-                        let fileFields = [
-                            'passport_photo', 'signature_photo', 'aadhar_pdf', 'pan_pdf',
-                            'bank_passbook_pdf', 'driving_license_pdf',
-                            'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf',
-                            'other_pdf',
-                            'nom_passport_photo', 'nom_aadhar_pdf', 'nom_pan_pdf',
-                            'nom_bank_passbook_pdf',
-                            'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf',
-                            'nom_pg_pdf', 'nom_other_pdf'
-                        ];
+                        setTimeout(() => {
+                            if (!$('#m_branch_id').prop('disabled')) {
+                                $('#m_branch_id').val(emp.branch_id || '').trigger(
+                                    'change');
+                            }
+                            $('#m_department_id').val(emp.department_id || '').trigger(
+                                'change');
+                            setTimeout(() => {
+                                $('#designation_input').val(emp
+                                    .designation_id || '').trigger('change');
+                            }, 400);
+                        }, 400);
 
+                        let fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf',
+                            'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf',
+                            'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf',
+                            'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf',
+                            'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_tenth_pdf',
+                            'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf',
+                            'nom_other_pdf'
+                        ];
                         fileFields.forEach(function(field) {
                             let filePath = emp[field];
                             let input = $(`#empForm input[name="${field}"]`);
@@ -1005,15 +1270,14 @@
                                     '/' + filePath;
                                 let ext = filePath.split('.').pop().toLowerCase();
                                 let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
-
                                 if (imageExts.includes(ext)) {
                                     content.html(
                                         `<img src="${fullUrl}" style="max-height:90px; border-radius:6px; object-fit:contain;">`
-                                        );
+                                    );
                                 } else {
                                     content.html(
                                         `<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas fa-file-pdf text-danger fs-3"></i><a href="${fullUrl}" target="_blank" class="text-decoration-none" style="font-size:12px;">View Doc</a></div>`
-                                        );
+                                    );
                                 }
                                 wrapper.show();
                             }
@@ -1025,7 +1289,6 @@
                 });
             });
 
-            // VIEW MODAL LOGIC
             $(document).on('click', '.view-btn', function() {
                 let id = $(this).data('id');
 
@@ -1034,26 +1297,126 @@
                     type: 'GET',
                     success: function(res) {
                         let d = res.data;
+
                         let branchText = d.branch ?
-                            `${d.branch.company ? d.branch.company.company_name : 'No Company'} - ${d.branch.branch_name}` :
-                            'Head Office';
+                            `<span class="text-dark fw-bold">${d.branch.company ? d.branch.company.company_name : 'No Company'}</span><br><i class="fas fa-map-marker-alt text-danger me-1"></i> ${d.branch.branch_name}` :
+                            'Master Head Office';
+
                         let desigName = (typeof d.designation === 'object' && d.designation !==
-                            null) ? d.designation.designation_name : (d.designation || '-');
+                            null) ? d.designation.designation_name : (d.designation ||
+                            'N/A');
+                        let deptName = (typeof d.department === 'object' && d.department !==
+                            null) ? d.department.department_name : 'N/A';
+
+                        let statusColor = d.emp_status === 'active' ? 'success' : (d
+                            .emp_status === 'pending' ? 'warning' : (d.emp_status ===
+                                'transferred' ? 'info' : 'danger'));
+
+                        let imgUrl = d.passport_photo ? (d.passport_photo.startsWith('/') ? d
+                                .passport_photo : '/' + d.passport_photo) :
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(d.full_name || 'User')}&background=1A365D&color=fff&size=128`;
+
+                        let historyHtml = '';
+                        if (d.service_history_data && d.service_history_data.length > 0) {
+                            d.service_history_data.forEach((record, index) => {
+                                let badgeColor = record.status === 'active' ?
+                                    'success' : (record.status === 'transferred' ?
+                                        'info' : (record.status === 'pending' ?
+                                            'warning' : 'danger'));
+                                let leaveDate = record.date_of_leaving ? record
+                                    .date_of_leaving :
+                                    '<span class="text-success">Present</span>';
+                                historyHtml += `
+                                    <div class="p-3 border-bottom mb-2 bg-white rounded shadow-sm border-start border-4 border-${badgeColor}">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="fw-bold text-dark"><i class="fas fa-id-badge text-primary me-1"></i> ${record.member_id}</span>
+                                            <span class="badge bg-${badgeColor} text-uppercase">${record.status}</span>
+                                        </div>
+                                        <div class="small text-muted d-flex justify-content-between">
+                                            <span><i class="fas fa-calendar-alt me-1"></i> Joined: ${record.joining_date || 'N/A'} <b class="mx-1">TO</b> ${leaveDate}</span>
+                                            <span class="fw-bold text-secondary" title="Service Tracking ID"><i class="fas fa-link me-1"></i> ${record.service_id || '-'}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            historyHtml =
+                                '<div class="alert alert-light text-center small">No service history available.</div>';
+                        }
 
                         let html = `
-                            <div class="p-3">
-                                <table class="table table-bordered table-sm mb-0">
-                                    <tr><th width="35%">Emp ID</th><td class="text-primary fw-bold">${d.member_id || '-'}</td></tr>
-                                    <tr><th>Full Name</th><td>${d.full_name || '-'}</td></tr>
-                                    <tr><th>Designation</th><td>${desigName}</td></tr>
-                                    <tr><th>Company & Branch</th><td>${branchText}</td></tr>
-                                    <tr><th>Mobile No.</th><td>${d.contact_no || '-'}</td></tr>
-                                    <tr><th>Email ID</th><td>${d.email || '-'}</td></tr>
-                                    <tr><th>Aadhar No.</th><td>${d.aadhar_no || '-'}</td></tr>
-                                    <tr><th>PAN No.</th><td class="text-uppercase">${d.pan_no || '-'}</td></tr>
-                                    <tr><th>Joining Date</th><td>${d.doj || '-'}</td></tr>
-                                    <tr><th>Status</th><td>${d.emp_status === 'active' ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-danger">Inactive</span>'}</td></tr>
-                                </table>
+                            <div class="card border-0 shadow-none bg-transparent">
+                                <div class="d-flex flex-column flex-md-row align-items-center bg-white p-4 border-bottom rounded-top">
+                                    <div class="position-relative mb-3 mb-md-0 me-md-4">
+                                        <img src="${imgUrl}" alt="Profile" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover; border: 4px solid #f1f5f9; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
+                                    </div>
+                                    <div class="text-center text-md-start flex-grow-1">
+                                        <h4 class="fw-bold text-dark mb-1">${d.full_name || '-'}</h4>
+                                        <h6 class="text-secondary mb-2"><i class="fas fa-briefcase me-1 text-muted"></i> ${desigName} <span class="text-muted fw-normal small">| ${deptName}</span></h6>
+                                        <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start mt-2">
+                                            <span class="badge bg-dark"><i class="fas fa-id-badge me-1"></i> ${d.member_id || '-'}</span>
+                                            <span class="badge bg-warning text-dark"><i class="fas fa-link me-1"></i> S-ID: ${d.service_id || 'N/A'}</span>
+                                            <span class="badge bg-${statusColor} text-uppercase"><i class="fas fa-circle me-1" style="font-size:8px; vertical-align:middle;"></i> ${d.emp_status}</span>
+                                            <span class="badge border border-secondary text-secondary"><i class="fas fa-user-shield me-1"></i> ${d.role || 'Employee'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="p-3 bg-light">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
+                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-building me-2"></i>Organization Scope</h6>
+                                                <div class="small" style="line-height: 1.6;">
+                                                    <span class="text-muted d-block mb-1">Assigned Office:</span>
+                                                    <span>${branchText}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-6">
+                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
+                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-address-book me-2"></i>Contact Details</h6>
+                                                <div class="small d-flex flex-column gap-2 mt-2">
+                                                    <div class="d-flex align-items-center"><i class="fas fa-phone-alt text-muted me-3" style="width:15px;"></i> <span class="fw-semibold text-dark">${d.contact_no || '-'}</span></div>
+                                                    <div class="d-flex align-items-center"><i class="fas fa-envelope text-muted me-3" style="width:15px;"></i> <span class="fw-semibold text-dark">${d.email || 'No Email Provided'}</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
+                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-id-card me-2"></i>Identity Documents</h6>
+                                                <div class="small d-flex flex-column gap-2 mt-2">
+                                                    <div class="d-flex justify-content-between border-bottom pb-1"><span class="text-muted">Aadhar No:</span> <span class="fw-bold text-dark">${d.aadhar_no || '-'}</span></div>
+                                                    <div class="d-flex justify-content-between"><span class="text-muted">PAN No:</span> <span class="fw-bold text-dark text-uppercase">${d.pan_no || '-'}</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
+                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-calendar-check me-2"></i>Lifecycle Timeline</h6>
+                                                <div class="small d-flex flex-column gap-2 mt-2">
+                                                    <div class="d-flex justify-content-between border-bottom pb-1"><span class="text-muted">Date of Joining:</span> <span class="fw-bold text-success">${d.doj || '-'}</span></div>
+                                                    <div class="d-flex justify-content-between"><span class="text-muted">Date of Leaving:</span> <span class="fw-bold text-danger">${d.d_o_l || 'Still Active'}</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <div class="bg-white p-3 rounded shadow-sm border">
+                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-history me-2"></i>Full Service History (By Tracking ID)</h6>
+                                                <div class="timeline-container pe-2" style="max-height: 250px; overflow-y: auto;">
+                                                    ${historyHtml}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
                             </div>
                         `;
                         $('#viewDetailsBody').html(html);
@@ -1062,7 +1425,25 @@
                 });
             });
 
-            // Delete Individual
+            $('#emp_status').off('change').on('change', function() {
+                let val = $(this).val();
+                if (['inactive', 'transferred', 'terminated', 'resigned'].includes(val)) {
+                    $('.leave-fields').slideDown();
+                    $('#d_o_l').attr('required', true);
+
+                    if (val === 'transferred') {
+                        $('.transferred-fields').slideDown();
+                        $('#transferred_to_company').attr('required', true);
+                    } else {
+                        $('.transferred-fields').slideUp();
+                        $('#transferred_to_company').val('').removeAttr('required');
+                    }
+                } else {
+                    $('.leave-fields, .transferred-fields').slideUp();
+                    $('#d_o_l, #transferred_to_company').val('').removeAttr('required');
+                }
+            });
+
             $(document).on('click', '.delete-btn', function() {
                 Swal.fire({
                     title: 'Are you sure?',
@@ -1083,11 +1464,10 @@
                 });
             });
 
-            // File Previews Layout
             $('input[type="file"]').each(function() {
                 $(this).after(
                     `<div class="file-preview-wrapper"><button type="button" class="btn btn-danger remove-preview-btn"><i class="fas fa-times"></i></button><div class="preview-content text-center"></div></div>`
-                    );
+                );
             });
             $(document).on('change', 'input[type="file"]', function(e) {
                 let file = this.files[0];
@@ -1099,14 +1479,14 @@
                         reader.onload = function(event) {
                             content.html(
                                 `<img src="${event.target.result}" style="max-height:90px; border-radius:6px; object-fit:contain;">`
-                                );
+                            );
                             wrapper.slideDown();
                         };
                         reader.readAsDataURL(file);
                     } else {
                         content.html(
                             `<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas fa-file-pdf text-danger fs-3"></i><span style="font-size:12px;">${file.name}</span></div>`
-                            );
+                        );
                         wrapper.slideDown();
                     }
                 } else {
@@ -1118,7 +1498,6 @@
                 $(this).closest('.file-preview-wrapper').slideUp();
             });
 
-            // Bulk Delete Logic
             $('#selectAll').on('change', function() {
                 $('.row-checkbox').prop('checked', this.checked);
                 toggleBulkDeleteBtn();
@@ -1134,28 +1513,27 @@
                 if ($('.row-checkbox:checked').length > 0) $('#bulkDeleteBtn').removeClass('d-none');
                 else $('#bulkDeleteBtn').addClass('d-none');
             }
+
             $('#bulkDeleteBtn').on('click', function() {
                 let selectedIds = [];
                 $('.row-checkbox:checked').each(function() {
                     selectedIds.push($(this).val());
                 });
-
                 if (selectedIds.length > 0) {
                     Swal.fire({
                         title: 'Are you sure?',
-                        text: `You are about to delete ${selectedIds.length} employee(s). This cannot be undone!`,
+                        text: `Delete ${selectedIds.length} employee(s)?`,
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonColor: '#d33',
                         cancelButtonColor: '#3085d6',
-                        confirmButtonText: 'Yes, delete them!'
+                        confirmButtonText: 'Yes, delete!'
                     }).then((result) => {
                         if (result.isConfirmed) {
                             let btn = $(this);
                             let originalText = btn.html();
                             btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Deleting...')
                                 .prop('disabled', true);
-
                             $.ajax({
                                 url: '/api/v1/bulk-delete',
                                 type: 'POST',
@@ -1169,7 +1547,7 @@
                                 },
                                 error: function(err) {
                                     Swal.fire('Error', err.responseJSON.message ||
-                                        'Failed to delete', 'error');
+                                        'Failed', 'error');
                                 },
                                 complete: function() {
                                     btn.html(originalText).prop('disabled', false);
@@ -1182,7 +1560,6 @@
                 }
             });
 
-            // Password Generator
             function generatePassword() {
                 let fullName = $('#full_name').val().trim();
                 let aadhar = $('#aadhar_no').val().replace(/\D/g, '');
@@ -1197,24 +1574,17 @@
             }
             $('#full_name, #aadhar_no').on('keyup change', generatePassword);
 
-            // Marital Status & Leave Status Toggles
-            $('.marital-radio').on('change', function() {
-                if ($(this).val() === 'Married') {
-                    $('#doa_container').show();
+           
+           // 🔥 BULLETPROOF EVENT: Click aur Change dono par chalega aur directly name attribute ko target karega 🔥
+            $(document).on('click change', 'input[name="marital_status"]', function() {
+                if ($('#m_married').is(':checked')) {
+                    $('#doa_container').slideDown(200); // Thoda smooth animation ke sath aayega
                 } else {
-                    $('#doa_container').hide();
+                    $('#doa_container').slideUp(200);
                     $('#anniversary_date').val('');
                 }
             });
 
-            $('#emp_status').on('change', function() {
-                if ($(this).val() === 'inactive') {
-                    $('.leave-fields').show();
-                } else {
-                    $('.leave-fields').hide();
-                    $('#d_o_l').val('');
-                }
-            });
         });
     </script>
 @endpush

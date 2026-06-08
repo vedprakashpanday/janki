@@ -49,4 +49,30 @@ class Employee extends Model
     {
         return $this->belongsTo(Designation::class, 'designation_id', 'id');
     }
+
+    public function serviceRecords()
+    {
+        return $this->hasMany(ServiceRecord::class, 'user_id');
+    }
+
+
+    // Tasks jo is Employee ne doosro ko diye
+    public function tasksAssigned()
+    {
+        return $this->morphMany(Task::class, 'assigner');
+    }
+
+    // Tasks jo is Employee ko mile
+    public function tasksReceived()
+    {
+        return $this->morphMany(Task::class, 'assignee');
+    }
+
+    // Is Employee ke replies/remarks
+    public function taskProgressLogs()
+    {
+        return $this->morphMany(TaskProgressLog::class, 'actor');
+    }
+
+
 }
