@@ -36,4 +36,11 @@ class Company extends Model
                 ->withPivot('role')
                 ->withTimestamps();
 }
+
+// 🔥 NEW: CEO (SuperAdmin) Relation
+    public function ceos() {
+        return $this->belongsToMany(SuperAdmin::class, 'company_director', 'company_id', 'ceo_id')
+                    ->withPivot('role', 'director_id')
+                    ->withTimestamps();
+    }
 }

@@ -31,6 +31,7 @@ class Controller extends BaseController
             'is_customer'   => false,
             'company_id'    => $user->company_id ?? null,
             'branch_id'     => $user->branch_id  ?? null,
+            'department_id' => $user->department_id ?? null,
             'role_level'    => 'unknown',
             'profile_id'    => $user->id,
         ];

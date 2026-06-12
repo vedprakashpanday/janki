@@ -3,7 +3,6 @@
 @section('content')
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css" rel="stylesheet">
 
     <style>
         .table-custom th {
@@ -27,6 +26,12 @@
             padding: 15px;
             margin-bottom: 15px;
             box-shadow: 0 4px 6px var(--shadow-color);
+        }
+
+        /* TinyMCE branding removal for clean look */
+        .tox-promotion,
+        .tox-statusbar__branding {
+            display: none !important;
         }
     </style>
 
@@ -104,10 +109,20 @@
                             <input type="text" name="subject" id="f_sub" class="form-control">
                         </div>
 
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Paid To (Manual Name)</label>
+                            <input type="text" name="paid_to" id="f_paid_to" class="form-control"
+                                placeholder="Leave empty if ID is selected">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Paid To Address</label>
+                            <input type="text" name="paid_to_address" id="f_paid_address" class="form-control">
+                        </div>
+
                         <div class="col-12 mt-3">
                             <label class="form-label fw-bold text-primary"><i class="fas fa-edit me-1"></i> Letter
-                                Content</label>
-                            <textarea name="message" id="summernote" required></textarea>
+                                Content <span class="text-danger">*</span></label>
+                            <textarea id="message_editor" name="message"></textarea>
                         </div>
 
                         <div class="col-12 text-end mt-4 pt-3 border-top">
@@ -151,50 +166,54 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.js"></script>
+
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdn.tiny.cloud/1/x34jz09l49eq4m2bh1dl4olj6a26dxjoly00pun0lmtla5pb/tinymce/8/tinymce.min.js" referrerpolicy="origin" crossorigin="anonymous"></script>
 
     <script>
         $(document).ready(function() {
-            // Ye line ensure karegi ki baki AJAX requests fail na ho
             const apiToken = localStorage.getItem('admin_token');
             let mode = 'add';
 
-            // === 1. SUMMERNOTE SETUP (AJAX IMAGE UPLOAD FOR SMALL SIZE) ===
-            $('#summernote').summernote({
-                placeholder: 'Draft your letter here...',
-                tabsize: 2,
-                height: 300,
-                toolbar: [
-                    ['style', ['style']],
-                    ['font', ['bold', 'underline', 'clear']],
-                    ['color', ['color']],
-                    ['para', ['ul', 'ol', 'paragraph']],
-                    ['table', ['table']],
-                    ['insert', ['link', 'picture']],
-                    ['view', ['fullscreen', 'codeview', 'help']]
+            // === 1. TINYMCE SETUP (Fully Functional with Image Upload) ===
+            tinymce.init({
+                selector: '#message_editor',
+                height: 400,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'help', 'wordcount'
                 ],
-                callbacks: {
-                    onImageUpload: function(files) {
-                        let data = new FormData();
-                        data.append("file", files[0]);
-                        $.ajax({
-                            url: "/api/v1/letterheads/upload-image",
-                            type: "POST",
-                            headers: {
-                                'Authorization': 'Bearer ' + apiToken
-                            },
-                            data: data,
-                            contentType: false,
-                            processData: false,
-                            success: function(url) {
-                                $('#summernote').summernote('insertImage', url);
-                            },
-                            error: function() {
-                                alert("Image upload failed. Size too large?");
-                            }
-                        });
-                    }
-                }
+                toolbar: 'undo redo | blocks | ' +
+                    'bold italic backcolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | image table code help',
+                content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+
+                // Image Upload Handler
+                images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
+                    let formData = new FormData();
+                    formData.append('file', blobInfo.blob(), blobInfo.filename());
+
+                    $.ajax({
+                        url: '/api/v1/letterheads/upload-image',
+                        type: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        data: formData,
+                        contentType: false,
+                        processData: false,
+                        success: function(response) {
+                            // Controller jo location return kar raha hai, wo TinyMCE me insert hogi
+                            resolve(response.location);
+                        },
+                        error: function(err) {
+                            reject(
+                                'Image upload failed: Size too large or invalid format.');
+                        }
+                    });
+                })
             });
 
             // === 2. INITIALIZE DATATABLE ===
@@ -240,7 +259,6 @@
                 </div>`
                     }
                 ],
-                // 🔥 YAHI PAR COMMA CHHUT GAYA THA, AUR DRAWCALLBACK ADD KAR DIYA HAI 🔥
                 drawCallback: function(settings) {
                     if (typeof window.applyPermissions === 'function') window.applyPermissions();
                 }
@@ -296,7 +314,6 @@
                     }
                 });
 
-                // Auto suggestion list
                 $.get({
                     url: '/api/v1/employees',
                     headers: {
@@ -315,7 +332,12 @@
             window.openModal = function(type, id = null) {
                 mode = type;
                 $('#lhForm')[0].reset();
-                $('#summernote').summernote('code', ''); // Reset editor
+
+                // 🔥 TINYMCE Reset 🔥
+                if (tinymce.get('message_editor')) {
+                    tinymce.get('message_editor').setContent('');
+                }
+
                 $('#modalTitle').text(type === 'add' ? 'Create Letterhead' : 'Edit Letterhead');
 
                 if (type === 'edit') {
@@ -332,7 +354,13 @@
                             $('#f_date').val(d.letter_date);
                             $('#f_emp').val(d.emp_code);
                             $('#f_sub').val(d.subject);
-                            $('#summernote').summernote('code', d.message);
+                            $('#f_paid_to').val(d.paid_to);
+                            $('#f_paid_address').val(d.paid_to_address);
+
+                            // 🔥 TINYMCE Set Value 🔥
+                            if (tinymce.get('message_editor')) {
+                                tinymce.get('message_editor').setContent(d.message || '');
+                            }
                         }
                     });
                 }
@@ -345,6 +373,12 @@
 
             $('#lhForm').submit(function(e) {
                 e.preventDefault();
+
+                // 🔥 TINYMCE Save Data to Textarea before submit 🔥
+                if (tinymce.get('message_editor')) {
+                    tinymce.triggerSave();
+                }
+
                 let id = $('#edit_id').val();
                 let url = mode === 'add' ? '/api/v1/letterheads' : `/api/v1/letterheads/${id}`;
                 let type = mode === 'add' ? 'POST' : 'PUT';
@@ -388,12 +422,10 @@
                 }
             });
 
-            // === 5. A4 EXACT PRINT LOGIC (USING IFRAME & BLADE VIEW) ===
+            // === 5. A4 EXACT PRINT LOGIC ===
             $(document).on('click', '.print-btn', function() {
                 let id = $(this).data('id');
-                // Iframe ka source update karein
                 $('#printFrame').attr('src', `/admin/letterheads/print/${id}`);
-                // Modal open karein
                 $('#printModal').modal('show');
             });
         });

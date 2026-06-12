@@ -26,6 +26,7 @@ class BulkDeleteController extends Controller
             'companies',        // Companies Table
             'branches',         // Branches Table
             'departments',
+            'tasks'
         ];
 
         if (!in_array($table, $allowedTables)) {
@@ -72,6 +73,12 @@ class BulkDeleteController extends Controller
                 if (!empty($memberIds)) {
                     DB::table('tbl_bank_details')->whereIn('member_id', $memberIds)->delete();
                 }
+            }
+
+            // 🔥 NAYA: Tasks ke attachments aur logs delete karne ka logic
+            if ($table === 'tasks') {
+                DB::table('task_attachments')->whereIn('task_id', $ids)->delete();
+                DB::table('task_progress_logs')->whereIn('task_id', $ids)->delete();
             }
 
             // Future mein agar 'members', 'agents' ya 'vendors' ki bhi bank details 

@@ -8,5 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 class WelcomeLetterTemplate extends Model
 {
     use HasFactory;
-    protected $fillable = ['letter_type', 'title', 'content'];
+
+    // Naye columns ko fillable me add kar diya
+    protected $fillable = [
+        'letter_type', 
+        'entity_type', 
+        'entity_id', 
+        'title', 
+        'content'
+    ];
 }

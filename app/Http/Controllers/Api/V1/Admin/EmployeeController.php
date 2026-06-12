@@ -39,7 +39,7 @@ class EmployeeController extends Controller
         return $prefix . str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
     }
 
-    // 🔥 NAYA JADOO: Auto-Rearrange IDs based on Date of Joining (DOJ) 🔥
+    // Auto-Rearrange IDs based on Date of Joining (DOJ)
     private function resequenceCompanyEmployees($companyId)
     {
         if (!$companyId) return;
@@ -51,22 +51,19 @@ class EmployeeController extends Controller
         $prefix = $companyCode . '-A/';
         $svcPrefix = $companyCode . '-A/SVC/';
 
-        // Sabhi employees ko DOJ ke hisaab se line me lagao
         $employees = Employee::where('company_id', $companyId)
             ->orderBy('doj', 'asc')
             ->orderBy('id', 'asc')
             ->get();
 
         $updates = [];
-        $seq = 7; // Series 007 se shuru ho rahi hai
+        $seq = 7;
 
         foreach ($employees as $emp) {
             $newMemberId = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
             $newServiceId = $svcPrefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
             if ($emp->member_id !== $newMemberId) {
-                // IMPORTANT CHECK: Agar service_id normal tareeke se bani thi, tabhi update karenge.
-                // Agar ye transferred banda hai, to iski service_id purani wali hogi jo ki retain rakhni hai!
                 $expectedOldServiceId = str_replace('-A/', '-A/SVC/', $emp->member_id);
                 $shouldUpdateServiceId = ($emp->service_id === $expectedOldServiceId);
 
@@ -75,13 +72,12 @@ class EmployeeController extends Controller
                     'old_member_id' => $emp->member_id,
                     'new_member_id' => $newMemberId,
                     'new_service_id' => $shouldUpdateServiceId ? $newServiceId : $emp->service_id,
-                    'temp_member_id' => 'TMP-' . $emp->id . '-' . time() . rand(10, 99) // Database Unique Constraint error se bachne ke liye
+                    'temp_member_id' => 'TMP-' . $emp->id . '-' . time() . rand(10, 99)
                 ];
             }
             $seq++;
         }
 
-        // STEP 1: Pehle sabko Temporary ID de do, taaki duplication/unique error na aaye
         foreach ($updates as $up) {
             $old = $up['old_member_id'];
             $tmp = $up['temp_member_id'];
@@ -92,7 +88,6 @@ class EmployeeController extends Controller
             DB::table('adm_regist')->where('id', $up['id'])->update(['member_id' => $tmp]);
         }
 
-        // STEP 2: Ab finally sabko unki Nayi Ordered ID do
         foreach ($updates as $up) {
             $tmp = $up['temp_member_id'];
             $newMem = $up['new_member_id'];
@@ -111,29 +106,41 @@ class EmployeeController extends Controller
         }
     }
 
- public function index(Request $request)
+    public function index(Request $request)
     {
         $context = $this->getGlobalContext();
-        $query = Employee::with(['branch.company', 'designation']);
 
-        // 1. Strict Scope Check (RBAC)
+        // 🔥 FIX: Company, Branch aur Department relations me active hone ki strict check add ki gayi
+        $query = Employee::with([
+            'company' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'branch' => function ($q) {
+                $q->where('branch_status', 'active');
+            },
+            'department' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'designation'
+        ]);
+       // 🔥 1. Sirf ACTIVE employees ko lana hai
+    $query->where('emp_status', 'active');
+
         if (!$context->is_god) {
             if ($context->is_director) {
                 $query->where('company_id', $context->company_id);
             } elseif ($context->is_employee) {
                 $query->where('company_id', $context->company_id)
-                      ->where('branch_id', $context->branch_id);
+                    ->where('branch_id', $context->branch_id);
             }
         }
 
-        // 2. Multi-Select Filters (For Task Assignment)
         if ($request->filled('company_ids')) {
             $query->whereIn('company_id', explode(',', $request->company_ids));
-        } elseif ($request->filled('company_id')) { // Fallback for normal datatable
+        } elseif ($request->filled('company_id')) {
             $query->where('company_id', $request->company_id);
         }
 
-        // Branches WITH Head Office (HO) Magic
         if ($request->filled('branch_ids')) {
             $branchIds = explode(',', $request->branch_ids);
             $hoCompanyIds = [];
@@ -141,48 +148,66 @@ class EmployeeController extends Controller
 
             foreach ($branchIds as $bId) {
                 if (str_starts_with($bId, 'HO_')) {
-                    $hoCompanyIds[] = str_replace('HO_', '', $bId); // Extract Company ID from HO_1
+                    $hoCompanyIds[] = str_replace('HO_', '', $bId);
                 } else {
-                    $normalBranchIds[] = $bId; // Normal branch id
+                    $normalBranchIds[] = $bId;
                 }
             }
 
-            $query->where(function($q) use ($normalBranchIds, $hoCompanyIds) {
+            $query->where(function ($q) use ($normalBranchIds, $hoCompanyIds) {
                 if (count($normalBranchIds) > 0) {
                     $q->whereIn('branch_id', $normalBranchIds);
                 }
                 if (count($hoCompanyIds) > 0) {
-                    $q->orWhere(function($subQ) use ($hoCompanyIds) {
+                    $q->orWhere(function ($subQ) use ($hoCompanyIds) {
                         $subQ->whereIn('company_id', $hoCompanyIds)->whereNull('branch_id');
                     });
                 }
             });
-        } elseif ($request->filled('branch_id')) { // Fallback for normal datatable
-            $query->where('branch_id', $request->branch_id);
+        } // 👇 3. BAS IS ELSEIF KO UPDATE KARNA HAI 👇
+        elseif ($request->filled('branch_id')) {
+            // Agar branch_id "HO" ya "HO_xx" aati hai (hamare TA form se)
+            if ($request->branch_id === 'HO' || str_starts_with($request->branch_id, 'HO_')) {
+                $query->where(function ($q) {
+                    $q->whereNull('branch_id')->orWhere('branch_id', '');
+                });
+            } else {
+                $query->where('branch_id', $request->branch_id);
+            }
         }
 
-        // Department & Designation (Comma Separated)
-        if ($request->filled('department_ids')) {
-            $query->whereIn('department_id', explode(',', $request->department_ids));
-        }
-        if ($request->filled('designation_ids')) {
-            $query->whereIn('designation_id', explode(',', $request->designation_ids));
+        // if ($request->filled('department_ids')) {
+        //     $query->whereIn('department_id', explode(',', $request->department_ids));
+        // }
+        // if ($request->filled('designation_ids')) {
+        //     $query->whereIn('designation_id', explode(',', $request->designation_ids));
+        // }
+
+        // 4. Department ID filter (Optional but good for accuracy)
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
         }
 
-        // 3. Global Search (For DataTables)
+        // 🔥 5. Designation ID filter (YEH SABSE ZAROORI HAI)
+        if ($request->filled('designation_id')) {
+            $query->where('designation_id', $request->designation_id);
+        }
+
+        // Uske baad aapka existing data fetch karne ka code hoga
+        $employees = $query->get();
+
         if ($request->has('search') && $request->input('search.value')) {
             $search = $request->input('search.value');
             $query->where(function ($q) use ($search) {
                 $q->where('full_name', 'LIKE', "%{$search}%")
-                  ->orWhere('member_id', 'LIKE', "%{$search}%")
-                  ->orWhere('contact_no', 'LIKE', "%{$search}%");
+                    ->orWhere('member_id', 'LIKE', "%{$search}%")
+                    ->orWhere('contact_no', 'LIKE', "%{$search}%");
             });
         }
 
         $totalData = Employee::count();
         $totalFiltered = $query->count();
-        
-        // 4. Pagination (-1 means all data, used in our task multi-select)
+
         if ($request->input('length', 10) != -1) {
             $query->offset($request->input('start', 0))->limit($request->input('length', 10));
         }
@@ -191,9 +216,10 @@ class EmployeeController extends Controller
             "draw" => intval($request->input('draw')),
             "recordsTotal" => $totalData,
             "recordsFiltered" => $totalFiltered,
-            "data" => $query->orderBy('doj', 'desc')->get() // Display the newest joiners first
+            "data" => $query->orderBy('doj', 'desc')->get()
         ]);
     }
+
     private function uploadFile($file, $prefix)
     {
         if (!$file) return null;
@@ -269,7 +295,7 @@ class EmployeeController extends Controller
             $employee = Employee::create($employeeData);
 
             if ($request->filled('account_no')) {
-                EmployeeBankDetail::create(array_merge(['member_id' => $employee->member_id], $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'ifsc_code'])));
+                EmployeeBankDetail::create(array_merge(['member_id' => $employee->member_id], $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'branch', 'ifsc_code'])));
             }
 
             ServiceRecord::create([
@@ -296,7 +322,6 @@ class EmployeeController extends Controller
                 }
             }
 
-            // 🔥 YAHAN CALL KIYA HAI 🔥 : Data save hone ke baad auto arrange karo!
             $this->resequenceCompanyEmployees($companyId);
 
             DB::commit();
@@ -310,7 +335,21 @@ class EmployeeController extends Controller
     public function show($id)
     {
         $context = $this->getGlobalContext();
-        $employee = Employee::with(['branch.company', 'bankDetails', 'designation', 'department'])->find($id);
+
+        // 🔥 FIX: Relations par active hone ka rule lagaya gaya
+        $employee = Employee::with([
+            'company' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'branch' => function ($q) {
+                $q->where('branch_status', 'active');
+            },
+            'department' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'bankDetails',
+            'designation'
+        ])->find($id);
 
         if (!$context->is_god) {
             if ($context->is_director && $employee->company_id != $context->company_id) return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
@@ -343,7 +382,7 @@ class EmployeeController extends Controller
             $employee = Employee::find($id);
             if (!$employee) return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
 
-            $oldCompanyId = $employee->company_id; // Yaad rakhne ke liye agar company edit hui hai toh
+            $oldCompanyId = $employee->company_id;
 
             if (!$context->is_god) {
                 if ($context->is_director && $employee->company_id != $context->company_id) return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
@@ -379,13 +418,11 @@ class EmployeeController extends Controller
                 } else {
                     $latestRecord->date_of_leaving = null;
                 }
-                $latestRecord->joining_date = $employee->doj; // Doj update hua hai to record bhi update hoga
+                $latestRecord->joining_date = $employee->doj;
                 $latestRecord->save();
             }
 
-            // 🔥 YAHAN CALL KIYA HAI 🔥 : Update hone ke baad timeline wapas arrange karo!
             $this->resequenceCompanyEmployees($newCompanyId);
-            // Agar company badli gayi hai (edit me), to purani company walo ko bhi theek karo
             if ($oldCompanyId && $oldCompanyId != $newCompanyId) {
                 $this->resequenceCompanyEmployees($oldCompanyId);
             }
@@ -417,7 +454,6 @@ class EmployeeController extends Controller
             \App\Models\EmployeeLogin::where('user_id', $memberId)->delete();
             $employee->delete();
 
-            // Employee delete hua hai, toh numbers beech se toot jayenge, unhe wapas cover karne ke liye fir se sequence chala do
             $this->resequenceCompanyEmployees($companyId);
 
             return response()->json(['status' => 'success', 'message' => 'Employee deleted completely and timeline rearranged']);
@@ -432,7 +468,20 @@ class EmployeeController extends Controller
 
         if (!$term || !$targetCompanyId) return response()->json(['status' => 'error', 'message' => 'Please select a Company first and enter a keyword.']);
 
-        $employees = Employee::with(['branch.company', 'designation', 'department', 'bankDetails'])
+        // 🔥 FIX: Search query relations par active check laga diya gaya
+        $employees = Employee::with([
+            'company' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'branch' => function ($q) {
+                $q->where('branch_status', 'active');
+            },
+            'department' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'designation',
+            'bankDetails'
+        ])
             ->where('emp_status', 'transferred')
             ->where('transferred_to_company', $targetCompanyId)
             ->where(function ($q) use ($term) {
@@ -452,7 +501,19 @@ class EmployeeController extends Controller
     {
         $context = $this->getGlobalContext();
 
-        $query = Employee::with(['branch.company', 'designation', 'department'])->where('emp_status', 'pending')->latest();
+        // 🔥 FIX: Relations par active check laga diya gaya
+        $query = Employee::with([
+            'company' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'branch' => function ($q) {
+                $q->where('branch_status', 'active');
+            },
+            'department' => function ($q) {
+                $q->where('status', 'active');
+            },
+            'designation'
+        ])->where('emp_status', 'pending')->latest();
 
         if (!$context->is_god) {
             if ($context->is_director) {

@@ -11,7 +11,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    @vite(['resources/js/app.js'])
     <style>
         :root {
             --sidebar-bg: #1A365D;
@@ -28,9 +28,9 @@
             background-color: var(--bg-light);
             font-family: 'Inter', sans-serif;
             color: var(--text-main);
+            overflow-x: hidden;
         }
 
-        /* 🚀 MASTER FIX: Smart UI Hiding Engine 🚀 */
         .secured-item:not(.is-visible-node) {
             display: none !important;
         }
@@ -114,6 +114,7 @@
                 width: 100%;
                 padding: 0 35px;
                 position: relative;
+                clip-path: inset(-10px 0px -800px 0px);
             }
 
             .desktop-nav {
@@ -123,25 +124,13 @@
                 display: flex;
                 flex-wrap: nowrap;
                 gap: 5px;
-                width: 100%;
-                overflow-x: auto;
-                overflow-y: hidden;
-                padding-bottom: 3000px;
-                margin-bottom: -3000px;
-                pointer-events: none;
-                scrollbar-width: none;
-                -ms-overflow-style: none;
-                scroll-behavior: smooth;
-            }
-
-            .desktop-nav::-webkit-scrollbar {
-                display: none;
+                width: max-content;
+                transition: transform 0.3s ease-in-out;
             }
 
             .desktop-nav>li {
                 position: relative;
                 flex: 0 0 auto;
-                pointer-events: auto;
                 margin-top: 5px;
                 margin-bottom: 5px;
             }
@@ -195,7 +184,6 @@
                 padding: 8px 0;
                 margin: 0;
                 z-index: 1050;
-                pointer-events: auto;
             }
 
             .desktop-nav li.has-sub {
@@ -630,13 +618,34 @@
             <div class="d-flex align-items-center gap-3">
 
                 <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm"
+                    onclick="window.location.href='{{ url($currentPortalPrefix . '/travel-allowances') }}'"
+                    title="Travel Allowances">
+                    <i class="fas fa-car-side text-success"></i>
+                </button>
+
+                <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm"
                     onclick="window.location.href='{{ url($currentPortalPrefix . '/terms-conditions') }}'"
                     title="Terms & Conditions">
                     <i class="fas fa-file-signature text-primary"></i>
                 </button>
 
-                <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm"><i
-                        class="fas fa-bell"></i></button>
+                <div class="dropdown" id="globalNotificationDropdown">
+                    <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm position-relative"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-bell"></i>
+                        <span
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                            id="globalUnreadCount" style="font-size: 0.65rem; padding: 0.35em 0.5em;">0</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3 p-0" id="notificationList"
+                        style="width: 320px; max-height: 400px; overflow-y: auto;">
+                        <li class="p-4 text-center text-muted small" id="noNotifMessage">
+                            <i class="fas fa-bell-slash fs-4 mb-2 d-block text-secondary opacity-50"></i>
+                            No new notifications
+                        </li>
+                    </ul>
+                </div>
+
                 <div class="dropdown">
                     <a href="#" class="text-decoration-none d-flex align-items-center gap-2"
                         data-bs-toggle="dropdown" style="color: var(--text-main);">
@@ -662,7 +671,7 @@
         <div class="header-bottom" id="desktopNavContainer">
             <button class="nav-scroll-btn left-btn" id="btnScrollLeft"><i class="fas fa-chevron-left"></i></button>
 
-            <div class="nav-scroll-wrapper">
+            <div class="nav-scroll-wrapper" id="navScrollWrapper">
                 <ul class="desktop-nav" id="desktopNavScrollArea">
                     <li class="secured-item" data-permission="public">
                         <a href="{{ url($currentPortalPrefix . '/dashboard') }}"
@@ -675,7 +684,19 @@
                             <i class="fas fa-envelope-open-text text-info"></i> Welcome Letter
                         </a>
                     </li>
+                    <li class="secured-item" data-permission="public">
+    <a href="{{ url($currentPortalPrefix . '/leave-applications') }}" class="{{ request()->is('*/leave-applications') ? 'active' : '' }}">
+        <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
+    </a>
+</li>
                     {!! buildDesktopMenu($rootModules, $allModules, $currentPortalPrefix) !!}
+
+                    <li class="secured-item" data-permission="public">
+                        <a href="{{ url($currentPortalPrefix . '/my-notices') }}"
+                            class="{{ request()->is('*/my-notices') ? 'active' : '' }}">
+                            <i class="fas fa-bell text-danger"></i> My Notices
+                        </a>
+                    </li>
                 </ul>
             </div>
 
@@ -700,10 +721,17 @@
                     <div><i class="fas fa-home text-warning menu-icon"></i> Dashboard</div>
                 </a>
 
-                <a href="{{ url('employee/welcome-letter') }}" class="nav-item-custom secured-item border-bottom mb-2"
-                    data-permission="public">
+
+                <a href="{{ url('employee/welcome-letter') }}"
+                    class="nav-item-custom secured-item border-bottom mb-2" data-permission="public">
                     <div><i class="fas fa-envelope-open-text text-info menu-icon"></i> Welcome Letter</div>
                 </a>
+
+                <a href="{{ url($currentPortalPrefix . '/leave-applications') }}"
+    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/leave-applications') ? 'active' : '' }}" 
+    data-permission="public">
+    <div><i class="fas fa-calendar-alt text-primary menu-icon"></i> Leaves & Apps</div>
+</a>
 
                 <a href="{{ url($currentPortalPrefix . '/terms-conditions') }}"
                     class="nav-item-custom border-bottom mb-2 text-info">
@@ -711,6 +739,12 @@
                 </a>
 
                 {!! buildMobileMenu($rootModules, $allModules, $currentPortalPrefix) !!}
+
+                <a href="{{ url($currentPortalPrefix . '/my-notices') }}"
+                    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/my-notices') ? 'active' : '' }}"
+                    data-permission="public">
+                    <div><i class="fas fa-bell text-danger menu-icon"></i> My Notices</div>
+                </a>
             </div>
             <div class="sidebar-user-card mt-auto">
                 <div class="d-flex align-items-center mb-3">
@@ -774,15 +808,37 @@
                 logoutApiUrl = '/api/v1/customer/auth/logout-current';
             }
 
-            const layoutToken = localStorage.getItem(tokenKey);
+            const layoutToken = localStorage.getItem(tokenKey) || localStorage.getItem('token') || '';
 
             if (layoutToken) {
+                // Set global jQuery AJAX Token
                 $.ajaxSetup({
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
                         'Authorization': 'Bearer ' + layoutToken
                     }
                 });
+
+                // Set global Axios Token (if used by Echo)
+                if (typeof window.axios !== 'undefined') {
+                    window.axios.defaults.headers.common['Authorization'] = 'Bearer ' + layoutToken;
+                }
+
+                // 🔥 THE ULTIMATE ECHO REBOOT (Runs only ONCE per page load) 🔥
+                // if (typeof window.Echo !== 'undefined') {
+                //     let echoOptions = window.Echo.connector.options;
+
+                //     // Force the token deep into Pusher's core configuration
+                //     echoOptions.authEndpoint = '/broadcasting/auth?token=' + encodeURIComponent(layoutToken);
+                //     echoOptions.auth = echoOptions.auth || {};
+                //     echoOptions.auth.headers = echoOptions.auth.headers || {};
+                //     echoOptions.auth.headers['Authorization'] = 'Bearer ' + layoutToken;
+                //     echoOptions.auth.headers['Accept'] = 'application/json';
+
+                //     // Rebuild the Echo instance completely authorized
+                //     window.Echo.disconnect();
+                //     window.Echo = new window.Echo.constructor(echoOptions);
+                // }
             }
 
             $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
@@ -829,49 +885,57 @@
             $(document).ready(function() {
 
                 const navArea = document.getElementById('desktopNavScrollArea');
+                const wrapper = document.getElementById('navScrollWrapper');
                 const btnLeft = document.getElementById('btnScrollLeft');
                 const btnRight = document.getElementById('btnScrollRight');
 
-                if (navArea && btnLeft && btnRight) {
+                let currentNavScroll = 0;
+
+                if (navArea && wrapper && btnLeft && btnRight) {
                     const updateScrollButtons = () => {
-                        if (navArea.scrollWidth <= navArea.clientWidth) {
+                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
+                        if (maxScroll <= 0) {
                             btnLeft.style.display = 'none';
                             btnRight.style.display = 'none';
                             return;
                         }
-
-                        btnLeft.style.display = navArea.scrollLeft > 0 ? 'flex' : 'none';
-                        btnRight.style.display = (navArea.scrollLeft + navArea.clientWidth) >= (navArea
-                            .scrollWidth - 1) ? 'none' : 'flex';
+                        btnLeft.style.display = currentNavScroll > 0 ? 'flex' : 'none';
+                        btnRight.style.display = currentNavScroll < maxScroll ? 'flex' : 'none';
                     };
 
                     btnLeft.addEventListener('click', () => {
-                        navArea.scrollBy({
-                            left: -250,
-                            behavior: 'smooth'
-                        });
+                        currentNavScroll -= 300;
+                        if (currentNavScroll < 0) currentNavScroll = 0;
+                        navArea.style.transform = `translateX(-${currentNavScroll}px)`;
+                        updateScrollButtons();
                     });
-
                     btnRight.addEventListener('click', () => {
-                        navArea.scrollBy({
-                            left: 250,
-                            behavior: 'smooth'
-                        });
+                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
+                        currentNavScroll += 300;
+                        if (currentNavScroll > maxScroll) currentNavScroll = maxScroll;
+                        navArea.style.transform = `translateX(-${currentNavScroll}px)`;
+                        updateScrollButtons();
                     });
 
-                    navArea.addEventListener('scroll', updateScrollButtons);
-                    window.addEventListener('resize', updateScrollButtons);
-
-                    navArea.addEventListener('wheel', function(e) {
+                    wrapper.addEventListener('wheel', function(e) {
                         if (e.deltaY !== 0) {
                             e.preventDefault();
-                            navArea.scrollBy({
-                                left: e.deltaY > 0 ? 100 : -100,
-                                behavior: 'auto'
-                            });
+                            let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
+                            currentNavScroll += e.deltaY > 0 ? 150 : -150;
+                            if (currentNavScroll < 0) currentNavScroll = 0;
+                            if (currentNavScroll > maxScroll) currentNavScroll = maxScroll;
+                            navArea.style.transform = `translateX(-${currentNavScroll}px)`;
+                            updateScrollButtons();
                         }
                     }, {
                         passive: false
+                    });
+
+                    window.addEventListener('resize', () => {
+                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
+                        if (currentNavScroll > maxScroll) currentNavScroll = Math.max(0, maxScroll);
+                        navArea.style.transform = `translateX(-${currentNavScroll}px)`;
+                        updateScrollButtons();
                     });
 
                     setTimeout(updateScrollButtons, 300);
@@ -894,6 +958,7 @@
                     type: 'GET',
                     success: function(res) {
                         let u = res.data;
+                        window.userId = u.id;
                         let emailStr = u.email ? u.email.toLowerCase() : '';
                         let developerEmails = ['admin@jankivilla.com', 'superadmin@example.com',
                             'vedprakash@infoera.in'
@@ -926,7 +991,6 @@
                             $('.secured-item').each(function() {
                                 let reqPerm = $(this).data('permission');
                                 let isPermitted = false;
-
                                 if (reqPerm === 'public' || window.userGodMode) {
                                     isPermitted = true;
                                 } else if (reqPerm && reqPerm !== 'node_parent') {
@@ -934,7 +998,6 @@
                                     isPermitted = window.userPerms.some(p => p ===
                                         reqPerm || p.startsWith(base + '_'));
                                 }
-
                                 if (isPermitted) {
                                     $(this).addClass('is-visible-node');
                                 } else {
@@ -964,158 +1027,264 @@
 
                         window.applyPermissions();
 
-                        $(document).on('draw.dt', function() {
-                            if (typeof window.applyPermissions === 'function') window
-                                .applyPermissions();
+                        let targetDashboard = '/' + currentPortal + '/dashboard';
+                        $('.brand-logo-img').css('cursor', 'pointer').on('click', function(e) {
+                            e.preventDefault();
+                            window.location.href = targetDashboard;
                         });
 
-                        // Javascript dashboard redirection handlers
-                        let targetDashboard = '/' + currentPortal + '/dashboard';
-                        $('.brand-logo-img').css('cursor', 'pointer').on(
-                            'click',
-                            function(e) {
-                                e.preventDefault();
-                                window.location.href = targetDashboard;
-                            });
+                    // =========================================================================
+                        // 🔥 RESTART ECHO & SINGLE GLOBAL NOTIFICATION LISTENER 🔥
+                        // =========================================================================
+                       // =========================================================================
+                        // 🔥 RESTART ECHO & SINGLE GLOBAL NOTIFICATION LISTENER 🔥
+                        // =========================================================================
+                        if (typeof window.Echo !== 'undefined') {
 
-                        let bypassAutoLogout = isGodMode || isCEOorDirector || currentPortal !==
-                            'employee';
+                            // 1. Force Echo to reconnect with the exact token BEFORE subscribing
+                            let currentOptions = window.Echo.connector.options;
+                            currentOptions.authEndpoint = '/broadcasting/auth?token=' + encodeURIComponent(layoutToken);
+                            currentOptions.auth = {
+                                headers: {
+                                    'Authorization': 'Bearer ' + layoutToken,
+                                    'Accept': 'application/json'
+                                },
+                                params: {
+                                    token: layoutToken
+                                }
+                            };
+                            window.Echo.disconnect();
+                            window.Echo = new window.Echo.constructor(currentOptions);
 
-                        if (!bypassAutoLogout) {
-                            let idleTime = 0;
-                            let idleInterval = setInterval(function() {
-                                idleTime++;
-                                if (idleTime >= 15) {
-                                    clearInterval(idleInterval);
-                                    Swal.fire({
-                                        title: 'Session Expired!',
-                                        text: 'Inactivity detected. Auto-logging out.',
-                                        icon: 'warning',
-                                        allowOutsideClick: false
-                                    }).then(() => {
-                                        let pId = localStorage.getItem(
-                                            'emp_panel_id');
-                                        if (pId) {
-                                            $.ajax({
-                                                url: logoutApiUrl,
-                                                type: 'POST',
-                                                data: {
-                                                    panel_id: pId,
-                                                    is_auto: 1
-                                                },
-                                                complete: function() {
-                                                    clearLocalDataAndRedirect
-                                                        ();
-                                                }
-                                            });
-                                        } else {
-                                            clearLocalDataAndRedirect();
+                            // 2. Subscribe to Global Channel
+                            let channelName = `global.user.${currentPortal}.${u.id}`;
+                            console.log("Subscribing to Global Bell Channel: ", channelName);
+
+                            window.Echo.private(channelName)
+                                .listen('.notification.received', (e) => {
+                                    let log = e.logData;
+                                    let isNotice = log.type && log.type === 'notice'; 
+                                    let isTA = log.type && log.type === 'ta_request'; // 🔥 Naya TA Identification Check
+                                    
+                                    let currentCount = parseInt($('#globalUnreadCount').text()) || 0;
+                                    $('#globalUnreadCount').text(currentCount + 1).removeClass('d-none');
+                                    $('#noNotifMessage').addClass('d-none');
+                                    
+                                    // 🔥 Dynamic Data & Link Mapping 🔥
+                                    let targetUrl = isNotice ? `/${currentPortal}/my-notices` : (isTA ? `/${currentPortal}/travel-allowances` : `/${currentPortal}/tasks`);
+                                    let iconClass = isNotice ? 'fa-bullhorn text-danger' : (isTA ? 'fa-car-side text-success' : 'fa-tasks text-primary');
+                                    let headingLabel = isNotice ? 'Official Notice' : (isTA ? 'Travel Allowance' : 'Task Update');
+                                    let titleLabel = isNotice ? 'Unread Notice:' : (isTA ? 'TA Alert:' : 'Unread msg from Task:');
+                                    
+                                    let notifHtml = `
+                                        <li class="border-bottom bg-light">
+                                            <a class="dropdown-item py-3 px-3 d-flex align-items-center" href="${targetUrl}">
+                                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 border" style="width:35px; height:35px; min-width:35px;">
+                                                    <i class="fas ${iconClass}"></i>
+                                                </div>
+                                                <div class="w-100 overflow-hidden">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <strong class="text-dark small d-block">${headingLabel}</strong>
+                                                        <span class="badge bg-danger blink-anim" style="font-size: 0.65rem;">New</span>
+                                                    </div>
+                                                    <div class="small text-muted fw-medium text-truncate">
+                                                        ${titleLabel} <span class="text-dark fw-bold">${e.taskTitle}</span>
+                                                    </div>
+                                                    <div class="small text-muted mt-1" style="font-size: 10px;">
+                                                        By ${log.actor_name || 'System'}
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </li>
+                                    `;
+                                    $('#notificationList').prepend(notifHtml);
+                                    
+                                    if (!isNotice && !isTA && typeof window.markTaskAsUnread === 'function') {
+                                        if (!$('#taskDetailsModal').hasClass('show') || $('#replyTaskId').val() != e.taskId) {
+                                            window.markTaskAsUnread(e.taskId);
+                                        }
+                                    }
+                                });
+
+
+                                // =========================================================================
+                        // 🔥 OFFLINE NOTIFICATION CATCH-UP (Fetch Missed Notices) 🔥
+                        // =========================================================================
+                        function loadMissedNotices() {
+                            $.get('/api/v1/my-notices', function(response) {
+                                if (response.success && response.data.length > 0) {
+                                    let unreadCount = 0;
+                                    let notifHtmlList = '';
+                                    
+                                    // Browser storage se check karein ki kaun se notices already bell me dekh liye hain
+                                    let seenNotices = JSON.parse(localStorage.getItem('seen_notices_' + u.id)) || [];
+
+                                    response.data.forEach(notice => {
+                                        let noticeDate = new Date(notice.created_at);
+                                        let today = new Date();
+                                        // Calculate karein kitne din purana notice hai
+                                        let diffDays = Math.ceil(Math.abs(today - noticeDate) / (1000 * 60 * 60 * 24));
+
+                                        // Agar notice last 7 days me aaya hai aur user ne bell pe click karke nahi dekha hai
+                                        if (diffDays <= 7 && !seenNotices.includes(notice.id)) {
+                                            unreadCount++;
+                                            let targetUrl = `/${currentPortal}/my-notices`;
+                                            
+                                            notifHtmlList += `
+                                                <li class="border-bottom bg-light offline-notice-item" data-id="${notice.id}">
+                                                    <a class="dropdown-item py-3 px-3 d-flex align-items-center" href="${targetUrl}">
+                                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 border" style="width:35px; height:35px; min-width:35px;">
+                                                            <i class="fas fa-bullhorn text-danger"></i>
+                                                        </div>
+                                                        <div class="w-100 overflow-hidden">
+                                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                <strong class="text-dark small d-block">Official Notice</strong>
+                                                                <span class="badge bg-danger blink-anim" style="font-size: 0.65rem;">Missed</span>
+                                                            </div>
+                                                            <div class="small text-muted fw-medium text-truncate">
+                                                                Unread Notice: <span class="text-dark fw-bold">${notice.title}</span>
+                                                            </div>
+                                                            <div class="small text-muted mt-1" style="font-size: 10px;">
+                                                                Date: ${notice.notice_date}
+                                                            </div>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                            `;
                                         }
                                     });
+
+                                    // Agar koi unread/missed notice mila, toh Bell me list update karo
+                                    if (unreadCount > 0) {
+                                        let currentCount = parseInt($('#globalUnreadCount').text()) || 0;
+                                        $('#globalUnreadCount').text(currentCount + unreadCount).removeClass('d-none');
+                                        $('#noNotifMessage').addClass('d-none');
+                                        $('#notificationList').prepend(notifHtmlList);
+                                    }
                                 }
-                            }, 60000);
-
-                            $(document).on('mousemove keydown scroll click', function() {
-                                idleTime = 0;
                             });
+                        }
 
-                            setInterval(function() {
-                                let now = new Date();
-                                if (now.getHours() > 18 || (now.getHours() === 18 && now
-                                        .getMinutes() >= 15)) {
-                                    Swal.fire({
-                                        title: 'Shift Over!',
-                                        text: 'Your shift limit (18:15) has been reached.',
-                                        icon: 'info',
-                                        allowOutsideClick: false
-                                    }).then(() => {
-                                        let pId = localStorage.getItem(
-                                            'emp_panel_id');
-                                        if (pId) {
-                                            $.ajax({
-                                                url: logoutApiUrl,
-                                                type: 'POST',
-                                                data: {
-                                                    panel_id: pId,
-                                                    is_auto: 1
-                                                },
-                                                complete: function() {
-                                                    clearLocalDataAndRedirect
-                                                        ();
-                                                }
-                                            });
-                                        } else {
-                                            clearLocalDataAndRedirect();
+                        // Load function call karein page load par
+                        loadMissedNotices();
+
+                        // 👇 YAHAN SE NAYA CODE PASTE KAREIN 👇
+                        // =========================================================================
+                        // 🔥 OFFLINE TA NOTIFICATIONS (Fetch Missed TA Alerts) 🔥
+                        // =========================================================================
+                        function loadMissedTAAlerts() {
+                            // Hum recent 20 TA requests fetch karenge
+                            $.get('/api/v1/travel-allowances?per_page=20', function(response) {
+                                let records = response.data && response.data.data ? response.data.data : (response.data || []);
+                                
+                                if (records.length > 0) {
+                                    let unreadCount = 0;
+                                    let notifHtmlList = '';
+                                    let seenNotices = JSON.parse(localStorage.getItem('seen_notices_' + u.id)) || [];
+
+                                    records.forEach(ta => {
+                                        let taDate = new Date(ta.updated_at || ta.created_at);
+                                        let today = new Date();
+                                        let diffDays = Math.ceil(Math.abs(today - taDate) / (1000 * 60 * 60 * 24));
+
+                                        // Sirf last 7 din ke requests check karenge
+                                        if (diffDays <= 7) {
+                                            let isOwnTA = (ta.employee_id == u.id);
+                                            let isActionable = false;
+                                            let notifTitle = '';
+                                            let badgeText = 'Missed';
+                                            let badgeClass = 'bg-primary';
+
+                                            // CONDITION 1: Admin/Manager ke liye (Agar TA pending hai aur unka khud ka nahi hai)
+                                            if (ta.status === 'pending' && !isOwnTA) {
+                                                isActionable = true;
+                                                notifTitle = `New TA Request from ${ta.employee ? ta.employee.full_name : 'Employee'}`;
+                                                badgeText = 'Action Required';
+                                                badgeClass = 'bg-warning text-dark';
+                                            } 
+                                            // CONDITION 2: Employee ke liye (Agar unka khud ka TA approve ya reject hua hai)
+                                            else if (ta.status !== 'pending' && isOwnTA) {
+                                                isActionable = true;
+                                                let statusText = ta.status === 'active' ? 'APPROVED' : 'REJECTED';
+                                                notifTitle = `Your TA was ${statusText}`;
+                                                badgeClass = ta.status === 'active' ? 'bg-success' : 'bg-danger';
+                                                badgeText = statusText;
+                                            }
+
+                                            // 🔥 SMART ID LOGIC: 'ta_1_pending' ya 'ta_1_active' 
+                                            // Isse status badalne par (jaise pending se approve) naya notification aayega
+                                            let notifId = 'ta_' + ta.id + '_' + ta.status;
+
+                                            // Agar yeh alert pehle seen nahi hua hai, toh list me add karo
+                                            if (isActionable && !seenNotices.includes(notifId)) {
+                                                unreadCount++;
+                                                let targetUrl = `/${currentPortal}/travel-allowances`;
+                                                
+                                                notifHtmlList += `
+                                                    <li class="border-bottom bg-light offline-notice-item" data-id="${notifId}">
+                                                        <a class="dropdown-item py-3 px-3 d-flex align-items-center" href="${targetUrl}">
+                                                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 border" style="width:35px; height:35px; min-width:35px;">
+                                                                <i class="fas fa-car-side text-success"></i>
+                                                            </div>
+                                                            <div class="w-100 overflow-hidden">
+                                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                    <strong class="text-dark small d-block">Travel Allowance</strong>
+                                                                    <span class="badge ${badgeClass} blink-anim" style="font-size: 0.65rem;">${badgeText}</span>
+                                                                </div>
+                                                                <div class="small text-muted fw-medium text-truncate">
+                                                                    ${notifTitle}
+                                                                </div>
+                                                                <div class="small text-muted mt-1" style="font-size: 10px;">
+                                                                    Date: ${ta.ta_date} | Amount: ₹${ta.amount}
+                                                                </div>
+                                                            </div>
+                                                        </a>
+                                                    </li>
+                                                `;
+                                            }
                                         }
                                     });
+
+                                    // Agar koi unread TA alert mila, toh Bell Icon ka count badhao
+                                    if (unreadCount > 0) {
+                                        let currentCount = parseInt($('#globalUnreadCount').text()) || 0;
+                                        $('#globalUnreadCount').text(currentCount + unreadCount).removeClass('d-none');
+                                        $('#noNotifMessage').addClass('d-none');
+                                        $('#notificationList').prepend(notifHtmlList);
+                                    }
                                 }
-                            }, 60000);
+                            });
+                        }
+
+                        // Page load par TA alerts check karo
+                        loadMissedTAAlerts();
+
+                        // Jab user bell icon par click kare, toh un offline notifications ko "seen" mark kar do
+                        // Taaki agli baar page refresh hone par wapas baar-baar bell icon par count na badhe
+                        $('#globalNotificationDropdown').on('show.bs.dropdown', function () {
+                            let seenNotices = JSON.parse(localStorage.getItem('seen_notices_' + u.id)) || [];
+                            $('.offline-notice-item').each(function() {
+                                let nid = $(this).data('id');
+                                if(!seenNotices.includes(nid)) {
+                                    seenNotices.push(nid);
+                                }
+                            });
+                            localStorage.setItem('seen_notices_' + u.id, JSON.stringify(seenNotices));
+                            
+                            // 1 second baad count hata do kyuki list dekh li gayi hai
+                            setTimeout(() => {
+                                $('#globalUnreadCount').text('0').addClass('d-none');
+                            }, 1000);
+                        });
+
+
+
                         }
                     }
                 });
 
                 $('.handle-logout').on('click', function(e) {
-                    e.preventDefault();
-                    if (window.userGodMode) {
-                        $('#deviceManagerModal').html(
-                            '<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body text-center p-4"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 fw-bold text-muted">Fetching Active Nodes...</p></div></div></div>'
-                        ).modal('show');
-                        $.ajax({
-                            url: '/api/v1/admin/auth/active-sessions',
-                            type: 'GET',
-                            success: function(res) {
-                                let mHtml =
-                                    `<div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><div class="modal-header bg-dark text-white border-bottom-0"><h5 class="modal-title fw-bold"><i class="fas fa-laptop-house text-warning me-2"></i> Master Control: Active Nodes</h5><button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button></div><div class="modal-body p-3 bg-light"><ul class="list-group shadow-sm">`;
-                                res.data.forEach(s => {
-                                    let badge = s.is_current ?
-                                        '<span class="badge bg-success me-2">Current Device</span>' :
-                                        '';
-                                    let btnHtml = s.is_current ?
-                                        `<button class="btn btn-sm btn-danger fw-bold logout-current-btn"><i class="fas fa-sign-out-alt"></i> Logout This</button>` :
-                                        `<button class="btn btn-sm btn-outline-danger fw-bold logout-device-btn" data-id="${s.id}"><i class="fas fa-times"></i> Revoke Node</button>`;
-                                    mHtml +=
-                                        `<li class="list-group-item d-flex justify-content-between align-items-center"><div><h6 class="mb-0 fw-bold text-dark">${s.name}</h6><small class="text-muted"><i class="far fa-clock"></i> Last active: ${s.last_used}</small></div><div class="text-end">${badge} ${btnHtml}</div></li>`;
-                                });
-                                mHtml +=
-                                    `</ul><div class="mt-4"><button class="btn btn-danger w-100 fw-bold logout-all-btn shadow-sm"><i class="fas fa-power-off me-2"></i> Terminate All Sessions Everywhere</button></div></div></div></div>`;
-                                $('#deviceManagerModal').html(mHtml);
-                            },
-                            error: function() {
-                                performNormalLogout();
-                            }
-                        });
-                    } else {
-                        performNormalLogout();
-                    }
-                });
-
-                $(document).on('click', '.logout-current-btn', function() {
                     performNormalLogout();
-                });
-
-                $(document).on('click', '.logout-device-btn', function() {
-                    let tId = $(this).data('id');
-                    let btn = $(this);
-                    btn.html('<i class="fas fa-spinner fa-spin"></i>');
-                    $.ajax({
-                        url: '/api/v1/admin/auth/logout-device/' + tId,
-                        type: 'POST',
-                        success: function() {
-                            btn.closest('li').fadeOut();
-                        }
-                    });
-                });
-
-                $(document).on('click', '.logout-all-btn', function() {
-                    let btn = $(this);
-                    btn.html('<i class="fas fa-spinner fa-spin"></i> Terminating...');
-                    $.ajax({
-                        url: '/api/v1/admin/auth/logout-all',
-                        type: 'POST',
-                        success: function() {
-                            clearLocalDataAndRedirect();
-                        }
-                    });
                 });
             });
         })();

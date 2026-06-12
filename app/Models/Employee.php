@@ -3,11 +3,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Spatie\Permission\Traits\HasRoles;
 // 👇 YEH LINE ADD KAREIN
 use Laravel\Sanctum\HasApiTokens;
 
-class Employee extends Model
+class Employee extends Authenticatable
 {
     use HasApiTokens,HasFactory, HasRoles;
 
@@ -74,5 +75,16 @@ class Employee extends Model
         return $this->morphMany(TaskProgressLog::class, 'actor');
     }
 
+    // Travel Allowances claimed by this employee
+    public function travelAllowances()
+    {
+        return $this->hasMany(TravelAllowance::class, 'employee_id');
+    }
+
+    // Travel Allowances approved/rejected by this employee (if they are an admin/ceo)
+    public function approvedAllowances()
+    {
+        return $this->hasMany(TravelAllowance::class, 'approver_id');
+    }
 
 }

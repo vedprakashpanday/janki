@@ -1,4 +1,6 @@
-@extends('layout.app') @section('content')
+@extends('layout.app')
+
+@section('content')
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
 
@@ -51,8 +53,8 @@
             color: #10b981;
         }
 
-        /* Map Preview Container */
-        #mapPreview {
+        #mapPreview,
+        #edit_mapPreview {
             background: var(--bg-light);
             border-radius: 8px;
             overflow: hidden;
@@ -60,10 +62,11 @@
             align-items: center;
             justify-content: center;
             border: 1px dashed #cbd5e1;
-            height: 150px;
+            height: 120px;
         }
 
-        #mapPreview iframe {
+        #mapPreview iframe,
+        #edit_mapPreview iframe {
             width: 100%;
             height: 100%;
             border: none;
@@ -76,17 +79,19 @@
                 <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Branch Management</h4>
                 <p class="text-secondary small mb-0">Manage all your corporate and local branches</p>
             </div>
-            <button class="btn text-white px-4 py-2 shadow-sm secured-item" data-permission="branch_add" style="background-color: var(--brand-primary);" data-bs-toggle="modal" data-bs-target="#addBranchModal">
-    <i class="fas fa-plus-circle me-2"></i> Add New Branch
-</button>
+            <button class="btn text-white px-4 py-2 shadow-sm d-none" id="mainAddBranchBtn"
+                style="background-color: var(--brand-primary);" data-bs-toggle="modal" data-bs-target="#addBranchModal">
+                <i class="fas fa-plus-circle me-2"></i> <span id="addBtnText">Add New Branch</span>
+            </button>
         </div>
 
         <div class="d-block d-md-none mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold m-0" style="color: var(--sidebar-bg);">Branches</h5>
-                <button class="btn btn-sm text-white px-3 shadow-sm secured-item" data-permission="branch_add" style="background-color: var(--brand-primary);" data-bs-toggle="modal" data-bs-target="#addBranchModal">
-    <i class="fas fa-plus"></i> Add
-</button>
+                <button class="btn btn-sm text-white px-3 shadow-sm d-none" id="mobileAddBranchBtn"
+                    style="background-color: var(--brand-primary);" data-bs-toggle="modal" data-bs-target="#addBranchModal">
+                    <i class="fas fa-plus"></i> <span id="mobileAddBtnText">Add</span>
+                </button>
             </div>
             <div class="d-flex gap-2">
                 <div class="input-group shadow-sm">
@@ -94,10 +99,21 @@
                     <input type="text" class="form-control border-start-0" id="mobileSearch"
                         placeholder="Search branches...">
                 </div>
-                <button class="btn btn-success shadow-sm px-3" id="mobileExcelBtn" title="Download Excel">
+                <button class="btn btn-success shadow-sm px-3 d-none" id="mobileExcelBtn" title="Download Excel">
                     <i class="fas fa-file-excel"></i>
                 </button>
             </div>
+        </div>
+
+        <div id="bulkActionContainer"
+            class="d-none bg-light p-2 rounded border border-danger border-opacity-25 mb-3 d-flex align-items-center justify-content-between w-100">
+            <div>
+                <span class="me-3 fw-bold text-danger"><span id="selectedCount">0</span> Branches Selected</span>
+                <button class="btn btn-sm btn-outline-secondary me-2 shadow-sm" id="selectAllBtn">Select All</button>
+            </div>
+            <button class="btn btn-sm btn-danger shadow-sm secured-item" data-permission="branch_delete" id="bulkDeleteBtn">
+                <i class="fas fa-trash-alt me-1"></i> Delete Selected
+            </button>
         </div>
 
         <div class="card border-0 shadow-sm rounded-3 d-none d-md-block">
@@ -106,6 +122,7 @@
                     <table id="branchesTable" class="table table-hover table-custom w-100">
                         <thead>
                             <tr>
+                                <th></th>
                                 <th>Branch ID</th>
                                 <th>Branch Name</th>
                                 <th>State & District</th>
@@ -114,8 +131,7 @@
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -126,29 +142,28 @@
                 <i class="fas fa-spinner fa-spin fs-2 mb-2"></i><br>Loading Branches...
             </div>
         </div>
-
     </div>
 
     <div class="modal fade" id="addBranchModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-white border-bottom-0 pb-0">
-                    <h5 class="modal-title fw-bold" style="color: var(--sidebar-bg);">
-                        <i class="fas fa-building me-2 text-primary"></i> Register Branch
-                    </h5>
+                    <h5 class="modal-title fw-bold" style="color: var(--sidebar-bg);"><i
+                            class="fas fa-building me-2 text-primary"></i> Register Branch</h5>
                     <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="addBranchForm">
                         <div class="row g-3 mb-3">
-                                      <div class="col-md-6 mb-3">
-    <label class="small fw-bold text-secondary">Assign Company <span class="text-danger">*</span></label>
-    <select class="form-select border-primary" id="company_dropdown" name="company_id" required>
-        <option value="">-- Loading Companies... --</option>
-    </select>
-    <small class="text-muted">Branch code will be generated based on this company.</small>
-</div>
+                            <div class="col-md-6 mb-3">
+                                <label class="small fw-bold text-secondary">Assign Company <span
+                                        class="text-danger">*</span></label>
+                                <input class="form-control border-primary" list="company_datalist" id="company_input"
+                                    placeholder="Type or select company..." required>
+                                <datalist id="company_datalist"></datalist>
+                                <input type="hidden" name="company_id" id="company_id_hidden" required>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label text-secondary small fw-bold">Branch Name <span
                                         class="text-danger">*</span></label>
@@ -173,23 +188,19 @@
                                 <input type="date" class="form-control" name="opening_date" required>
                             </div>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label text-secondary small fw-bold">Location Details</label>
                             <textarea class="form-control" name="branch_location" rows="2" placeholder="Full address of the branch"></textarea>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label text-secondary small fw-bold">Google Map Iframe (Optional)</label>
                             <input type="text" class="form-control" id="mapInput" name="branch_map"
                                 placeholder="Paste <iframe...> here">
-                            <div id="mapPreview" class="mt-2 text-muted small"
-                                style="height: 120px; border: 1px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <div id="mapPreview" class="mt-2 text-muted small">
                                 <div class="text-center"><i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview
                                 </div>
                             </div>
                         </div>
-
                         <div class="d-grid mt-4">
                             <button type="submit" class="btn text-white py-2 fw-medium"
                                 style="background-color: var(--sidebar-bg);" id="saveBtn">
@@ -206,24 +217,23 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-white border-bottom-0 pb-0">
-                    <h5 class="modal-title fw-bold" style="color: var(--sidebar-bg);">
-                        <i class="fas fa-edit me-2 text-primary"></i> Edit Branch
-                    </h5>
+                    <h5 class="modal-title fw-bold" style="color: var(--sidebar-bg);"><i
+                            class="fas fa-edit me-2 text-primary"></i> Edit Branch</h5>
                     <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="editBranchForm">
                         <input type="hidden" name="id" id="edit_id">
-
                         <div class="row g-3 mb-3">
                             <div class="col-md-12 mb-3">
-    <label class="small fw-bold text-secondary">Assign Company <span class="text-danger">*</span></label>
-    <select class="form-select border-primary" id="edit_company_dropdown" name="company_id" required>
-        <option value="">-- Loading Companies... --</option>
-    </select>
-    <small class="text-muted">Branch code will be generated based on this company.</small>
-</div>
+                                <label class="small fw-bold text-secondary">Assign Company <span
+                                        class="text-danger">*</span></label>
+                                <input class="form-control border-primary" list="edit_company_datalist"
+                                    id="edit_company_input" placeholder="Type or select company..." required>
+                                <datalist id="edit_company_datalist"></datalist>
+                                <input type="hidden" name="company_id" id="edit_company_id_hidden" required>
+                            </div>
                             <div class="col-md-12">
                                 <label class="small fw-bold text-secondary">Branch Name <span
                                         class="text-danger">*</span></label>
@@ -249,33 +259,22 @@
                                     required>
                             </div>
                         </div>
-
                         <div class="mb-3">
                             <label class="small fw-bold text-secondary">Location</label>
                             <textarea class="form-control" name="branch_location" id="edit_branch_location" rows="2"></textarea>
                         </div>
-
                         <div class="mb-3">
                             <label class="small fw-bold text-secondary">Google Map Iframe</label>
                             <input type="text" class="form-control" id="edit_mapInput" name="branch_map">
-                            <div id="edit_mapPreview" class="mt-2"
-                                style="height: 120px; border: 1px dashed #ddd; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                            </div>
+                            <div id="edit_mapPreview" class="mt-2 text-muted small"></div>
                         </div>
-
                         <div class="mb-3">
                             <label class="small fw-bold text-secondary">Status</label>
-                            <select class="form-select" name="branch_status" id="edit_branch_status">
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
+                            <select class="form-select" name="branch_status" id="edit_branch_status"></select>
                         </div>
-
                         <div class="d-grid mt-4">
                             <button type="submit" class="btn text-white py-2 fw-medium"
-                                style="background-color: var(--sidebar-bg);" id="updateBtn">
-                                Update Branch Details
-                            </button>
+                                style="background-color: var(--sidebar-bg);" id="updateBtn">Update Branch Details</button>
                         </div>
                     </form>
                 </div>
@@ -283,36 +282,57 @@
         </div>
     </div>
 
-
-
-    <!-- View Branch Modal -->
-<div class="modal fade" id="viewBranchModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-primary text-white border-bottom-0">
-                <h5 class="modal-title fw-bold"><i class="fas fa-building me-2"></i>Branch Details</h5>
-                <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <table class="table table-bordered table-striped">
-                    <tbody>
-                        <tr><th width="35%">Branch ID (Code)</th><td id="v_branch_id" class="fw-bold text-primary fs-5"></td></tr>
-                        <tr><th>Branch Name</th><td id="v_branch_name" class="fw-bold text-dark"></td></tr>
-                        <tr><th>Assigned Company</th><td id="v_company_name"></td></tr>
-                        <tr><th>State & District</th><td id="v_location"></td></tr>
-                        <tr><th>Opening Date</th><td id="v_opening_date"></td></tr>
-                        <tr><th>Full Address</th><td id="v_address"></td></tr>
-                        <tr><th>Status</th><td id="v_status"></td></tr>
-                    </tbody>
-                </table>
-                <div class="mt-3">
-                    <h6 class="fw-bold text-secondary"><i class="fas fa-map-marked-alt me-1"></i> Map Location</h6>
-                    <div id="v_map" class="rounded overflow-hidden" style="height: 250px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #f8f9fa;"></div>
+    <div class="modal fade" id="viewBranchModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white border-bottom-0">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-building me-2"></i>Branch Details</h5>
+                    <button type="button" class="btn-close btn-close-white shadow-none"
+                        data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <table class="table table-bordered table-striped" style="table-layout: fixed; width: 100%;">
+                        <tbody>
+                            <tr>
+                                <th width="35%">Branch ID (Code)</th>
+                                <td id="v_branch_id" class="fw-bold text-primary fs-5 text-break"></td>
+                            </tr>
+                            <tr>
+                                <th>Branch Name</th>
+                                <td id="v_branch_name" class="fw-bold text-dark"></td>
+                            </tr>
+                            <tr>
+                                <th>Assigned Company</th>
+                                <td id="v_company_name"></td>
+                            </tr>
+                            <tr>
+                                <th>State & District</th>
+                                <td id="v_location"></td>
+                            </tr>
+                            <tr>
+                                <th>Opening Date</th>
+                                <td id="v_opening_date"></td>
+                            </tr>
+                            <tr>
+                                <th>Full Address</th>
+                                <td id="v_address"></td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td id="v_status"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-3">
+                        <h6 class="fw-bold text-secondary"><i class="fas fa-map-marked-alt me-1"></i> Map Location</h6>
+                        <div id="v_map" class="rounded overflow-hidden"
+                            style="height: 250px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 @endsection
 
 @push('scripts')
@@ -326,81 +346,186 @@
     <script>
         $(document).ready(function() {
 
+            const isEmployeePortal = window.location.pathname.includes('/employee');
+            const apiToken = isEmployeePortal ? localStorage.getItem('emp_token') : localStorage.getItem(
+                'admin_token');
 
+            let userPermissions = [];
+            let isGodOrDirector = false;
+            let table;
+            let companyMap = {};
 
-
-
-            const apiToken = localStorage.getItem('admin_token');
-
-            // 1. Initialize DataTable (Desktop)
-            let table = $('#branchesTable').DataTable({
-                order: [], 
-                pageLength: 10,
-                ajax: {
-                    url: '/api/v1/branches',
-                    type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    dataSrc: 'data' // Controller me response->json(['data' => $branches]) hai
+            // 1. FETCH CONTEXT & PERMISSIONS FIRST
+            $.ajax({
+                url: '/api/v1/branches/ui-context',
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken
                 },
-                dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
-                buttons: [{
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-3'
-                }],
-                columns: [{
-                        data: 'branch_id',
-                        render: function(data) {
-                            return `<span class="fw-bold" style="color:var(--brand-primary)">${data}</span>`;
-                        }
-                    },
-                    {
-                        data: 'branch_name',
-                        render: function(data) {
-                            return `<span class="fw-medium">${data}</span>`;
-                        }
-                    },
+                success: function(res) {
+                    userPermissions = res.permissions || [];
+                    isGodOrDirector = res.is_god || res.is_director;
 
-                    // NAYA FIELD: State & District (Ek hi column me dikha sakte hain space bachane ke liye)
-                    {
-                        data: null,
-                        render: function(data) {
-                            return `<span class="small">${data.branch_district}, ${data.branch_state}</span>`;
-                        }
-                    },
+                    // Handle Add/Request Trigger Buttons
+                    let hasDirect = userPermissions.includes('branch_add_direct') || isGodOrDirector;
+                    let hasRequest = userPermissions.includes('branch_add_request');
 
-                    // NAYA FIELD: Opening Date
-                    {
-                        data: 'opening_date',
-                        render: function(data) {
-                            return data ? new Date(data).toLocaleDateString('en-GB') :
-                                '<span class="text-muted small">N/A</span>';
+                    if (hasDirect || hasRequest) {
+                        $('#mainAddBranchBtn, #mobileAddBranchBtn').removeClass('d-none');
+                        if (hasDirect) {
+                            $('#addBtnText').text('Add New Branch');
+                            $('#mobileAddBtnText').text('Add');
+                            $('#saveBtn').html('<i class="fas fa-save me-2"></i> Save Branch');
+                        } else {
+                            $('#addBtnText').text('Request New Branch');
+                            $('#mobileAddBtnText').text('Request');
+                            $('#saveBtn').html(
+                            '<i class="fas fa-paper-plane me-2"></i> Request Branch');
                         }
-                    },
+                    }
 
-                    {
-                        data: 'branch_status',
-                        render: function(data) {
-                            return data === 'active' ?
-                                '<span class="status-badge status-active">Active</span>' :
-                                '<span class="status-badge bg-light text-secondary">Inactive</span>';
-                        }
-                    },
-                  { 
-                    data: 'id', orderable: false, render: function(data) {
-        return `
-            <div class="text-end">
-               <button class="btn btn-sm btn-light text-info me-1 shadow-sm view-btn" data-id="${data}" title="View"><i class="fas fa-eye"></i></button>
-               <button class="btn btn-sm btn-light text-primary me-1 shadow-sm edit-btn secured-item" data-permission="branch_edit" data-id="${data}"><i class="fas fa-edit"></i></button>
-<button class="btn btn-sm btn-light text-danger shadow-sm delete-btn secured-item" data-permission="branch_delete" data-id="${data}"><i class="fas fa-trash-alt"></i></button>
-            </div>`;
-    }}
-                ]
+                    // Auto-lock Company fields for Single Company profiles
+                    if (!res.is_god && res.company) {
+                        let companyDisplayName =
+                            `${res.company.company_name} - ${res.company.company_code}`;
+                        $('#company_input, #edit_company_input').val(companyDisplayName).css(
+                            'pointer-events', 'none').addClass('bg-light');
+                        $('#company_id_hidden, #edit_company_id_hidden').val(res.company.id);
+                    }
+
+                    loadCompaniesForDropdown();
+                    initDataTable();
+                    loadMobileCards();
+                }
             });
 
-            // 2. Fetch and Render Mobile Cards
+            // 2. DATATABLES ENGINE WITH DYNAMIC PERMISSIONS
+            function initDataTable() {
+           let buttonsArr = [];
+        // Dynamic Excel Export View Permission
+        if (isGodOrDirector || userPermissions.includes('branch_export')) {
+            buttonsArr.push({
+                extend: 'excelHtml5',
+                text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
+                className: 'btn btn-success btn-sm shadow-sm rounded-3',
+                // 🔥 SMART EXPORT CONTROL LOGIC 🔥
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5], // 🔴 Column 6 (Actions) ko exclude kar diya
+                    format: {
+                        header: function (data, columnIdx) {
+                            // 🟢 Pehle blank (Checkbox) header ko 'Sl. No.' bana diya
+                            if (columnIdx === 0) {
+                                return 'Sl. No.';
+                            }
+                            // Baki headers se agar koi HTML tag ho to use saaf karein
+                            return data.replace(/<[^>]*>/g, "");
+                        },
+                        body: function (data, rowIdx, columnIdx, node) {
+                            // 🟢 Checkbox data ki jagah serial wise No. (1, 2, 3...) print karein
+                            if (columnIdx === 0) {
+                                return rowIdx + 1;
+                            }
+                            // Baki cells me jo HTML tags hain (jaise span, text-muted), unhe strip karke clean text bhein
+                            if (typeof data === 'string') {
+                                return data.replace(/<[^>]*>/g, "").trim();
+                            }
+                            return data;
+                        }
+                    }
+                }
+            });
+            $('#mobileExcelBtn').removeClass('d-none');
+        }
+                table = $('#branchesTable').DataTable({
+                    order: [],
+                    pageLength: 10,
+                    ajax: {
+                        url: '/api/v1/branches',
+                        type: 'GET',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        dataSrc: 'data'
+                    },
+                    dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
+                    buttons: buttonsArr,
+                    columns: [{
+                            data: 'id',
+                            orderable: false,
+                            className: 'text-center align-middle',
+                            render: function(data) {
+                                return `<input type="checkbox" class="form-check-input branch-checkbox fs-5" value="${data}">`;
+                            }
+                        },
+                        {
+                            data: 'branch_id',
+                            render: function(data) {
+                                return `<span class="fw-bold" style="color:var(--brand-primary)">${data}</span>`;
+                            }
+                        },
+                        {
+                            data: 'branch_name',
+                            render: function(data) {
+                                return `<span class="fw-medium">${data}</span>`;
+                            }
+                        },
+                        {
+                            data: null,
+                            render: function(data) {
+                                return `<span class="small">${data.branch_district || '-'}, ${data.branch_state || '-'}</span>`;
+                            }
+                        },
+                        {
+                            data: 'opening_date',
+                            render: function(data) {
+                                return data ? new Date(data).toLocaleDateString('en-GB') :
+                                    '<span class="text-muted small">N/A</span>';
+                            }
+                        },
+                        {
+                            data: 'branch_status',
+                            render: function(data) {
+                                if (data === 'pending')
+                                return '<span class="status-badge bg-warning text-dark">Pending</span>';
+                                return data === 'active' ?
+                                    '<span class="status-badge status-active">Active</span>' :
+                                    '<span class="status-badge bg-light text-secondary">Inactive</span>';
+                            }
+                        },
+                        {
+                            data: null,
+                            orderable: false,
+                            render: function(row) {
+                                let actionHtml =
+                                    `<div class="text-end">
+                            <button class="btn btn-sm btn-light text-info me-1 shadow-sm view-btn" data-id="${row.id}" title="View"><i class="fas fa-eye"></i></button>`;
+
+                                // Approve & Reject Buttons in Action column for Pending state
+                                if (row.branch_status === 'pending') {
+                                    if (isGodOrDirector || userPermissions.includes(
+                                        'branch_appr')) {
+                                        actionHtml +=
+                                            `<button class="btn btn-sm btn-light text-success me-1 shadow-sm approve-btn" data-id="${row.id}" title="Approve"><i class="fas fa-check"></i></button>`;
+                                    }
+                                    if (isGodOrDirector || userPermissions.includes('branch_rej')) {
+                                        actionHtml +=
+                                            `<button class="btn btn-sm btn-light text-danger me-1 shadow-sm reject-btn" data-id="${row.id}" title="Reject"><i class="fas fa-times"></i></button>`;
+                                    }
+                                }
+
+                                if (isGodOrDirector || userPermissions.includes('branch_edit')) {
+                                    actionHtml +=
+                                        `<button class="btn btn-sm btn-light text-primary me-1 shadow-sm edit-btn" data-id="${row.id}" title="Edit"><i class="fas fa-edit"></i></button>`;
+                                }
+                                actionHtml += `</div>`;
+                                return actionHtml;
+                            }
+                        }
+                    ],
+                });
+            }
+
+            // 3. MOBILE ENGINE WITH ACTION OVERRIDES
             function loadMobileCards() {
                 $.ajax({
                     url: '/api/v1/branches',
@@ -411,106 +536,225 @@
                     success: function(response) {
                         let html = '';
                         response.data.forEach(branch => {
-                            html += `
-                <div class="branch-card mobile-card-item">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <h6 class="fw-bold mb-1" style="color: var(--sidebar-bg);">${branch.branch_name}</h6>
-                            <div class="small fw-bold" style="color: var(--brand-primary);">${branch.branch_id}</div>
-                        </div>
-                        ${branch.branch_status === 'active' ? '<span class="status-badge status-active">Active</span>' : '<span class="status-badge bg-light text-secondary">Inactive</span>'}
-                    </div>
-                    
-                    <div class="small text-dark mb-1">
-                        <i class="fas fa-map-marker-alt me-1 text-muted"></i> ${branch.branch_district}, ${branch.branch_state}
-                    </div>
-                    <div class="small text-muted mb-2">
-                        <i class="fas fa-calendar-alt me-1"></i> Opened: ${new Date(branch.opening_date).toLocaleDateString('en-GB')}
-                    </div>
+                            let statusHtml = branch.branch_status === 'pending' ?
+                                '<span class="status-badge bg-warning text-dark">Pending</span>' :
+                                (branch.branch_status === 'active' ?
+                                    '<span class="status-badge status-active">Active</span>' :
+                                    '<span class="status-badge bg-light text-secondary">Inactive</span>'
+                                    );
 
-                   <div class="d-flex gap-2 border-top pt-2 mt-2">
-      <button class="btn btn-sm btn-light text-info flex-fill fw-medium view-btn" data-id="${branch.id}"><i class="fas fa-eye me-1"></i> View</button>
-        <button class="btn btn-sm btn-light text-primary flex-fill fw-medium edit-btn secured-item" data-permission="branch_edit" data-id="${branch.id}"><i class="fas fa-edit me-1"></i> Edit</button>
-<button class="btn btn-sm btn-light text-danger flex-fill fw-medium delete-btn secured-item" data-permission="branch_delete" data-id="${branch.id}"><i class="fas fa-trash-alt me-1"></i> Delete</button>
-    </div>
-                </div>`;
+                            let editBtnHtml = '';
+                            if (isGodOrDirector || userPermissions.includes('branch_edit')) {
+                                editBtnHtml =
+                                    `<button class="btn btn-sm btn-light text-primary flex-fill fw-medium edit-btn" data-id="${branch.id}"><i class="fas fa-edit me-1"></i> Edit</button>`;
+                            }
+
+                            let approvalRowHtml = '';
+                            if (branch.branch_status === 'pending') {
+                                if (isGodOrDirector || userPermissions.includes(
+                                    'branch_appr')) {
+                                    approvalRowHtml +=
+                                        `<button class="btn btn-sm btn-success flex-fill fw-medium approve-btn" data-id="${branch.id}"><i class="fas fa-check me-1"></i> Approve</button>`;
+                                }
+                                if (isGodOrDirector || userPermissions.includes('branch_rej')) {
+                                    approvalRowHtml +=
+                                        `<button class="btn btn-sm btn-danger flex-fill fw-medium reject-btn" data-id="${branch.id}"><i class="fas fa-times me-1"></i> Reject</button>`;
+                                }
+                            }
+
+                            html += `
+                    <div class="branch-card mobile-card-item d-flex gap-2">
+                        <div class="pt-1"><input class="form-check-input branch-checkbox fs-4" type="checkbox" value="${branch.id}"></div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div><h6 class="fw-bold mb-1" style="color: var(--sidebar-bg);">${branch.branch_name}</h6><div class="small fw-bold" style="color: var(--brand-primary);">${branch.branch_id}</div></div>
+                                ${statusHtml}
+                            </div>
+                            <div class="small text-dark mb-1"><i class="fas fa-map-marker-alt me-1 text-muted"></i> ${branch.branch_district || '-'}, ${branch.branch_state || '-'}</div>
+                            
+                            ${approvalRowHtml ? `<div class="d-flex gap-2 mt-2 pt-2 border-top">${approvalRowHtml}</div>` : ''}
+
+                            <div class="d-flex gap-2 border-top pt-2 mt-2">
+                                <button class="btn btn-sm btn-light text-info flex-fill fw-medium view-btn" data-id="${branch.id}"><i class="fas fa-eye me-1"></i> View</button>
+                                ${editBtnHtml}
+                            </div>
+                        </div>
+                    </div>`;
                         });
                         $('#cardsLoader').hide();
                         $('#mobileCardsContainer').html(html);
                     }
                 });
             }
-            loadMobileCards(); // Initial load
 
-            // 3. Mobile Search Logic
-            $('#mobileSearch').on('keyup', function() {
-                let value = $(this).val().toLowerCase();
-                $('.mobile-card-item').filter(function() {
-                    // Search based on branch name or ID text inside the card
-                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
-                });
-            });
-
-            // 4. Mobile Excel Button triggers Desktop Excel Button
-            $('#mobileExcelBtn').on('click', function() {
-                $('.buttons-excel').click(); // DT ke hidden button ko click karwa do
-            });
-
-            // 5. Google Map Live Preview Logic
-            $('#mapInput').on('input', function() {
-                let inputVal = $(this).val();
-                if (inputVal.includes('<iframe')) {
-                    // Extract iframe and clean it
-                    $('#mapPreview').html(inputVal).removeClass('text-muted');
-                } else if (inputVal === '') {
-                    $('#mapPreview').html('<i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview')
-                        .addClass('text-muted');
-                } else {
-                    $('#mapPreview').html(
-                        '<span class="text-danger small">Please paste a valid Google Maps iframe</span>'
-                        ).addClass('text-muted');
-                }
-            });
-
-            // 6. Submit Add Branch Form via AJAX
-            $('#addBranchForm').on('submit', function(e) {
-                e.preventDefault();
-                let btn = $('#saveBtn');
-                let originalText = btn.html();
-                btn.html('<i class="fas fa-spinner fa-spin me-2"></i> Saving...').prop('disabled', true);
-
+            function loadCompaniesForDropdown() {
                 $.ajax({
-                    url: '/api/v1/branches',
+                    url: '/api/v1/get-active-companies',
+                    type: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        let options = '';
+                        res.data.forEach(c => {
+                            let displayName = `${c.company_name} - ${c.company_code}`;
+                            options += `<option value="${displayName}">`;
+                            companyMap[displayName] = c.id;
+                        });
+                        $('#company_datalist').html(options);
+                        $('#edit_company_datalist').html(options);
+                    }
+                });
+            }
+
+            $(document).on('input', '#company_input, #edit_company_input', function() {
+                let val = $(this).val();
+                let targetHidden = $(this).attr('id') === 'company_input' ? '#company_id_hidden' :
+                    '#edit_company_id_hidden';
+                $(targetHidden).val(companyMap[val] || '');
+            });
+
+            // APPROVE CLICK HANDLE
+            $(document).on('click', '.approve-btn', function() {
+                let id = $(this).data('id');
+                if (!confirm('Are you sure you want to APPROVE this branch request?')) return;
+                $.ajax({
+                    url: `/api/v1/branches/${id}/approve`,
                     type: 'POST',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
                     },
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        // Modal band karo aur form reset karo
-                        $('#addBranchModal').modal('hide');
-                        $('#addBranchForm')[0].reset();
-                        $('#mapPreview').html(
-                            '<i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview'
-                            ); // Reset preview
-
-                        // Table aur Cards dono ko reload karo
+                    success: function(res) {
+                        alert(res.message);
                         table.ajax.reload(null, false);
                         loadMobileCards();
-                    },
-                    error: function(xhr) {
-                        alert('Something went wrong. Please check your inputs.');
-                    },
-                    complete: function() {
-                        btn.html(originalText).prop('disabled', false);
                     }
                 });
             });
 
-            // --- 2. EDIT: Data Fetch Karna (Modal kholne par) ---
+            // REJECT CLICK HANDLE
+            $(document).on('click', '.reject-btn', function() {
+                let id = $(this).data('id');
+                if (!confirm('Are you sure you want to REJECT this branch request?')) return;
+                $.ajax({
+                    url: `/api/v1/branches/${id}/reject`,
+                    type: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        alert(res.message);
+                        table.ajax.reload(null, false);
+                        loadMobileCards();
+                    }
+                });
+            });
+
+            // UI Event binds, filters and CRUD maps
+            $('#mobileSearch').on('keyup', function() {
+                let value = $(this).val().toLowerCase();
+                $('.mobile-card-item').each(function() {
+                    let cardText = $(this).text().toLowerCase();
+                    if (cardText.indexOf(value) > -1) $(this).removeClass('d-none');
+                    else $(this).addClass('d-none');
+                });
+            });
+
+            $('#mobileExcelBtn').on('click', function() {
+                $('.buttons-excel').click();
+            });
+
+            $('#mapInput').on('input', function() {
+                let inputVal = $(this).val();
+                if (inputVal.includes('<iframe')) {
+                    $('#mapPreview').html(inputVal).removeClass('text-muted');
+                } else if (inputVal === '') {
+                    $('#mapPreview').html(
+                        '<div class="text-center"><i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview</div>'
+                        ).addClass('text-muted');
+                } else {
+                    $('#mapPreview').html('<span class="text-danger small">Invalid iframe</span>').addClass(
+                        'text-muted');
+                }
+            });
+
+           $('#addBranchForm').on('submit', function(e) {
+        e.preventDefault();
+        let btn = $('#saveBtn');
+        let originalText = btn.html();
+        btn.html('<i class="fas fa-spinner fa-spin me-2"></i> Processing...').prop('disabled', true);
+
+        // 🔥 NAYA LOGIC: Form reset hone se pehle company data save kar lo
+        let isLocked = $('#company_input').css('pointer-events') === 'none';
+        let savedCompanyText = $('#company_input').val();
+        let savedCompanyId = $('#company_id_hidden').val();
+
+        $.ajax({
+            url: '/api/v1/branches',
+            type: 'POST',
+            headers: { 'Authorization': 'Bearer ' + apiToken },
+            data: $(this).serialize(),
+            success: function(response) {
+                $('#addBranchModal').modal('hide');
+                
+                // Form reset karo (saare normal fields clear ho jayenge)
+                $('#addBranchForm')[0].reset();
+                
+                // 🔥 NAYA LOGIC: Agar company locked thi, toh wapas usko bhar do
+                if (isLocked) {
+                    $('#company_input').val(savedCompanyText);
+                    $('#company_id_hidden').val(savedCompanyId);
+                }
+
+                table.ajax.reload(null, false);
+                loadMobileCards();
+            },
+            error: function() { alert('Something went wrong. Please check your inputs.'); },
+            complete: function() { btn.html(originalText).prop('disabled', false); }
+        });
+    });
+
+            $(document).on('click', '.view-btn', function() {
+                let id = $(this).data('id');
+                $.ajax({
+                    url: `/api/v1/branches/${id}`,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        let data = res.data;
+                        $('#v_branch_id').text(data.branch_id);
+                        $('#v_branch_name').text(data.branch_name);
+                        $('#v_company_name').text(data.company ? data.company.company_name :
+                            'Master Branch');
+                        $('#v_location').text((data.branch_district || '-') + ', ' + (data
+                            .branch_state || '-'));
+                        $('#v_opening_date').text(new Date(data.opening_date)
+                            .toLocaleDateString('en-GB'));
+                        $('#v_address').text(data.branch_location || '-');
+                        $('#v_status').html(data.branch_status === 'active' ?
+                            '<span class="badge bg-success">Active</span>' : (data
+                                .branch_status === 'pending' ?
+                                '<span class="badge bg-warning text-dark">Pending</span>' :
+                                '<span class="badge bg-danger">Inactive</span>'));
+
+                        if (data.branch_map && data.branch_map.includes('<iframe')) {
+                            $('#v_map').html(data.branch_map.replace(/width="[^"]+"/,
+                                'width="100%"').replace(/height="[^"]+"/,
+                                'height="100%"'));
+                        } else {
+                            $('#v_map').html(
+                                '<div class="text-muted"><i class="fas fa-map-marker-slash fs-3 mb-2"></i><br>No Map Found</div>'
+                                );
+                        }
+                        $('#viewBranchModal').modal('show');
+                    }
+                });
+            });
+
             $(document).on('click', '.edit-btn', function() {
                 let id = $(this).data('id');
-
                 $.ajax({
                     url: `/api/v1/branches/${id}`,
                     type: 'GET',
@@ -520,33 +764,43 @@
                     success: function(response) {
                         let branch = response.data;
                         $('#edit_id').val(branch.id);
-
-                        $('#edit_company_dropdown').val(branch.company_id);
+                        if (branch.company) {
+                            let companyDisplayName =
+                                `${branch.company.company_name} - ${branch.company.company_code}`;
+                            $('#edit_company_input').val(companyDisplayName);
+                            $('#edit_company_id_hidden').val(branch.company_id);
+                        }
                         $('#edit_branch_name').val(branch.branch_name);
-
-                        // Nayi lines yahan add karein 👇
                         $('#edit_branch_state').val(branch.branch_state);
                         $('#edit_branch_district').val(branch.branch_district);
                         $('#edit_opening_date').val(branch.opening_date);
-
                         $('#edit_branch_location').val(branch.branch_location);
-                        $('#edit_branch_status').val(branch.branch_status);
-                        $('#edit_mapInput').val(branch.branch_map);
 
-                        if (branch.branch_map) {
-                            $('#edit_mapPreview').html(branch.branch_map);
+                        let hasDirect = userPermissions.includes('branch_add_direct') ||
+                            isGodOrDirector;
+                        if (!hasDirect) {
+                            $('#edit_branch_status').html(
+                                '<option value="pending">Pending</option>');
+                            $('#edit_branch_status').val('pending').css('pointer-events',
+                                'none').addClass('bg-light');
                         } else {
-                            $('#edit_mapPreview').html(
-                                '<div class="h-100 d-flex align-items-center justify-content-center text-muted small">No map available</div>'
+                            $('#edit_branch_status').html(
+                                '<option value="active">Active</option><option value="inactive">Inactive</option><option value="pending">Pending</option>'
                                 );
+                            $('#edit_branch_status').val(branch.branch_status).css(
+                                'pointer-events', 'auto').removeClass('bg-light');
                         }
+
+                        $('#edit_mapInput').val(branch.branch_map);
+                        if (branch.branch_map) $('#edit_mapPreview').html(branch.branch_map);
+                        else $('#edit_mapPreview').html(
+                            '<div class="text-muted small">No map available</div>');
 
                         $('#editBranchModal').modal('show');
                     }
                 });
             });
 
-            // --- 3. UPDATE: Data Save Karna (PUT Request) ---
             $('#editBranchForm').on('submit', function(e) {
                 e.preventDefault();
                 let id = $('#edit_id').val();
@@ -555,16 +809,16 @@
 
                 $.ajax({
                     url: `/api/v1/branches/${id}`,
-                    type: 'PUT', // Resource controller ka update method PUT/PATCH use karta hai
+                    type: 'PUT',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
                     },
                     data: $(this).serialize(),
-                    success: function(response) {
+                    success: function() {
                         $('#editBranchModal').modal('hide');
                         alert('Branch updated successfully!');
-                        table.ajax.reload(null, false); // DataTable reload
-                        loadMobileCards(); // Mobile cards reload
+                        table.ajax.reload(null, false);
+                        loadMobileCards();
                     },
                     error: function() {
                         alert('Failed to update branch.');
@@ -575,94 +829,62 @@
                 });
             });
 
-            // --- 4. DELETE: Data Remove Karna (DELETE Request) ---
-            $(document).on('click', '.delete-btn', function() {
-                let id = $(this).data('id');
+            // Bulk selection algorithms
+            let selectedIds = [];
 
-                if (confirm('Do You Want to Delete This Branch?')) {
-                    $.ajax({
-                        url: `/api/v1/branches/${id}`,
-                        type: 'DELETE',
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
-                        success: function(response) {
-                            alert('Branch deleted successfully!');
-                            table.ajax.reload(null, false);
-                            loadMobileCards();
-                        },
-                        error: function() {
-                            alert('Error in deleting branch.');
-                        }
-                    });
-                }
-            });
-
-            // Map Input Preview for Edit Modal
-            $('#edit_mapInput').on('input', function() {
-                let val = $(this).val();
-                if (val.includes('<iframe')) {
-                    $('#edit_mapPreview').html(val);
-                }
-            });
-
-function loadCompaniesForDropdown() {
-        $.ajax({
-            url: '/api/v1/get-active-companies', // Humne pichle step me banaya tha
-            type: 'GET',
-            headers: { 'Authorization': 'Bearer ' + apiToken },
-            success: function(res) {
-                let options = '<option value="">-- Select Company --</option>';
-                res.data.forEach(c => {
-                    options += `<option value="${c.id}">${c.company_name} (${c.company_code})</option>`;
+            function updateBulkActionUI() {
+                selectedIds = [];
+                $('.branch-checkbox:checked').each(function() {
+                    let id = $(this).val();
+                    if (!selectedIds.includes(id)) selectedIds.push(id);
                 });
-                $('#company_dropdown').html(options);
-                $('#edit_company_dropdown').html(options); // Edit modal ke liye
-            }
-        });
-    }
-
-    loadCompaniesForDropdown(); 
-
-
-// --- 1. VIEW: Data Fetch aur Modal Show Karna ---
-    $(document).on('click', '.view-btn', function() {
-        let id = $(this).data('id');
-        
-        $.ajax({
-            url: `/api/v1/branches/${id}`,
-            type: 'GET',
-            headers: { 'Authorization': 'Bearer ' + apiToken },
-            success: function(res) {
-                let data = res.data;
-                
-                // Fill Table Data
-                $('#v_branch_id').text(data.branch_id);
-                $('#v_branch_name').text(data.branch_name);
-                $('#v_company_name').text(data.company ? data.company.company_name : 'Master Branch');
-                $('#v_location').text((data.branch_district || '-') + ', ' + (data.branch_state || '-'));
-                
-                // Format Date
-                let dateObj = new Date(data.opening_date);
-                $('#v_opening_date').text(dateObj.toLocaleDateString('en-GB'));
-                
-                $('#v_address').text(data.branch_location || '-');
-                $('#v_status').html(data.branch_status === 'active' ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-danger">Inactive</span>');
-                
-                // Render Map properly
-                if(data.branch_map && data.branch_map.includes('<iframe')) {
-                    let iframeHTML = data.branch_map.replace(/width="[^"]+"/, 'width="100%"').replace(/height="[^"]+"/, 'height="100%"');
-                    $('#v_map').html(iframeHTML);
+                if (selectedIds.length > 0) {
+                    $('#bulkActionContainer').removeClass('d-none');
+                    $('#selectedCount').text(selectedIds.length);
                 } else {
-                    $('#v_map').html('<div class="text-muted"><i class="fas fa-map-marker-slash fs-3 mb-2"></i><br>No Map Found</div>');
+                    $('#bulkActionContainer').addClass('d-none');
                 }
-                
-                $('#viewBranchModal').modal('show');
             }
-        });
-    });
 
+            $(document).on('change', '.branch-checkbox', function() {
+                let val = $(this).val();
+                let isChecked = $(this).prop('checked');
+                $(`.branch-checkbox[value="${val}"]`).prop('checked', isChecked);
+                updateBulkActionUI();
+            });
 
+            $('#selectAllBtn').on('click', function() {
+                let isSelectingAll = $(this).text().trim() === 'Select All';
+                $('.branch-checkbox').prop('checked', isSelectingAll);
+                updateBulkActionUI();
+                $(this).text(isSelectingAll ? 'Deselect All' : 'Select All');
+            });
+
+            $('#bulkDeleteBtn').on('click', function() {
+                if (!confirm(`Are you sure you want to delete ${selectedIds.length} branch(es)?`)) return;
+                let btn = $(this);
+                btn.prop('disabled', true);
+                $.ajax({
+                    url: '/api/v1/branches/bulk-delete',
+                    type: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    data: {
+                        ids: selectedIds
+                    },
+                    success: function(response) {
+                        alert(response.message);
+                        table.ajax.reload(null, false);
+                        loadMobileCards();
+                        $('#bulkActionContainer').addClass('d-none');
+                        $('#selectAllBtn').text('Select All');
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false);
+                    }
+                });
+            });
         });
     </script>
 @endpush

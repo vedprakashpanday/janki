@@ -6,25 +6,28 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
-use App\Services\MediaConverterService; // 🔥 Aapki Service Import Kar Li
+use Illuminate\Support\Facades\DB; // 🔥 Pivot Data Update Ke Liye Zaroori
+use App\Services\MediaConverterService;
 
 class CompanyApiController extends Controller
 {
-    public function index(Request $request)
+   public function index(Request $request)
     {
-        $query = Company::with(['parent', 'directors']);
+        $query = Company::with(['parent', 'directors', 'ceos']);
 
-        // ==========================================
-        // 🛡️ 1. DATA FILTER LOGIC
-        // ==========================================
         $user = auth()->user();
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
         
-        if (!in_array($user->email, $developerEmails)) {
-            // Developer ke alawa sabko sirf apni company ki details dikhengi
-            $query->where('id', $user->company_id);
+        // 🔥 NAYA: GOD-MODE CHECK (Master Emails OR CEO Model)
+        $isGodMode = false;
+        if ($user && (in_array($user->email, $developerEmails) || class_basename($user) === 'SuperAdmin')) {
+            $isGodMode = true;
         }
-        // ==========================================
+
+        // Agar user ke paas 'company_view' nahi hai aur wo God Mode me nahi hai, toh sirf apni company dikhao
+        if (!$isGodMode && (!$user || !$user->can('company_view'))) {
+            $query->where('id', $user->company_id ?? 0);
+        }
 
         if ($request->has('search') && $request->input('search.value')) {
             $search = $request->input('search.value');
@@ -36,8 +39,6 @@ class CompanyApiController extends Controller
         $totalData = Company::count();
         $totalFiltered = $query->count();
 
-        // 🔥 SAFE PAGINATION LOGIC (Baaki pages ko break hone se bachane ke liye) 🔥
-        // Sirf tabhi offset aur limit lagao jab request me 'length' pass hua ho aur -1 na ho
         if ($request->has('length') && $request->input('length') != -1) {
             $start = $request->input('start', 0);
             $length = $request->input('length', 10);
@@ -47,62 +48,90 @@ class CompanyApiController extends Controller
         $companies = $query->orderBy('id', 'desc')->get();
 
         $data = $companies->map(function ($c) {
+            $directorList = $c->directors->map(function($dir) {
+                return $dir->full_name . ' <small class="text-muted">(' . $dir->pivot->role . ')</small>';
+            })->toArray();
 
-        $directorList = $c->directors->map(function($dir) {
-            return $dir->full_name . ' <small class="text-muted">(' . $dir->pivot->role . ')</small>';
-        })->implode('<br>');
+            $ceoList = $c->ceos->map(function($ceo) {
+                return $ceo->full_name . ' <small class="text-muted">(' . $ceo->pivot->role . ')</small>';
+            })->toArray();
+
+            $allBoard = array_merge($directorList, $ceoList);
+            $directorsHtml = implode('<br>', $allBoard);
 
             return [
                 'id' => $c->id,
                 'company_name' => $c->company_name,
                 'company_code' => '<span class="badge bg-dark">' . $c->company_code . '</span>',
                 'parent_name' => $c->parent ? $c->parent->company_name : '<span class="badge bg-secondary">Master Company</span>',
-                'directors_html' => $directorList ?: 'No Director',
+                'directors_html' => $directorsHtml ?: 'No Board Member',
                 'state' => $c->state ?? '-',
                 'district' => $c->district ?? '-',
-                'status' => $c->status,
-                'action' => '
-                    <button onclick="printCompany(' . $c->id . ')" class="btn btn-sm btn-light border text-secondary" title="Print"><i class="fas fa-print"></i></button>
-                    <button onclick="viewCompany(' . $c->id . ')" class="btn btn-sm btn-light border text-info" title="View"><i class="fas fa-eye"></i></button>
-                    <button onclick="editCompany(' . $c->id . ')" class="btn btn-sm btn-light border text-success" title="Edit"><i class="fas fa-edit"></i></button>
-                    <button onclick="deleteCompany(' . $c->id . ')" class="btn btn-sm btn-light border ms-1 text-danger" title="Delete"><i class="fas fa-trash"></i></button>
-                '
+                'status' => $c->status
             ];
         });
 
+        // 🔥 NAYA: GOD MODE WILL OVERRIDE ALL PERMISSIONS
+        $permissions = [
+            'can_add_direct'  => $isGodMode ? true : ($user ? $user->can('company_add_direct') : false),
+            'can_add_request' => $isGodMode ? true : ($user ? $user->can('company_add_request') : false),
+            'can_edit'        => $isGodMode ? true : ($user ? $user->can('company_edit') : false),
+            'can_delete'      => $isGodMode ? true : ($user ? $user->can('company_delete') : false),
+            'can_print'       => $isGodMode ? true : ($user ? $user->can('company_print') : false),
+            'can_export'      => $isGodMode ? true : ($user ? $user->can('company_export') : false), // Excel Permission
+        ];
+
         return response()->json([
-            "draw" => intval($request->input('draw', 0)), // Default 0 if not called by DataTable
+            "draw" => intval($request->input('draw', 0)), 
             "recordsTotal" => $totalData,
             "recordsFiltered" => $totalFiltered,
-            "data" => $data
+            "data" => $data,
+            "permissions" => $permissions
         ]);
     }
+
     public function store(Request $request)
     {
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        $isGodMode = false;
+        if ($user && (in_array($user->email, $developerEmails) || class_basename($user) === 'SuperAdmin')) {
+            $isGodMode = true;
+        }
+
+        // 🛡️ PERMISSION CHECK 
+        if (!$isGodMode && (!$user->can('company_add_direct') && !$user->can('company_add_request'))) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized! You do not have permission to add or request a company.'], 403);
+        }
+
         $request->validate([
             'company_name' => 'required|string|max:255',
             'company_code' => 'required|string|max:10|unique:companies,company_code',
             'cin_no'       => 'required|string|max:255',
-            'company_logo' => 'nullable|mimes:jpeg,png,jpg,gif,webp,bmp|max:5120' // Max 5MB allowed before compression
+            'company_logo' => 'nullable|mimes:jpeg,png,jpg,gif,webp,bmp|max:5120'
         ]);
 
         $logoPath = null;
-
-        // 🔥 UNIVERSAL LOGO UPLOAD LOGIC 🔥
         if ($request->hasFile('company_logo')) {
-            $converter = new MediaConverterService();
+            $converter = new \App\Services\MediaConverterService();
             $media = $converter->uploadAndConvert($request->file('company_logo'));
-
             if ($media) {
-                // Media converter 'uploads/images/...' path return karega
                 $logoPath = $media->file_path;
             }
+        }
+
+        $finalStatus = $request->status ?? 'active';
+        
+        // Agar god mode nahi hai aur sirf request permission hai, to pending set karo
+        if (!$isGodMode && !$user->can('company_add_direct') && $user->can('company_add_request')) {
+            $finalStatus = 'pending';
         }
 
         $company = Company::create([
             'company_name'  => $request->company_name,
             'company_code'  => strtoupper($request->company_code),
-            'company_logo'  => $logoPath, // Save WebP path to DB
+            'company_logo'  => $logoPath,
             'cin_no'        => strtoupper($request->cin_no),
             'iso_no'        => $request->iso_no,
             'trademark'     => $request->trademark,
@@ -114,49 +143,56 @@ class CompanyApiController extends Controller
             'district'      => $request->district,
             'address'       => $request->address,
             'gst_no'        => $request->gst_no,
-            'status'        => $request->status ?? 'active'
+            'status'        => $finalStatus 
         ]);
 
-        // Agar request me directors ka array aa raha hai
-if ($request->has('directors')) {
-    foreach ($request->directors as $dir) {
-        // $dir = ['director_id' => 1, 'role' => 'CEO']
-        $company->directors()->attach($dir['director_id'], ['role' => $dir['role']]);
-    }
-}
-
-
-// 🔥 PIVOT DATA SAVE LOGIC 🔥
-    if ($request->has('director_assignments')) {
-        // Data format: [{"director_id": 1, "role": "CEO"}, {"director_id": 2, "role": "Director"}]
-        $directors = json_decode($request->director_assignments, true);
-        foreach ($directors as $dir) {
-            $company->directors()->attach($dir['director_id'], ['role' => $dir['role']]);
-        }
-    }
-
-
-
-        return response()->json(['status' => 'success', 'message' => 'Company Created Successfully!']);
-    }
-
-    public function show($id)
-    {
-        $company = Company::with(['parent', 'directors'])->find($id);
-
-        // 🛡️ OWNERSHIP CHECK
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        
-        if (!in_array($user->email, $developerEmails)) {
-            if ($company->id != $user->company_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You can only access your own company.'], 403);
+        if ($request->has('board_assignments')) {
+            $boardData = json_decode($request->board_assignments, true);
+            $insertData = [];
+            foreach ($boardData as $board) {
+                $insertData[] = [
+                    'company_id'  => $company->id,
+                    'director_id' => $board['director_id'] ?? null,
+                    'ceo_id'      => $board['ceo_id'] ?? null,
+                    'role'        => $board['role'],
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ];
+            }
+            if (!empty($insertData)) {
+                \Illuminate\Support\Facades\DB::table('company_director')->insert($insertData);
             }
         }
+
+        $message = $finalStatus === 'pending' ? 'Company Request Submitted Successfully!' : 'Company Created Successfully!';
+        return response()->json(['status' => 'success', 'message' => $message]);
+    }
+    public function show($id)
+    {
+        $company = Company::with(['parent', 'directors', 'ceos'])->find($id);
 
         if (!$company) {
             return response()->json(['status' => 'error', 'message' => 'Company not found'], 404);
         }
+
+        // 🛡️ OWNERSHIP & GOD-MODE CHECK
+        $user = auth()->user();
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        
+        $isGodMode = false;
+        // email check ko safe banaya taaki null hone par crash na ho
+        if ($user && (in_array($user->email ?? '', $developerEmails) || class_basename($user) === 'SuperAdmin')) {
+            $isGodMode = true;
+        }
+
+        // Agar God mode nahi hai aur 'company_view' ki permission nahi hai
+        // Toh wo sirf wahi company dekh sakta hai jisme wo employed hai
+        if (!$isGodMode && (!$user || !$user->can('company_view'))) {
+            if ($company->id != ($user->company_id ?? 0)) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You can only access your own company details.'], 403);
+            }
+        }
+
         return response()->json(['status' => 'success', 'data' => $company]);
     }
 
@@ -164,15 +200,15 @@ if ($request->has('directors')) {
     {
         $company = Company::find($id);
 
-        // 🛡️ OWNERSHIP CHECK
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        
-        if (!in_array($user->email, $developerEmails)) {
-            if ($company->id != $user->company_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You can only access your own company.'], 403);
-            }
-        }
+       $user = auth()->user();
+
+// Pehle permission check karein
+if (!$user->can('company_edit')) {
+    // Agar edit permission nahi hai, toh check karein ki kya wo apni khud ki company update kar raha hai?
+    if ($company->id != $user->company_id) {
+        return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You can only access your own company.'], 403);
+    }
+}
 
         $request->validate([
             'company_name' => 'required|string|max:255',
@@ -187,20 +223,18 @@ if ($request->has('directors')) {
 
         $logoPath = $company->company_logo;
 
-        // 🔥 UNIVERSAL LOGO UPDATE LOGIC 🔥
+        // 🔥 UNIVERSAL LOGO UPDATE LOGIC
         if ($request->hasFile('company_logo')) {
             $converter = new MediaConverterService();
             $media = $converter->uploadAndConvert($request->file('company_logo'));
 
             if ($media) {
-                // Purani image ko delete kar do taaki space bache
                 if ($logoPath && File::exists(public_path($logoPath))) {
                     File::delete(public_path($logoPath));
                 }
-                $logoPath = $media->file_path; // Naya WebP path
+                $logoPath = $media->file_path;
             }
         } elseif ($request->remove_logo_flag == '1') {
-            // Agar user ne Cut (X) button dabaya hai, toh image delete kar do
             if ($logoPath && File::exists(public_path($logoPath))) {
                 File::delete(public_path($logoPath));
             }
@@ -228,13 +262,29 @@ if ($request->has('directors')) {
             'company_logo'  => $logoPath,
         ]);
 
-        if ($request->has('directors')) {
-    $syncData = [];
-    foreach ($request->directors as $dir) {
-        $syncData[$dir['director_id']] = ['role' => $dir['role']];
-    }
-    $company->directors()->sync($syncData);
-}
+        // 🔥 NAYA: JSON PAYLOAD UPDATE LOGIC 🔥
+        if ($request->has('board_assignments')) {
+            $boardData = json_decode($request->board_assignments, true);
+
+            // Purane records delete karo pivot table se
+            DB::table('company_director')->where('company_id', $company->id)->delete();
+
+            $insertData = [];
+            foreach ($boardData as $board) {
+                $insertData[] = [
+                    'company_id'  => $company->id,
+                    'director_id' => $board['director_id'] ?? null,
+                    'ceo_id'      => $board['ceo_id'] ?? null,
+                    'role'        => $board['role'],
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ];
+            }
+
+            if (!empty($insertData)) {
+                DB::table('company_director')->insert($insertData);
+            }
+        }
 
         if ($oldStatus === 'active' && $newStatus === 'inactive') {
             Company::where('parent_id', $id)->update(['status' => 'inactive']);
@@ -246,30 +296,30 @@ if ($request->has('directors')) {
 
     public function destroy($id)
     {
-        Company::destroy($id);
+        $company = Company::find($id);
 
-        // 🛡️ OWNERSHIP CHECK
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        
-        if (!in_array($user->email, $developerEmails)) {
-            if ($company->id != $user->company_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You can only access your own company.'], 403);
-            }
+        if (!$company) {
+            return response()->json(['status' => 'error', 'message' => 'Company not found'], 404);
         }
 
+        $user = auth()->user();
+if (!$user->can('company_delete')) {
+    return response()->json(['status' => 'error', 'message' => 'Unauthorized! You do not have permission to delete companies.'], 403);
+}
+
+        Company::destroy($id);
 
         return response()->json(['status' => 'success', 'message' => 'Company Deleted Successfully']);
     }
 
-   public function getActiveCompanies()
+    public function getActiveCompanies()
     {
         $query = Company::where('status', 'active');
 
         // 🛡️ DATA FILTER LOGIC
         $user = auth()->user();
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        
+
         if (!in_array($user->email, $developerEmails)) {
             $query->where('id', $user->company_id);
         }

@@ -25,6 +25,11 @@
             padding: 15px;
             margin-bottom: 15px;
             box-shadow: 0 4px 6px var(--shadow-color);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .emp-card:active {
+            transform: scale(0.98);
         }
 
         .emp-id-badge {
@@ -76,17 +81,37 @@
                 max-width: 98%;
                 margin: 10px auto;
             }
+
+            .nav-tabs {
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                -webkit-overflow-scrolling: touch !important;
+                border-bottom: 0 !important;
+            }
+
+            .nav-tabs::-webkit-scrollbar {
+                height: 3px;
+            }
+
+            .nav-tabs::-webkit-scrollbar-thumb {
+                background: var(--brand-primary);
+                border-radius: 10px;
+            }
         }
 
-        .nav-pills .nav-link {
+        .nav-pills .nav-link,
+        .nav-tabs .nav-link {
             color: #64748b;
             font-weight: 600;
             white-space: nowrap;
         }
 
-        .nav-pills .nav-link.active {
+        .nav-pills .nav-link.active,
+        .nav-tabs .nav-link.active {
             background-color: var(--sidebar-bg);
             color: #fff;
+            border: none;
         }
 
         .form-label {
@@ -128,9 +153,25 @@
             justify-content: center;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
         }
+
+        .action-btns .btn {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* Mobile Bulk Action Floating Bar */
+        #mobileBulkActions {
+            z-index: 1040;
+            transition: transform 0.3s ease-in-out;
+            transform: translateY(100%);
+        }
+
+        #mobileBulkActions.show-bar {
+            transform: translateY(0%);
+        }
     </style>
 
-    <div class="container-fluid p-0">
+    <div class="container-fluid p-0 pb-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);"><i
@@ -188,11 +229,11 @@
                                         class="form-check-input border-secondary"></th>
                                 <th>Emp ID</th>
                                 <th>Name</th>
-                                <th>Designation</th>
                                 <th>Company & Branch</th>
+                                <th>Dept & Role</th>
                                 <th>Mobile</th>
                                 <th>Status</th>
-                                <th class="text-end">Actions</th>
+                                <th class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -206,6 +247,19 @@
                 <i class="fas fa-spinner fa-spin fs-2 mb-2"></i><br>Loading Employees...
             </div>
         </div>
+    </div>
+
+    <div id="mobileBulkActions"
+        class="d-md-none position-fixed bottom-0 start-0 w-100 bg-white p-3 shadow-lg border-top d-flex justify-content-between align-items-center secured-item"
+        data-permission="employee_delete" style="z-index: 1040;">
+        <div class="form-check mb-0">
+            <input type="checkbox" class="form-check-input border-secondary" id="mobileSelectAll"
+                style="transform: scale(1.2);">
+            <label class="form-check-label fw-bold text-dark ms-2" for="mobileSelectAll">Select All</label>
+        </div>
+        <button class="btn btn-danger btn-sm fw-bold shadow-sm" id="mobileBulkDeleteBtn">
+            <i class="fas fa-trash-alt me-1"></i> Delete (<span id="mobileBulkDeleteCount">0</span>)
+        </button>
     </div>
 
     <div class="modal fade" id="employeeModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
@@ -266,7 +320,6 @@
                             <div class="tab-pane fade show active" id="personal">
                                 <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Personal
                                     Details</h6>
-
                                 <div class="row g-3 mb-3">
                                     <div class="col-md-3" id="modalCompanyContainer">
                                         <label class="form-label small fw-bold">Select Company <small
@@ -301,7 +354,6 @@
                                         </select>
                                     </div>
                                 </div>
-
                                 <div class="row g-3 mb-3 p-3 bg-light border rounded">
                                     <div class="col-md-6">
                                         <label class="form-label small fw-bold text-secondary">Generated ID (Editable)
@@ -322,7 +374,6 @@
                                         </select>
                                     </div>
                                 </div>
-
                                 <div class="row g-3">
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Full Name <span
@@ -340,7 +391,6 @@
                                         <input type="text" name="mother_name" id="mother_name"
                                             class="form-control auto-fill-field">
                                     </div>
-
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Gender</label>
                                         <div class="mt-2">
@@ -367,9 +417,9 @@
                                                     class="form-check-label" for="m_married">Married</label></div>
                                             <div class="form-check form-check-inline"><input
                                                     class="form-check-input marital-radio auto-fill-field" type="radio"
-                                                    name="marital_status" value="Unmarried" id="m_unmarried" checked>
-                                                <label class="form-check-label" for="m_unmarried">Unmarried</label>
-                                            </div>
+                                                    name="marital_status" value="Unmarried" id="m_unmarried"
+                                                    checked><label class="form-check-label"
+                                                    for="m_unmarried">Unmarried</label></div>
                                         </div>
                                     </div>
                                     <div class="col-md-4" id="doa_container" style="display:none;">
@@ -475,15 +525,13 @@
                                     <div class="col-md-4"><label class="form-label small fw-bold">Bank A/c
                                             No</label><input type="text" name="account_no" id="account_no"
                                             class="form-control auto-fill-field"></div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small fw-bold">Account Type</label>
-                                        <select class="form-select auto-fill-field" name="account_type"
+                                    <div class="col-md-4"><label class="form-label small fw-bold">Account
+                                            Type</label><select class="form-select auto-fill-field" name="account_type"
                                             id="account_type">
                                             <option value="">-- Select Type --</option>
                                             <option value="saving">Saving Account</option>
                                             <option value="current">Current Account</option>
-                                        </select>
-                                    </div>
+                                        </select></div>
                                     <div class="col-md-4"><label class="form-label small fw-bold">Bank Name</label><input
                                             type="text" name="bank_name" id="bank_name"
                                             class="form-control auto-fill-field"></div>
@@ -651,6 +699,7 @@
 @push('scripts')
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -667,6 +716,11 @@
         let currentPortal = window.location.pathname.split('/')[1] || 'admin';
         let currentUserData = null;
 
+        // Custom hasPerm global helper
+        window.hasPerm = function(perm) {
+            return window.userGodMode === true || (window.userPerms && window.userPerms.includes(perm));
+        };
+
         window.openAddModal = function() {
             $('#empForm')[0].reset();
             $('#edit_id').val('');
@@ -676,10 +730,9 @@
             $('#is_transfer_toggle').prop('checked', false).trigger('change');
             $('#transfer_search_results').hide();
 
-            let perms = window.userPerms || [];
             let isGod = window.userGodMode || false;
             let isDirector = currentUserData?.designation_name?.toLowerCase().includes('director');
-            let hasDirect = isGod || isDirector || perms.includes('employee_add_direct');
+            let hasDirect = isGod || isDirector || window.hasPerm('employee_add_direct');
 
             if (isGod) {
                 $('#m_company_id, #m_branch_id').prop('disabled', false);
@@ -717,8 +770,6 @@
             }
 
             $('.leave-fields').hide();
-
-            // Modal kholte hi Unmarried set hoga aur Date of Anniversary chhip jayegi
             $('#m_unmarried').prop('checked', true);
             $('#doa_container').hide();
             $('#anniversary_date').val('');
@@ -951,6 +1002,9 @@
                 table.ajax.reload();
             });
 
+            // ==========================================
+            // 🔥 INITIALIZE DATATABLE 🔥
+            // ==========================================
             table = $('#empTable').DataTable({
                 serverSide: false,
                 autoWidth: false,
@@ -966,8 +1020,14 @@
                 dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
                 buttons: [{
                     extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
-                    className: 'btn btn-success btn-sm'
+                    text: '<i class="fas fa-file-excel me-1"></i> Export to Excel',
+                    className: 'btn btn-success btn-sm fw-bold shadow-sm secured-item',
+                    attr: {
+                        'data-permission': 'employee_request_export'
+                    },
+                    exportOptions: {
+                        columns: ':visible:not(:last-child)'
+                    }
                 }],
                 columns: [{
                         data: 'id',
@@ -980,32 +1040,46 @@
                     },
                     {
                         data: 'member_id',
-                        render: d => `<span class="emp-id-badge">${d}</span>`
+                        render: d => `<span class="emp-id-badge">${d || 'N/A'}</span>`
                     },
                     {
                         data: 'full_name',
-                        render: d => `<span class="fw-medium">${d}</span>`
+                        render: function(data, type, row) {
+                            let name = data || 'Unknown';
+                            let role = row.role ?
+                                `<br><small class="text-muted"><i class="fas fa-shield-alt text-warning"></i> ${row.role}</small>` :
+                                '';
+                            return `<div class="fw-bold text-dark">${name}</div>${role}`;
+                        }
                     },
                     {
                         data: null,
                         render: function(data, type, row) {
-                            if (typeof row.designation === 'object' && row.designation !== null)
-                                return row.designation.designation_name || '-';
-                            return row.designation || '-';
+                            let comp = row.company ? row.company.company_name : 'No Company';
+                            let branch = row.branch ? row.branch.branch_name : 'Head Office';
+                            return `<div class="fw-medium">${comp}</div><small class="text-muted"><i class="fas fa-code-branch"></i> ${branch}</small>`;
                         }
                     },
                     {
-                        data: 'branch',
-                        render: b => b ?
-                            `<span class="small fw-bold text-secondary"><i class="fas fa-building me-1"></i>${b.company ? b.company.company_name : 'No Company'} <br><i class="fas fa-code-branch me-1"></i>${b.branch_name}</span>` :
-                            'Head Office'
+                        data: null,
+                        render: function(data, type, row) {
+                            let dept = row.department ? row.department.department_name : 'N/A';
+                            let desig = row.designation ? (typeof row.designation === 'object' ? row
+                                .designation.designation_name : row.designation) : 'N/A';
+                            return `<div class="fw-medium">${dept}</div><small class="text-primary fw-bold">${desig}</small>`;
+                        }
                     },
                     {
-                        data: 'contact_no'
+                        data: 'contact_no',
+                        render: function(data) {
+                            return `<i class="fas fa-phone-alt text-success me-1"></i> ${data || 'N/A'}`;
+                        }
                     },
                     {
                         data: 'emp_status',
-                        render: s => {
+                        className: 'text-center',
+                        render: function(data) {
+                            let s = (data || 'active').toLowerCase();
                             if (s === 'active') return `<span class="status-active">Active</span>`;
                             if (s === 'pending')
                                 return `<span class="status-pending">Pending</span>`;
@@ -1021,10 +1095,30 @@
                     {
                         data: 'id',
                         orderable: false,
-                        render: d => `<div class="text-end flex-nowrap">
-                            <button class="btn btn-sm btn-light text-success view-btn me-1" data-id="${d}"><i class="fas fa-eye"></i></button>
-                            <button class="btn btn-sm btn-light text-primary edit-btn secured-item" data-permission="employee_edit" data-id="${d}"><i class="fas fa-edit"></i></button>
-                        </div>`
+                        className: 'text-center action-btns',
+                        render: function(data, type, row) {
+                            let actions =
+                                `<button class="btn btn-sm btn-info view-employee text-white shadow-sm" data-id="${row.id}" title="View Details"><i class="fas fa-eye"></i></button>`;
+                            let currentStatus = (row.emp_status || '').toLowerCase();
+
+                            if (currentStatus === 'pending') {
+                                if (window.hasPerm('employee_approve')) {
+                                    actions +=
+                                        ` <button class="btn btn-sm btn-success approve-emp-btn shadow-sm" data-id="${row.id}" title="Approve Employee"><i class="fas fa-check-circle"></i></button>`;
+                                }
+                                if (window.hasPerm('employee_reject')) {
+                                    actions +=
+                                        ` <button class="btn btn-sm btn-danger reject-emp-btn shadow-sm" data-id="${row.id}" title="Reject Employee"><i class="fas fa-times-circle"></i></button>`;
+                                }
+                            }
+
+                            if (window.hasPerm('employee_edit')) {
+                                actions +=
+                                    ` <button class="btn btn-sm btn-primary edit-employee shadow-sm" data-id="${row.id}" title="Edit"><i class="fas fa-edit"></i></button>`;
+                            }
+
+                            return actions;
+                        }
                     }
                 ],
                 drawCallback: function(settings) {
@@ -1037,6 +1131,10 @@
                     }
                     $('#selectAll').prop('checked', false);
                     toggleBulkDeleteBtn();
+
+                    if (typeof window.applyPermissions === 'function') {
+                        window.applyPermissions();
+                    }
                 }
             });
 
@@ -1047,6 +1145,9 @@
                 });
             });
 
+            // ==========================================
+            // 🔥 MOBILE CARD RENDER LOGIC (With Checkboxes) 🔥
+            // ==========================================
             function loadMobileCards(data) {
                 $('#cardsLoader').hide();
                 let html = '';
@@ -1056,37 +1157,71 @@
                 } else {
                     data.forEach(emp => {
                         let statusHtml = '';
-                        if (emp.emp_status === 'active') statusHtml =
-                            `<span class="status-active">Active</span>`;
-                        else if (emp.emp_status === 'pending') statusHtml =
-                            `<span class="status-pending">Pending</span>`;
-                        else if (emp.emp_status === 'transferred') statusHtml =
+                        let s = (emp.emp_status || 'active').toLowerCase();
+                        if (s === 'active') statusHtml = `<span class="status-active">Active</span>`;
+                        else if (s === 'pending') statusHtml =
+                        `<span class="status-pending">Pending</span>`;
+                        else if (s === 'transferred') statusHtml =
                             `<span class="status-transferred">Transferred</span>`;
-                        else statusHtml = `<span class="status-inactive">${emp.emp_status}</span>`;
+                        else statusHtml = `<span class="status-inactive">${s}</span>`;
 
                         let branchName = emp.branch ? emp.branch.branch_name : 'Master HO';
+                        let compName = emp.company ? emp.company.company_name : 'No Company';
+                        let deptName = emp.department ? emp.department.department_name : 'N/A';
                         let desigName = (typeof emp.designation === 'object' && emp.designation !== null) ?
                             emp.designation.designation_name : (emp.designation || '-');
+
+                        let actionHtml =
+                            `<div class="d-flex gap-2 border-top pt-2 mt-2">
+                            <button class="btn btn-sm btn-light text-info flex-fill fw-medium view-employee" data-id="${emp.id}"><i class="fas fa-eye me-1"></i> View</button>`;
+
+                        if (s === 'pending') {
+                            if (window.hasPerm('employee_approve')) {
+                                actionHtml +=
+                                    `<button class="btn btn-sm btn-light text-success flex-fill fw-medium approve-emp-btn" data-id="${emp.id}"><i class="fas fa-check-circle me-1"></i> Approve</button>`;
+                            }
+                            if (window.hasPerm('employee_reject')) {
+                                actionHtml +=
+                                    `<button class="btn btn-sm btn-light text-danger flex-fill fw-medium reject-emp-btn" data-id="${emp.id}"><i class="fas fa-times-circle me-1"></i> Reject</button>`;
+                            }
+                        }
+
+                        if (window.hasPerm('employee_edit')) {
+                            actionHtml +=
+                                `<button class="btn btn-sm btn-light text-primary flex-fill fw-medium edit-employee" data-id="${emp.id}"><i class="fas fa-edit me-1"></i> Edit</button>`;
+                        }
+
+                        actionHtml += `</div>`;
+
+                        let checkboxHtml = '';
+                        if (window.hasPerm('employee_delete')) {
+                            checkboxHtml =
+                                `<input type="checkbox" class="form-check-input border-secondary mobile-row-checkbox mt-1 me-2" value="${emp.id}" style="transform: scale(1.3);">`;
+                        }
 
                         html += `
                         <div class="emp-card mobile-emp-item">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div><h6 class="fw-bold mb-0">${emp.full_name}</h6><span class="emp-id-badge">${emp.member_id}</span></div>
+                                <div class="d-flex align-items-start">
+                                    ${checkboxHtml}
+                                    <div><h6 class="fw-bold mb-0">${emp.full_name}</h6><span class="emp-id-badge">${emp.member_id}</span></div>
+                                </div>
                                 ${statusHtml}
                             </div>
                             <div class="small text-secondary mb-3">
-                                <div><i class="fas fa-briefcase me-1 text-muted"></i> ${desigName}</div>
-                                <div class="mt-1"><i class="fas fa-building me-1 text-muted"></i> ${branchName}</div>
+                                <div><i class="fas fa-building me-1 text-muted"></i> ${compName} - ${branchName}</div>
+                                <div class="mt-1"><i class="fas fa-briefcase me-1 text-muted"></i> ${deptName} - ${desigName}</div>
+                                <div class="mt-1"><i class="fas fa-phone-alt me-1 text-muted"></i> ${emp.contact_no || 'N/A'}</div>
                             </div>
-                            <div class="d-flex gap-2 border-top pt-2">
-                                <button class="btn btn-sm btn-light text-success flex-fill fw-medium view-btn" data-id="${emp.id}"><i class="fas fa-eye me-1"></i> View</button>
-                                <button class="btn btn-sm btn-light text-primary flex-fill fw-medium edit-btn secured-item" data-permission="employee_edit" data-id="${emp.id}"><i class="fas fa-edit me-1"></i> Edit</button>
-                                <button class="btn btn-sm btn-light text-danger flex-fill fw-medium delete-btn secured-item" data-permission="employee_delete" data-id="${emp.id}"><i class="fas fa-trash-alt me-1"></i> Del</button>
-                            </div>
+                            ${actionHtml}
                         </div>`;
                     });
                 }
                 $('#mobileCardsContainer').html(html);
+
+                // Reset mobile actions state
+                $('#mobileSelectAll').prop('checked', false);
+                toggleMobileBulkDeleteBtn();
             }
 
             $('#is_transfer_toggle').on('change', function() {
@@ -1165,9 +1300,14 @@
                 });
             });
 
-            $(document).on('click', '.edit-btn', function() {
+            $(document).on('click', '.edit-employee', function() {
                 let id = $(this).data('id');
-                $.get({
+                let btn = $(this);
+                let originalHtml = btn.html();
+
+                btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+
+                $.ajax({
                     url: `/api/v1/employees/${id}`,
                     success: function(res) {
                         let emp = res.data;
@@ -1176,11 +1316,10 @@
 
                         $('#transferSectionCard').hide();
 
-                        let perms = window.userPerms || [];
                         let isGod = window.userGodMode || false;
                         let isDirector = currentUserData?.designation_name?.toLowerCase()
                             .includes('director');
-                        let hasDirect = isGod || isDirector || perms.includes(
+                        let hasDirect = isGod || isDirector || window.hasPerm(
                             'employee_edit_direct');
 
                         $('#emp_status').html(`
@@ -1210,7 +1349,6 @@
                         if (emp.gender) $(`input[name="gender"][value="${emp.gender}"]`).prop(
                             'checked', true);
 
-                        // 🔥 EDIT KE TIME BHI ANNIVERSARY YAHAN HANDLE HOGI 🔥
                         if (emp.marital_status) {
                             $(`input[name="marital_status"][value="${emp.marital_status}"]`)
                                 .prop('checked', true).trigger('change');
@@ -1285,12 +1423,22 @@
 
                         $('.nav-pills a:first').tab('show');
                         $('#employeeModal').modal('show');
+                    },
+                    complete: function() {
+                        btn.html(originalHtml).prop('disabled', false);
                     }
                 });
             });
 
-            $(document).on('click', '.view-btn', function() {
+            // ==========================================
+            // 🔥 VIEW EMPLOYEE (With New Service Tab) 🔥
+            // ==========================================
+            $(document).on('click', '.view-employee', function() {
                 let id = $(this).data('id');
+                let btn = $(this);
+                let originalHtml = btn.html();
+
+                btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
 
                 $.ajax({
                     url: `/api/v1/employees/${id}`,
@@ -1318,7 +1466,7 @@
 
                         let historyHtml = '';
                         if (d.service_history_data && d.service_history_data.length > 0) {
-                            d.service_history_data.forEach((record, index) => {
+                            d.service_history_data.forEach((record) => {
                                 let badgeColor = record.status === 'active' ?
                                     'success' : (record.status === 'transferred' ?
                                         'info' : (record.status === 'pending' ?
@@ -1344,6 +1492,7 @@
                                 '<div class="alert alert-light text-center small">No service history available.</div>';
                         }
 
+                        // 🔥 ADDED SERVICE RECORD TAB IN VIEW MODAL 🔥
                         let html = `
                             <div class="card border-0 shadow-none bg-transparent">
                                 <div class="d-flex flex-column flex-md-row align-items-center bg-white p-4 border-bottom rounded-top">
@@ -1362,65 +1511,74 @@
                                     </div>
                                 </div>
 
-                                <div class="p-3 bg-light">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
-                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-building me-2"></i>Organization Scope</h6>
-                                                <div class="small" style="line-height: 1.6;">
-                                                    <span class="text-muted d-block mb-1">Assigned Office:</span>
-                                                    <span>${branchText}</span>
-                                                </div>
+                                <div class="p-4 bg-light">
+                                    <ul class="nav nav-tabs border-primary border-opacity-25 mb-4 flex-nowrap overflow-auto" id="viewEmpTabs" role="tablist">
+                                        <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#v-tab-official"><i class="fas fa-briefcase me-1"></i> Official</button></li>
+                                        <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#v-tab-personal"><i class="fas fa-user me-1"></i> Personal</button></li>
+                                        <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#v-tab-bank"><i class="fas fa-university me-1"></i> Bank & KYC</button></li>
+                                        <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#v-tab-docs"><i class="fas fa-file-alt me-1"></i> Documents</button></li>
+                                        <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#v-tab-service"><i class="fas fa-history me-1"></i> Service Record</button></li>
+                                    </ul>
+
+                                    <div class="tab-content">
+                                        <div class="tab-pane fade show active" id="v-tab-official">
+                                            <div class="row g-4">
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Company</label><h6 class="fw-bold">${d.company ? d.company.company_name : 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Branch</label><h6 class="fw-bold">${d.branch ? d.branch.branch_name : 'Head Office'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Department</label><h6 class="fw-bold">${d.department ? d.department.department_name : 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Date of Joining</label><h6 class="fw-bold">${d.doj || 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">System Role</label><h6 class="fw-bold text-success">${d.role || 'employee'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Portal Login Allowed</label><h6 class="fw-bold text-primary">${d.daily_start_time || '24'} to ${d.daily_end_time || 'Hrs'}</h6></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="tab-pane fade" id="v-tab-personal">
+                                            <div class="row g-4">
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Father/Spouse</label><h6 class="fw-bold">${d.father_spouse_name || 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Mother Name</label><h6 class="fw-bold">${d.mother_name || 'N/A'}</h6></div>
+                                                <div class="col-sm-4"><label class="text-muted small mb-1">DOB</label><h6 class="fw-bold">${d.dob || 'N/A'}</h6></div>
+                                                <div class="col-sm-4"><label class="text-muted small mb-1">Gender</label><h6 class="fw-bold">${d.gender || 'N/A'}</h6></div>
+                                                <div class="col-sm-4"><label class="text-muted small mb-1">Blood Group</label><h6 class="fw-bold">${d.blood_group || 'N/A'}</h6></div>
+                                                <div class="col-12"><label class="text-muted small mb-1">Current Address</label><h6 class="fw-bold">${d.communication_address || 'N/A'} - ${d.pin_code || ''}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Contact Number</label><h6 class="fw-bold">${d.contact_no || 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Email</label><h6 class="fw-bold">${d.email || 'N/A'}</h6></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="tab-pane fade" id="v-tab-bank">
+                                            <div class="row g-4">
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Aadhar No</label><h6 class="fw-bold">${d.aadhar_no || 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">PAN No</label><h6 class="fw-bold text-uppercase">${d.pan_no || 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Bank Name</label><h6 class="fw-bold">${d.bankDetails ? d.bankDetails.bank_name : 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Account No</label><h6 class="fw-bold">${d.bankDetails ? d.bankDetails.account_no : 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">IFSC Code</label><h6 class="fw-bold text-uppercase">${d.bankDetails ? d.bankDetails.ifsc_code : 'N/A'}</h6></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="tab-pane fade" id="v-tab-docs">
+                                            <div class="d-flex flex-wrap gap-2">
+                                                ${d.aadhar_pdf ? `<a href="/${d.aadhar_pdf}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-pdf me-1"></i> Aadhar Card</a>` : ''}
+                                                ${d.pan_pdf ? `<a href="/${d.pan_pdf}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-pdf me-1"></i> PAN Card</a>` : ''}
+                                                ${d.bank_passbook_pdf ? `<a href="/${d.bank_passbook_pdf}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-pdf me-1"></i> Bank Proof</a>` : ''}
+                                                ${d.tenth_pdf ? `<a href="/${d.tenth_pdf}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-pdf me-1"></i> 10th Doc</a>` : ''}
+                                                ${!d.aadhar_pdf && !d.pan_pdf && !d.bank_passbook_pdf ? '<p class="text-muted fst-italic">No documents uploaded.</p>' : ''}
                                             </div>
                                         </div>
                                         
-                                        <div class="col-md-6">
-                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
-                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-address-book me-2"></i>Contact Details</h6>
-                                                <div class="small d-flex flex-column gap-2 mt-2">
-                                                    <div class="d-flex align-items-center"><i class="fas fa-phone-alt text-muted me-3" style="width:15px;"></i> <span class="fw-semibold text-dark">${d.contact_no || '-'}</span></div>
-                                                    <div class="d-flex align-items-center"><i class="fas fa-envelope text-muted me-3" style="width:15px;"></i> <span class="fw-semibold text-dark">${d.email || 'No Email Provided'}</span></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
-                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-id-card me-2"></i>Identity Documents</h6>
-                                                <div class="small d-flex flex-column gap-2 mt-2">
-                                                    <div class="d-flex justify-content-between border-bottom pb-1"><span class="text-muted">Aadhar No:</span> <span class="fw-bold text-dark">${d.aadhar_no || '-'}</span></div>
-                                                    <div class="d-flex justify-content-between"><span class="text-muted">PAN No:</span> <span class="fw-bold text-dark text-uppercase">${d.pan_no || '-'}</span></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <div class="bg-white p-3 rounded shadow-sm border h-100">
-                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-calendar-check me-2"></i>Lifecycle Timeline</h6>
-                                                <div class="small d-flex flex-column gap-2 mt-2">
-                                                    <div class="d-flex justify-content-between border-bottom pb-1"><span class="text-muted">Date of Joining:</span> <span class="fw-bold text-success">${d.doj || '-'}</span></div>
-                                                    <div class="d-flex justify-content-between"><span class="text-muted">Date of Leaving:</span> <span class="fw-bold text-danger">${d.d_o_l || 'Still Active'}</span></div>
-                                                </div>
+                                        <div class="tab-pane fade" id="v-tab-service">
+                                            <div class="timeline-container pe-2" style="max-height: 350px; overflow-y: auto;">
+                                                ${historyHtml}
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    <div class="row mt-3">
-                                        <div class="col-12">
-                                            <div class="bg-white p-3 rounded shadow-sm border">
-                                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2"><i class="fas fa-history me-2"></i>Full Service History (By Tracking ID)</h6>
-                                                <div class="timeline-container pe-2" style="max-height: 250px; overflow-y: auto;">
-                                                    ${historyHtml}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
                                 </div>
                             </div>
                         `;
                         $('#viewDetailsBody').html(html);
                         $('#viewModal').modal('show');
+                    },
+                    complete: function() {
+                        btn.html(originalHtml).prop('disabled', false);
                     }
                 });
             });
@@ -1444,25 +1602,178 @@
                 }
             });
 
-            $(document).on('click', '.delete-btn', function() {
+            // ==========================================
+            // 🔥 APPROVE & REJECT EMPLOYEE LOGIC 🔥
+            // ==========================================
+            $(document).on('click', '.approve-emp-btn', function() {
+                let empId = $(this).data('id');
                 Swal.fire({
-                    title: 'Are you sure?',
-                    icon: 'warning',
+                    title: 'Approve Employee?',
+                    text: "This will mark the employee as 'Active' and grant them portal access.",
+                    icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Yes, delete it!'
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Approve!'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        $.ajax({
-                            url: `/api/v1/employees/${$(this).data('id')}`,
-                            type: 'DELETE',
-                            success: function() {
-                                Swal.fire('Deleted!', '', 'success');
-                                table.ajax.reload(null, false);
-                            }
-                        });
+                        updateEmployeeStatus(empId, 'active');
                     }
                 });
             });
+
+            $(document).on('click', '.reject-emp-btn', function() {
+                let empId = $(this).data('id');
+                Swal.fire({
+                    title: 'Reject Employee?',
+                    text: "This will mark the employee as 'Inactive'.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Reject!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        updateEmployeeStatus(empId, 'inactive');
+                    }
+                });
+            });
+
+            function updateEmployeeStatus(id, newStatus) {
+                $.ajax({
+                    url: apiPrefix + '/employees/' + id + '/status',
+                    type: 'PUT',
+                    data: {
+                        status: newStatus,
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(res) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Status Updated!',
+                            text: res.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        table.ajax.reload(null, false);
+                    },
+                    error: function(err) {
+                        let errorMsg = err.responseJSON && err.responseJSON.message ? err.responseJSON
+                            .message : 'System Error Occurred!';
+                        Swal.fire('Error', errorMsg, 'error');
+                    }
+                });
+            }
+
+            // ==========================================
+            // 🔥 BULK DELETE LOGIC (Desktop & Mobile Unified) 🔥
+            // ==========================================
+            function toggleBulkDeleteBtn() {
+                if ($('.row-checkbox:checked').length > 0) $('#bulkDeleteBtn').removeClass('d-none');
+                else $('#bulkDeleteBtn').addClass('d-none');
+            }
+
+            $('#selectAll').on('change', function() {
+                $('.row-checkbox').prop('checked', this.checked);
+                toggleBulkDeleteBtn();
+            });
+
+            $('#empTable tbody').on('change', '.row-checkbox', function() {
+                if (!this.checked) $('#selectAll').prop('checked', false);
+                if ($('.row-checkbox:checked').length === $('.row-checkbox').length) $('#selectAll').prop(
+                    'checked', true);
+                toggleBulkDeleteBtn();
+            });
+
+            function executeBulkDelete(selectedIds, isMobile = false) {
+                if (selectedIds.length > 0) {
+                    Swal.fire({
+                        title: 'Are you sure?',
+                        text: `Delete ${selectedIds.length} employee(s)?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Yes, delete!'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            let btn = isMobile ? $('#mobileBulkDeleteBtn') : $('#bulkDeleteBtn');
+                            let originalText = btn.html();
+                            btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Deleting...').prop(
+                                'disabled', true);
+
+                            $.ajax({
+                                url: '/api/v1/bulk-delete',
+                                type: 'POST',
+                                data: {
+                                    table_name: 'adm_regist',
+                                    ids: selectedIds
+                                },
+                                success: function(res) {
+                                    Swal.fire('Deleted!', res.message, 'success');
+                                    table.ajax.reload(null, false);
+                                    if (isMobile) {
+                                        $('#mobileSelectAll').prop('checked', false);
+                                        $('#mobileBulkActions').removeClass('show-bar');
+                                    }
+                                },
+                                error: function(err) {
+                                    Swal.fire('Error', err.responseJSON.message || 'Failed',
+                                        'error');
+                                },
+                                complete: function() {
+                                    btn.html(originalText).prop('disabled', false);
+                                    if (!isMobile) {
+                                        $('#selectAll').prop('checked', false);
+                                        toggleBulkDeleteBtn();
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+
+            // Desktop Delete Trigger
+            $('#bulkDeleteBtn').on('click', function() {
+                let selectedIds = [];
+                $('.row-checkbox:checked').each(function() {
+                    selectedIds.push($(this).val());
+                });
+                executeBulkDelete(selectedIds, false);
+            });
+
+            // Mobile Delete Triggers
+            function toggleMobileBulkDeleteBtn() {
+                let selectedCount = $('.mobile-row-checkbox:checked').length;
+                if (selectedCount > 0) {
+                    $('#mobileBulkActions').addClass('show-bar');
+                    $('#mobileBulkDeleteCount').text(selectedCount);
+                } else {
+                    $('#mobileBulkActions').removeClass('show-bar');
+                }
+            }
+
+            $(document).on('change', '.mobile-row-checkbox', function() {
+                let allCount = $('.mobile-row-checkbox').length;
+                let checkedCount = $('.mobile-row-checkbox:checked').length;
+                $('#mobileSelectAll').prop('checked', allCount > 0 && allCount === checkedCount);
+                toggleMobileBulkDeleteBtn();
+            });
+
+            $('#mobileSelectAll').on('change', function() {
+                $('.mobile-row-checkbox').prop('checked', this.checked);
+                toggleMobileBulkDeleteBtn();
+            });
+
+            $('#mobileBulkDeleteBtn').on('click', function() {
+                let selectedIds = [];
+                $('.mobile-row-checkbox:checked').each(function() {
+                    selectedIds.push($(this).val());
+                });
+                executeBulkDelete(selectedIds, true);
+            });
+
 
             $('input[type="file"]').each(function() {
                 $(this).after(
@@ -1498,68 +1809,6 @@
                 $(this).closest('.file-preview-wrapper').slideUp();
             });
 
-            $('#selectAll').on('change', function() {
-                $('.row-checkbox').prop('checked', this.checked);
-                toggleBulkDeleteBtn();
-            });
-            $('#empTable tbody').on('change', '.row-checkbox', function() {
-                if (!this.checked) $('#selectAll').prop('checked', false);
-                if ($('.row-checkbox:checked').length === $('.row-checkbox').length) $('#selectAll').prop(
-                    'checked', true);
-                toggleBulkDeleteBtn();
-            });
-
-            function toggleBulkDeleteBtn() {
-                if ($('.row-checkbox:checked').length > 0) $('#bulkDeleteBtn').removeClass('d-none');
-                else $('#bulkDeleteBtn').addClass('d-none');
-            }
-
-            $('#bulkDeleteBtn').on('click', function() {
-                let selectedIds = [];
-                $('.row-checkbox:checked').each(function() {
-                    selectedIds.push($(this).val());
-                });
-                if (selectedIds.length > 0) {
-                    Swal.fire({
-                        title: 'Are you sure?',
-                        text: `Delete ${selectedIds.length} employee(s)?`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#d33',
-                        cancelButtonColor: '#3085d6',
-                        confirmButtonText: 'Yes, delete!'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            let btn = $(this);
-                            let originalText = btn.html();
-                            btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Deleting...')
-                                .prop('disabled', true);
-                            $.ajax({
-                                url: '/api/v1/bulk-delete',
-                                type: 'POST',
-                                data: {
-                                    table_name: 'adm_regist',
-                                    ids: selectedIds
-                                },
-                                success: function(res) {
-                                    Swal.fire('Deleted!', res.message, 'success');
-                                    table.ajax.reload(null, false);
-                                },
-                                error: function(err) {
-                                    Swal.fire('Error', err.responseJSON.message ||
-                                        'Failed', 'error');
-                                },
-                                complete: function() {
-                                    btn.html(originalText).prop('disabled', false);
-                                    $('#selectAll').prop('checked', false);
-                                    toggleBulkDeleteBtn();
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-
             function generatePassword() {
                 let fullName = $('#full_name').val().trim();
                 let aadhar = $('#aadhar_no').val().replace(/\D/g, '');
@@ -1574,11 +1823,9 @@
             }
             $('#full_name, #aadhar_no').on('keyup change', generatePassword);
 
-           
-           // 🔥 BULLETPROOF EVENT: Click aur Change dono par chalega aur directly name attribute ko target karega 🔥
             $(document).on('click change', 'input[name="marital_status"]', function() {
                 if ($('#m_married').is(':checked')) {
-                    $('#doa_container').slideDown(200); // Thoda smooth animation ke sath aayega
+                    $('#doa_container').slideDown(200);
                 } else {
                     $('#doa_container').slideUp(200);
                     $('#anniversary_date').val('');

@@ -1,5 +1,5 @@
 <style>
-    /* 🔥 DEFAULT DESKTOP & TABLET VIEW 🔥 */
+    /* 🌟 DEFAULT DESKTOP & TABLET VIEW 🌟 */
     .header-wrap {
         display: flex;
         align-items: center;
@@ -31,7 +31,6 @@
     .header-text {
         width: 85%;
         text-align: center;
-        /* margin-right: 70px; */
     }
 
     .company-title {
@@ -54,7 +53,7 @@
         color: #000;
     }
 
-    /* 🔥 MOBILE VIEW FIXES (Responsive Magic) 🔥 */
+    /* 🌟 MOBILE VIEW FIXES (Responsive Magic) 🌟 */
     @media (max-width: 767.98px) {
         .header-wrap {
             flex-direction: column;
@@ -62,7 +61,6 @@
             margin-bottom: 8px;
         }
 
-        /* Mobile me Logo hide karein */
         .logo-image {
             display: none !important;
         }
@@ -74,10 +72,10 @@
 
         .iso {
             font-size: 6px;
-            /* Thoda readable banaya logo hatne ke baad */
             margin-top: 0;
             margin-bottom: 5px;
-             display: none !important;
+            display: none !important;
+            /* Mobile me hide kiya hai */
         }
 
         .header-text {
@@ -86,7 +84,6 @@
 
         .company-title {
             font-size: 12px;
-            /* Heading chhoti ki */
             margin-bottom: 4px;
         }
 
@@ -98,14 +95,12 @@
 
         .small-text {
             font-size: 6.5px;
-            /* Font kafi shrink kiya taaki ek line me aaye */
             line-height: 1.3;
             letter-spacing: -0.1px;
-            /* Words ko slightly close kiya */
         }
     }
 
-    /* 🔥 THE MAGIC: FORCE ROW & COLORS IN PRINT 🔥 */
+    /* 🌟 THE MAGIC: FORCE ROW & COLORS IN PRINT 🌟 */
     @media print {
         * {
             -webkit-print-color-adjust: exact !important;
@@ -127,39 +122,49 @@
             padding-bottom: 2px !important;
             margin-bottom: 2px !important;
             gap: 0 !important;
+            display: flex !important;
+            /* Force flex in print */
         }
 
         .header-logo {
-            width: 20% !important;
+            width: 18% !important;
             display: block !important;
         }
 
         .logo-image {
             display: block !important;
-            /* Print me logo wapas laana hai */
+            margin: 0 auto !important;
+        }
+
+        /* 🔥 FIX: Force ISO to display and reset its styling in Print 🔥 */
+        .iso {
+            font-size: 8px !important;
+            display: block !important;
+            margin-top: 5px !important;
         }
 
         .header-text {
-            width: 75% !important;
+            width: 82% !important;
+            text-align: center !important;
         }
 
         .company-title {
-            font-size: 18px !important;
-            margin-bottom: 0 !important;
+            font-size: 20px !important;
+            margin-bottom: 2px !important;
         }
 
+        /* 🔥 FIX: Force CIN to be inline-block so it doesn't stretch 🔥 */
         .cin-text {
             font-size: 10px !important;
-            margin-bottom: 0 !important;
+            display: inline-block !important;
+            margin-bottom: 2px !important;
+            padding: 2px 8px !important;
+            border-radius: 4px !important;
         }
 
         .small-text {
             font-size: 10px !important;
             line-height: 1.3 !important;
-        }
-
-        .iso {
-            font-size: 7px !important;
         }
     }
 </style>
@@ -173,7 +178,8 @@
                 class="logo-image" alt="Default Logo">
         @endif
 
-        <div class="iso text-danger">{{ '(An ISO ' . $company->iso_no . ' Certified)' ?? '(An ISO 9001:2015 Certified)' }}
+        <div class="iso text-danger">
+            {{ '(An ISO ' . ($company->iso_no ?? '9001:2015') . ' Certified)' }}
         </div>
     </div>
 
@@ -182,8 +188,8 @@
             {{ $company ? strtoupper($company->company_name) : 'AMITABH BUILDERS & DEVELOPERS PVT. LTD.' }}
         </div>
 
-        <div class="cin-text bg-danger text-white d-inline-block px-2 py-1 rounded">
-            CIN NO. : {{ $company->cin_no ?? 'U43299BR2024PTC072712' }}
+        <div class="cin-text">
+            <span class="bg-danger text-white p-1 rounded">CIN NO. : {{ $company->cin_no ?? 'U43299BR2024PTC072712' }}</span>
         </div>
 
         <div class="small-text">

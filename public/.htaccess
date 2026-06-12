@@ -4,6 +4,8 @@
     </IfModule>
 
     RewriteEngine On
+    # 🔥 YE LINE ADD KARNI HAI (Hostinger ko token delete karne se rokne ke liye) 🔥
+    CGIPassAuth On
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .

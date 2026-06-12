@@ -153,6 +153,46 @@ Route::get('/interested-leads', function () {
     return view('admin.terms_conditions');
 })->name('terms_conditions');
 
+// 🟢 Task Progress Report Dashboard
+    Route::get('/task-reports', function () {
+        return view('admin.tasks.report');
+    })->name('tasks.report');
+
+
+    // Shared Web Routes ke andar sabse niche add karein
+Route::get('/welcome-letter', function () {
+    return view('employee.welcome_letter'); // Path hamne generic/shared folder me rakha hai
+})->name('welcome_letter');
+
+// --- Notices Module ---
+    Route::get('/notices', function () {
+        return view('admin.notices.index');
+    })->name('notices.index');
+
+    Route::get('/my-notices', function () {
+        return view('admin.notices.my_notices');
+    })->name('my_notices');
+
+Route::get('/notices/print/{id}', [\App\Http\Controllers\Admin\NoticeWebController::class, 'printNotice'])->name('notices.print');
+
+// 🟢 Travel Allowance (TA) Management
+    Route::get('/travel-allowances', function () {
+        return view('admin.travel_allowances.index'); // Phase 3 me yeh blade banayenge
+    })->name('travel_allowances.index');
+    
+    // Print TA Route
+    Route::get('/travel-allowances/print/{id}', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'printPreview'])->name('travel_allowances.print');
+
+
+
+
+    // 🟢 Leaves & Applications
+    Route::get('/leave-applications', function () {
+        return view('admin.leave_applications.index'); // Dhyan rahe ye view banani hai
+    })->name('leave_applications.index');
+
+    Route::get('/leave-applications/print/{id}', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'printPreview'])->name('leave_applications.print');
+
 
 
 };
@@ -165,6 +205,15 @@ Route::prefix('admin')->name('admin.')->group(function () use ($sharedWebRoutes)
     Route::get('/login', function () {
         return view('admin.auth.login');
     })->name('login');
+
+    // 🔥 THE 500 CRASH FIX: Ye missing route alias add karein 🔥
+    Route::get('/fallback-login', function () {
+        return redirect('/admin/login');
+    })->name('login.view');
+
+
+
+
     // 🔥 ADD THIS LINE (The Alias) so the system doesn't crash on redirect
     Route::get('/general-leads/export', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'downloadExport'])->name('general_leads.export');
 
@@ -178,6 +227,7 @@ Route::prefix('admin')->name('admin.')->group(function () use ($sharedWebRoutes)
         return view('admin.welcome_letter_edit');
     })->name('welcome_letter_edit');
 
+    
     // Yahan saare routes load ho gaye Admin ke liye
     $sharedWebRoutes();
 });
@@ -194,10 +244,8 @@ Route::prefix('employee')->name('employee.')->group(function () use ($sharedWebR
         return view('employee.dashboard');
     })->name('dashboard');
 
-   // web.php mein Employee Portal section ke andar:
-Route::get('/welcome-letter', function () { 
-    return view('employee.welcome_letter'); 
-})->name('welcome_letter');
+   
+
     // Yahan saare routes load ho gaye Employee ke liye (jaisa aapne kaha tha)
     $sharedWebRoutes();
 });

@@ -393,6 +393,7 @@ class InterestedCustomerController extends Controller
         $inserts = [];
 
         foreach ($leads as $row) {
+            // Agar naam ya mobile blank hai to skip karein
             if (empty($row['cust_name']) || empty($row['mobile'])) continue;
 
             $sanitizeDate = function ($val) {
@@ -404,33 +405,53 @@ class InterestedCustomerController extends Controller
                 }
             };
 
-            $inserts[] = [
+            $formattedDate = $sanitizeDate($row['date']);
+            $formattedFollowupDate = $sanitizeDate($row['followup_date']);
+
+            // Ek array banayenge jisme wo saare exact columns honge jo match karne hain
+            $leadData = [
                 'company_id'          => 1,
                 'branch_id'           => null,
                 'entry_status'        => 'active',
                 'cust_name'           => $row['cust_name'],
                 'mobile'              => $row['mobile'],
-                'email'               => $row['email'],
-                'budget'              => $row['budget'],
-                'assigned_telecaller' => $row['assigned_telecaller'],
-                'reference'           => $row['reference'],
-                'refer_by'            => $row['refer_by'],
-                'alternate_no'        => $row['alternate_no'],
-                'address'             => $row['address'],
-                'date'                => $sanitizeDate($row['date']),
-                'interested_for'      => $row['interested_for'],
-                'required_for'        => $row['required_for'],
-                // Import karte time status waise ka waisa jayega jaisa backend JSON me set h
+                'email'               => $row['email'] ?? null,
+                'budget'              => $row['budget'] ?? null,
+                'assigned_telecaller' => $row['assigned_telecaller'] ?? null,
+                'reference'           => $row['reference'] ?? null,
+                'refer_by'            => $row['refer_by'] ?? null,
+                'alternate_no'        => $row['alternate_no'] ?? null,
+                'address'             => $row['address'] ?? null,
+                'date'                => $formattedDate,
+                'interested_for'      => $row['interested_for'] ?? null,
+                'required_for'        => $row['required_for'] ?? null,
                 'status'              => $row['status'] ?? 'General',
-                'followup_date'       => $sanitizeDate($row['followup_date']),
-                'followup_month'      => $row['followup_month'],
-                'remark'              => $row['remark'],
-                'created_at'          => now(),
-                'updated_at'          => now(),
+                'followup_date'       => $formattedFollowupDate,
+                'followup_month'      => $row['followup_month'] ?? null,
+                'remark'              => $row['remark'] ?? null,
             ];
+
+            // DB me check karein ki kya ye exact data already exist karta hai
+            $exists = \App\Models\InterestedCustomer::where($leadData)->exists();
+
+            // Agar DB me record NAHI hai, tabhi inserts array me daalein
+            if (!$exists) {
+                // Timestamps manually add kar rahe hain insert() ke liye
+                $leadData['created_at'] = now();
+                $leadData['updated_at'] = now();
+                
+                $inserts[] = $leadData;
+            }
         }
 
-        if (!empty($inserts)) InterestedCustomer::insert($inserts);
-        return response()->json(['status' => 'success', 'message' => 'Imported successfully']);
+        // Agar array me fresh data aaya hai, tabhi DB me bulk insert chalayein
+        if (!empty($inserts)) {
+            \App\Models\InterestedCustomer::insert($inserts);
+        }
+
+        return response()->json([
+            'status' => 'success', 
+            'message' => count($inserts) . ' new leads imported successfully. Duplicates ignored.'
+        ]);
     }
 }
