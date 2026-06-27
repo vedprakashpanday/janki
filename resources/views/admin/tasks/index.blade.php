@@ -165,7 +165,6 @@
         </div>
     </div>
 
-    <!-- Assign Modal -->
     <div class="modal fade" id="assignTaskModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-lg-down">
             <div class="modal-content border-0 shadow-lg">
@@ -255,23 +254,29 @@
                                 <div
                                     class="task-row bg-white p-3 rounded border border-secondary border-opacity-25 mb-2 shadow-sm">
                                     <div class="row g-2 align-items-end">
-                                        <div class="col-md-3">
+                                        <div class="col-md-2">
                                             <label class="small fw-bold text-muted mb-1">Task Title <span
                                                     class="text-danger">*</span></label>
                                             <input type="text" class="form-control form-control-sm task-title-input"
-                                                placeholder="E.g., Complete today's follow-ups" required>
+                                                placeholder="Task Name" required>
                                         </div>
                                         <div class="col-md-3 position-relative">
                                             <label class="small fw-bold text-muted mb-1">Specific Assignees</label>
-                                            <!-- 🔥 FIX: Ensure position-relative wrapper and select2 classes are used correctly 🔥 -->
                                             <select class="select2-multiple task-specific-users" multiple
                                                 data-placeholder="All targets (Leave empty for all)"
                                                 style="width: 100%;"></select>
                                         </div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-2">
                                             <label class="small fw-bold text-muted mb-1">Target Base Work</label>
-                                            <select class="form-select form-select-sm tracking-module-dropdown">
-                                                <option value="">Manual Task (No auto-track)</option>
+                                            <select
+                                                class="form-select form-select-sm tracking-module-dropdown border-primary">
+                                                <option value="">Manual Task</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="small fw-bold text-muted mb-1">Linked Phase</label>
+                                            <select class="form-select form-select-sm task-phase-dropdown border-info">
+                                                <option value="">-- No Phase --</option>
                                             </select>
                                         </div>
                                         <div class="col-md-2">
@@ -338,7 +343,6 @@
         </div>
     </div>
 
-    <!-- DETAILS AND LIVE CHAT MODAL -->
     <div class="modal fade" id="taskDetailsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
             <div class="modal-content border-0 shadow-lg">
@@ -443,7 +447,6 @@
         </div>
     </div>
 
-    <!-- Edit Modal -->
     <div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
@@ -469,7 +472,7 @@
                         </div>
 
                         <div class="row bg-light p-3 rounded border border-primary border-opacity-25 mx-0 mb-3 shadow-sm">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label small fw-bold text-dark"><i
                                         class="fas fa-crosshairs text-danger me-1"></i> Target Base Work</label>
                                 <select name="tracking_module_id" id="editTrackingModuleSelect"
@@ -477,7 +480,15 @@
                                     <option value="">Manual Task (No auto-track)</option>
                                 </select>
                             </div>
-                            <div class="col-md-6 mt-2 mt-md-0">
+                            <div class="col-md-5 mt-2 mt-md-0">
+                                <label class="form-label small fw-bold text-dark"><i
+                                        class="fas fa-building text-warning me-1"></i> Linked Phase</label>
+                                <select name="phase_id" id="editPhaseSelect"
+                                    class="form-select form-select-sm task-phase-dropdown border-info">
+                                    <option value="">-- No Phase / General --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mt-2 mt-md-0">
                                 <label class="form-label small fw-bold text-dark">Target Count</label>
                                 <input type="number" name="target_count" id="editTargetCountInput"
                                     class="form-control form-control-sm border-primary" min="0">
@@ -636,6 +647,7 @@
 
                 $('.task-row:not(:first)').remove();
                 $('.task-specific-users').html('').val(null).trigger('change.select2');
+                $('.task-phase-dropdown').val(''); // Reset phase
 
                 loadCompanies();
                 new bootstrap.Modal(document.getElementById('assignTaskModal')).show();
@@ -733,7 +745,8 @@
                     branch_ids: getSelected('branchSelect'),
                     department_ids: getSelected('deptSelect'),
                     designation_ids: getSelected('desigSelect'),
-                    user_type: isStaff ? 'employee' : 'member'
+                    user_type: isStaff ? 'employee' : 'member',
+                    status: 'active'
                 };
 
                 if (!params.company_ids) {
@@ -763,6 +776,27 @@
                 $('.tracking-module-dropdown').html(options);
             });
 
+            // 🔥 LOAD PHASES DYNAMICALLY 🔥
+            function loadTaskPhases() {
+                $.ajax({
+                    url: apiPrefix + '/phases',
+                    type: 'GET',
+                    success: function(res) {
+                        let options = '<option value="">-- No Phase / General Task --</option>';
+                        if (res.success && res.data) {
+                            res.data.forEach(p => {
+                                let compName = p.company ? p.company.company_name : '';
+                                let label = compName ? `${p.phase_name} (${compName})` : p
+                                    .phase_name;
+                                options += `<option value="${p.id}">${label}</option>`;
+                            });
+                        }
+                        $('.task-phase-dropdown').html(options);
+                    }
+                });
+            }
+            loadTaskPhases(); // Initialize Call
+
             $('#userSelect').on('change', function() {
                 let selectedOptions = $(this).find('option:selected');
                 let optionsHtml = '';
@@ -790,6 +824,7 @@
 
                 newRow.find('.task-title-input').val('');
                 newRow.find('.tracking-module-dropdown').val('');
+                newRow.find('.task-phase-dropdown').val(''); // Reset Phase in Clone
                 newRow.find('.target-count-input').val('0');
 
                 let newSpecificSelect = newRow.find('.task-specific-users');
@@ -840,6 +875,7 @@
                     let row = $(this);
                     let title = row.find('.task-title-input').val();
                     let trackId = row.find('.tracking-module-dropdown').val();
+                    let phaseId = row.find('.task-phase-dropdown').val(); // Capture Phase
                     let count = row.find('.target-count-input').val();
                     let specificUsers = row.find('.task-specific-users').val();
 
@@ -856,6 +892,7 @@
                     requestGroups[groupKey].tasks.push({
                         title: title,
                         tracking_module_id: trackId,
+                        phase_id: phaseId, // Push to array
                         target_count: count
                     });
                 });
@@ -877,6 +914,10 @@
                         if (t.tracking_module_id) {
                             fd.append(`tasks[${i}][tracking_module_id]`, t
                                 .tracking_module_id);
+                        }
+                        if (t.phase_id) {
+                            fd.append(`tasks[${i}][phase_id]`, t
+                            .phase_id); // Append Phase to Data
                         }
                         fd.append(`tasks[${i}][target_count]`, t.target_count);
                     });
@@ -920,8 +961,10 @@
             // ==========================================
             function renderTasks() {
                 console.log("🚀 -> renderTasks() called...");
-                $('#taskBoard').html('<div class="col-12 text-center py-5"><i class="fas fa-spinner fa-spin fa-3x text-muted mb-3"></i><p class="text-muted fw-bold" id="loadingText">Syncing latest tasks...</p></div>');
-                
+                $('#taskBoard').html(
+                    '<div class="col-12 text-center py-5"><i class="fas fa-spinner fa-spin fa-3x text-muted mb-3"></i><p class="text-muted fw-bold" id="loadingText">Syncing latest tasks...</p></div>'
+                    );
+
                 let apiUrl = apiPrefix + '/tasks';
                 console.log("📡 -> Requesting Tasks from API: " + apiUrl);
 
@@ -931,22 +974,25 @@
                     dataType: 'json',
                     success: function(res) {
                         console.log("✅ -> API SUCCESS! Raw Data:", res);
-                        
+
                         // JS Engine Fail-Safe Try-Catch
                         try {
                             if (res.status === 'error') {
                                 throw new Error("Backend Returned Error: " + res.message);
                             }
 
-                            if (!res || !res.data || !Array.isArray(res.data) || res.data.length === 0) {
+                            if (!res || !res.data || !Array.isArray(res.data) || res.data.length ===
+                                0) {
                                 console.log("⚠️ -> No tasks found or data is empty array.");
-                                let html = '<div class="col-12 text-center text-muted py-5"><i class="fas fa-check-circle fa-3x mb-3 text-success"></i><h5>No active tasks found!</h5></div>';
+                                let html =
+                                    '<div class="col-12 text-center text-muted py-5"><i class="fas fa-check-circle fa-3x mb-3 text-success"></i><h5>No active tasks found!</h5></div>';
                                 $('#taskBoard').html(html);
                                 return;
                             }
 
-                            console.log("⚙️ -> Processing " + res.data.length + " tasks to generate HTML...");
-                            
+                            console.log("⚙️ -> Processing " + res.data.length +
+                                " tasks to generate HTML...");
+
                             let expandCollapseControls = `
                             <div class="col-12 mb-3 text-end">
                                 <button class="btn btn-sm btn-outline-primary fw-bold shadow-sm me-2" id="expandAllBtn"><i class="fas fa-expand-arrows-alt me-1"></i> Expand All</button>
@@ -960,14 +1006,15 @@
                                 // SAFE CHECK FOR NAMES
                                 let assigneeName = 'Unassigned';
                                 if (task.assignee) {
-                                    assigneeName = task.assignee.full_name || task.assignee.member_name || task.assignee.name || 'Unknown User';
+                                    assigneeName = task.assignee.full_name || task.assignee
+                                        .member_name || task.assignee.name || 'Unknown User';
                                 }
 
                                 if (!groupedTasks[assigneeId]) {
                                     groupedTasks[assigneeId] = {
                                         name: assigneeName,
                                         tasks: [],
-                                        unreadCount: 0 
+                                        unreadCount: 0
                                     };
                                 }
                                 groupedTasks[assigneeId].tasks.push(task);
@@ -976,9 +1023,11 @@
                             for (let empId in groupedTasks) {
                                 let maxTime = 0;
                                 groupedTasks[empId].tasks.forEach(t => {
-                                    let time = t.created_at ? new Date(t.created_at).getTime() : 0; 
+                                    let time = t.created_at ? new Date(t.created_at).getTime() :
+                                        0;
                                     if (t.progress_logs && t.progress_logs.length > 0) {
-                                        let logTime = t.progress_logs[0].created_at ? new Date(t.progress_logs[0].created_at).getTime() : 0;
+                                        let logTime = t.progress_logs[0].created_at ? new Date(t
+                                            .progress_logs[0].created_at).getTime() : 0;
                                         if (logTime > time) time = logTime;
                                     }
                                     if (time > maxTime) maxTime = time;
@@ -986,25 +1035,34 @@
                                 groupedTasks[empId].latest_activity = maxTime;
                             }
 
-                            let sortedEmpIds = Object.keys(groupedTasks).sort((a, b) => groupedTasks[b].latest_activity - groupedTasks[a].latest_activity);
+                            let sortedEmpIds = Object.keys(groupedTasks).sort((a, b) => groupedTasks[b]
+                                .latest_activity - groupedTasks[a].latest_activity);
 
                             sortedEmpIds.forEach(empId => {
                                 let emp = groupedTasks[empId];
                                 let taskRowsHtml = '';
                                 let collapseId = `collapse-emp-${empId}`;
 
-                                let activeCount = emp.tasks.filter(t => t.status !== 'Completed').length;
+                                let activeCount = emp.tasks.filter(t => t.status !==
+                                    'Completed').length;
 
                                 emp.tasks.forEach(task => {
                                     let isUnread = false;
                                     let unreadMsgCount = 0;
 
-                                    if (task.progress_logs && task.progress_logs.length > 0) {
+                                    if (task.progress_logs && task.progress_logs
+                                        .length > 0) {
                                         let lastLog = task.progress_logs[0];
-                                        let actorName = lastLog.actor ? (lastLog.actor.full_name || lastLog.actor.member_name || lastLog.actor.name) : 'System';
-                                        
-                                        if (actorName !== 'System' && actorName !== 'System/Admin' && actorName !== loggedInUserName) {
-                                            let lastReadLogId = localStorage.getItem('task_read_' + task.id);
+                                        let actorName = lastLog.actor ? (lastLog.actor
+                                                .full_name || lastLog.actor
+                                                .member_name || lastLog.actor.name) :
+                                            'System';
+
+                                        if (actorName !== 'System' && actorName !==
+                                            'System/Admin' && actorName !==
+                                            loggedInUserName) {
+                                            let lastReadLogId = localStorage.getItem(
+                                                'task_read_' + task.id);
                                             if (lastReadLogId != lastLog.id) {
                                                 isUnread = true;
                                                 unreadMsgCount = 1;
@@ -1013,20 +1071,48 @@
                                         }
                                     }
 
-                                    let unreadRowClass = isUnread ? 'unread-task-row' : '';
+                                    let unreadRowClass = isUnread ? 'unread-task-row' :
+                                        '';
                                     let badgeClass = isUnread ? 'blink-anim' : 'd-none';
                                     let msgText = isUnread ? '1 New Msg' : '0 Msg';
 
                                     let targetCount = parseInt(task.target_count) || 0;
-                                    let achievedCount = parseInt(task.achieved_count) || 0;
-                                    let progress = targetCount > 0 ? Math.min((achievedCount / targetCount) * 100, 100).toFixed(0) : 0;
-                                    
-                                    let statusColor = task.status === 'Completed' ? 'success' : (task.status === 'In-Progress' ? 'primary' : 'warning');
-                                    let priorityColor = task.priority === 'Urgent' ? 'danger' : (task.priority === 'High' ? 'warning' : 'info');
+                                    let achievedCount = parseInt(task.achieved_count) ||
+                                        0;
+                                    let progress = targetCount > 0 ? Math.min((
+                                            achievedCount / targetCount) * 100, 100)
+                                        .toFixed(0) : 0;
 
-                                    let targetText = targetCount > 0 ? `Target: ${achievedCount}/${targetCount}` : 'Manual Task';
-                                    let assignedDateText = task.created_at ? new Date(task.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown';
-                                    let dueDateText = task.due_datetime ? new Date(task.due_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No Due Date';
+                                    let statusColor = task.status === 'Completed' ?
+                                        'success' : (task.status === 'In-Progress' ?
+                                            'primary' : 'warning');
+                                    let priorityColor = task.priority === 'Urgent' ?
+                                        'danger' : (task.priority === 'High' ?
+                                            'warning' : 'info');
+
+                                    let targetText = targetCount > 0 ?
+                                        `Target: ${achievedCount}/${targetCount}` :
+                                        'Manual Task';
+
+                                    // 🔥 PHASE NAME DISPLAY LOGIC 🔥
+                                    if (task.phase) {
+                                        targetText +=
+                                            ` &nbsp;|&nbsp; <i class="fas fa-building text-info"></i> ${task.phase.phase_name}`;
+                                    }
+
+                                    let assignedDateText = task.created_at ? new Date(
+                                        task.created_at).toLocaleDateString(
+                                    'en-GB', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric'
+                                    }) : 'Unknown';
+                                    let dueDateText = task.due_datetime ? new Date(task
+                                        .due_datetime).toLocaleDateString('en-GB', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric'
+                                    }) : 'No Due Date';
 
                                     taskRowsHtml += `
                                     <div class="row align-items-center border-bottom p-3 m-0 task-row-hover task-row-item ${unreadRowClass}">
@@ -1070,8 +1156,10 @@
                                     </div>`;
                                 });
 
-                                let empBadgeClass = emp.unreadCount > 0 ? 'blink-anim' : 'd-none';
-                                let empBadgeText  = emp.unreadCount > 0 ? `${emp.unreadCount} New Msg` : '0 Msg';
+                                let empBadgeClass = emp.unreadCount > 0 ? 'blink-anim' :
+                                    'd-none';
+                                let empBadgeText = emp.unreadCount > 0 ?
+                                    `${emp.unreadCount} New Msg` : '0 Msg';
 
                                 html += `
                                 <div class="col-12 mb-4 emp-card-wrapper">
@@ -1121,7 +1209,7 @@
                     error: function(xhr, status, error) {
                         console.error("🚨 -> API AJAX ERROR:", status, error);
                         console.log("Response Text:", xhr.responseText);
-                        
+
                         let errorMsg = "Server is not responding. Check Network tab.";
                         if (xhr.responseJSON && xhr.responseJSON.message) {
                             errorMsg = xhr.responseJSON.message;
@@ -1379,19 +1467,19 @@
 
                         window.Echo.private(window.currentChatChannel).listen('.message.sent', (
                             e) => {
-                                let log = e.logData;
-                                let logFilesHtml = '';
-                                if (log.attachments && log.attachments.length > 0) {
+                            let log = e.logData;
+                            let logFilesHtml = '';
+                            if (log.attachments && log.attachments.length > 0) {
+                                logFilesHtml +=
+                                    `<div class="mt-2 mb-1 d-flex flex-wrap gap-2">`;
+                                log.attachments.forEach(f => {
                                     logFilesHtml +=
-                                        `<div class="mt-2 mb-1 d-flex flex-wrap gap-2">`;
-                                    log.attachments.forEach(f => {
-                                        logFilesHtml +=
-                                            `<a href="/${f.file_path}" target="_blank" class="badge bg-white text-primary border border-info border-opacity-25 text-decoration-none p-1 px-2 shadow-sm"><i class="fas fa-paperclip me-1"></i> View File</a>`;
-                                    });
-                                    logFilesHtml += `</div>`;
-                                }
+                                        `<a href="/${f.file_path}" target="_blank" class="badge bg-white text-primary border border-info border-opacity-25 text-decoration-none p-1 px-2 shadow-sm"><i class="fas fa-paperclip me-1"></i> View File</a>`;
+                                });
+                                logFilesHtml += `</div>`;
+                            }
 
-                                let newMsgHtml = `
+                            let newMsgHtml = `
                             <div class="chat-bubble left" style="display:none;" id="new-msg-${log.id}">
                                 <div class="d-flex justify-content-between mb-1">
                                     <strong class="small" style="color: #1A365D;"><i class="fas fa-user-circle me-1"></i> ${log.actor_name}</strong>
@@ -1403,27 +1491,27 @@
                                 </div>
                             </div>`;
 
-                                let timelineDiv = $('#detailTimeline');
-                                if (timelineDiv.find('.text-center').length > 0) {
-                                    timelineDiv.find('.chat-container').html('');
-                                }
+                            let timelineDiv = $('#detailTimeline');
+                            if (timelineDiv.find('.text-center').length > 0) {
+                                timelineDiv.find('.chat-container').html('');
+                            }
 
-                                let container = timelineDiv.find('.chat-container');
-                                if (!container.length) {
-                                    timelineDiv.html('<div class="chat-container"></div>');
-                                    container = timelineDiv.find('.chat-container');
-                                }
+                            let container = timelineDiv.find('.chat-container');
+                            if (!container.length) {
+                                timelineDiv.html('<div class="chat-container"></div>');
+                                container = timelineDiv.find('.chat-container');
+                            }
 
-                                container.append(newMsgHtml);
-                                $(`#new-msg-${log.id}`).fadeIn(300);
+                            container.append(newMsgHtml);
+                            $(`#new-msg-${log.id}`).fadeIn(300);
 
-                                setTimeout(forceScrollToBottom, 100);
+                            setTimeout(forceScrollToBottom, 100);
 
-                                if (!$('#taskDetailsModal').hasClass('show') || $(
-                                        '#replyTaskId').val() != task.id) {
-                                    window.markTaskAsUnread(task.id);
-                                }
-                            }).error((error) => {
+                            if (!$('#taskDetailsModal').hasClass('show') || $(
+                                    '#replyTaskId').val() != task.id) {
+                                window.markTaskAsUnread(task.id);
+                            }
+                        }).error((error) => {
                             console.error("Echo Subscription Error:", error);
                         });
                     }
@@ -1532,6 +1620,10 @@
                     $('#editTaskTitleInput').val(task.title);
                     $('#editTaskDescInput').val(task.description);
                     $('#editTrackingModuleSelect').val(task.tracking_module_id || '');
+
+                    // 🔥 NAYA: Edit form me phase_id load karna
+                    $('#editPhaseSelect').val(task.phase_id || '');
+
                     $('#editTargetCountInput').val(task.target_count);
                     $('#editPrioritySelect').val(task.priority);
                     if (task.due_datetime) {

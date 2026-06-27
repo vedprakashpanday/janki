@@ -43,63 +43,96 @@ class LetterheadController extends Controller
         return response()->json(['error' => 'No file uploaded'], 400);
     }
 
-    public function store(Request $request)
+   public function store(Request $request)
     {
+        // 1. Validations (ref_no ki direct uniqueness hata di kyunki backend format banayega)
         $request->validate([
-            'branch_id' => 'required|exists:branches,id',
+            'ref_no' => 'required', // Ye wo series (53) hai jo frontend se aayegi
             'ref_year' => 'required',
             'letter_date' => 'required',
             'message' => 'required'
         ]);
 
-        $data = $request->except(['_token']);
+        // 2. Extract Company & Branch
+        $companyId = ($request->company_id === 'global' || empty($request->company_id)) ? null : $request->company_id;
+        $branchId = ($request->branch_id === 'all' || empty($request->branch_id)) ? null : $request->branch_id;
+
+        $company = $companyId ? \App\Models\Company::find($companyId) : \App\Models\Company::whereNull('parent_id')->first();
+        if (!$company) $company = \App\Models\Company::find(1); // Master Fallback
+
+        // 3. Setup Default Codes
+        $compCode = $company ? strtoupper($company->company_code) : 'COMP';
+        $stateCode = 'ST';
+        $distCode = 'DIST';
+        $branchSeq = 'HO';
+
+        // 4. Branch Hai Toh Uske Data Se Code Nikalo
+        if ($branchId) {
+            $branch = \App\Models\Branch::find($branchId);
+            if ($branch && $branch->branch_id) {
+                // Branch ID (e.g. COMP/ST/DIST/01/2026) me se hisse nikalo
+                $bParts = explode('/', $branch->branch_id);
+                $compCode = $bParts[0] ?? $compCode;
+                $stateCode = $bParts[1] ?? 'ST';
+                $distCode = $bParts[2] ?? 'DIST';
+                $branchSeq = $bParts[3] ?? '01'; // Branch Number (e.g., 01, 02)
+            }
+        } else {
+            // Head Office (HO) Logic: Company ke state/district se map karo
+            $branchSeq = 'HO';
+            
+            if ($company) {
+                $stateLower = strtolower(trim($company->state));
+                $stateMap = ['bihar' => 'BIH', 'uttar pradesh' => 'UP', 'delhi' => 'DL', 'jharkhand' => 'JHA', 'west bengal' => 'WB'];
+                $stateCode = $stateMap[$stateLower] ?? strtoupper(substr($stateLower, 0, 3));
+                if (empty($stateCode)) $stateCode = 'ST';
+
+                $distLower = strtolower(trim($company->district));
+                $distMap = ['madhubani' => 'MAD', 'darbhanga' => 'DBJ', 'gopalganj' => 'GOPJ', 'saharsa' => 'SAH', 'patna' => 'PAT'];
+                $distCode = $distMap[$distLower] ?? strtoupper(substr($distLower, 0, 3));
+                if (empty($distCode)) $distCode = 'DIST';
+            }
+        }
+
+        // 5. Build Final Reference Number String
+        $series = $request->ref_no; // Frontend se aayi series (e.g., 53)
+        $year = $request->ref_year;
+
+        // FORMAT: COMPANY_CODE / STATE_CODE / DIST_CODE / HO_OR_SEQ / SERIES / YEAR
+        $fullRefNo = "{$compCode}/{$stateCode}/{$distCode}/{$branchSeq}/{$series}/{$year}";
+
+        // Manual Uniqueness Check
+        if (\App\Models\Letterhead::where('ref_no', $fullRefNo)->exists()) {
+            return response()->json(['status' => 'error', 'message' => "Reference Number '$fullRefNo' is already generated. Please refresh to get a new ID."], 400);
+        }
+
+        // 6. Data Preparation
+        $data = $request->except(['_token', 'company_id', 'branch_id']);
+        
+        // Overwrite the simple series with the complex ref_no
+        $data['ref_no'] = $fullRefNo; 
+        $data['company_id'] = $companyId;
+        $data['branch_id'] = $branchId;
 
         if (strtolower($data['emp_code'] ?? '') === 'all') {
             $data['emp_code'] = 'All';
         }
 
-        // === NAYA AUTO REF NO GENERATOR (ABDPL/ST/DIST/01/2026) ===
-        $branch = Branch::findOrFail($request->branch_id);
-
-        // ==========================================
-        // 🛡️ 2. STORE OWNERSHIP CHECK
-        // ==========================================
+        // 7. Security Checks
         $user = auth()->user();
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
 
         if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
-            if ($branch->id != $user->branch_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You can only generate letterheads for your own branch.'], 403);
-            }
-        }
-        // ==========================================
-
-        $branchParts = explode('/', $branch->branch_id);
-        $stateCode = $branchParts[1] ?? 'ST';
-        $distCode  = $branchParts[2] ?? 'DIST';
-        $year = $request->ref_year;
-
-        // Is branch aur saal ka aakhiri record nikalenge
-        $lastRecord = Letterhead::where('branch_id', $branch->id)
-            ->where('ref_year', $year)
-            ->orderBy('id', 'desc')
-            ->first();
-
-        $nextSeq = 1;
-        if ($lastRecord && $lastRecord->ref_no) {
-            // Pattern: ABDPL/ST/DIST/01/2026
-            $parts = explode('/', $lastRecord->ref_no);
-            if (isset($parts[3])) {
-                $nextSeq = (int) $parts[3] + 1;
+            if ($companyId != $user->company_id || $branchId != $user->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You can only generate letterheads for your own company/branch.'], 403);
             }
         }
 
-        $sequence = str_pad($nextSeq, 2, "0", STR_PAD_LEFT);
-        $data['ref_no'] = "ABDPL/{$stateCode}/{$distCode}/{$sequence}/{$year}";
-
-        $letterhead = Letterhead::create($data);
+        // 8. Save
+        $letterhead = \App\Models\Letterhead::create($data);
         return response()->json(['status' => 'success', 'message' => "Letterhead Generated: {$letterhead->ref_no}"]);
     }
+
 
     public function show($id)
     {
@@ -140,6 +173,14 @@ class LetterheadController extends Controller
             }
         }
 
+        // Validation se theek pehle ya data extract karne ke baad:
+if ($request->company_id === 'global') {
+    $request->merge(['company_id' => null]);
+}
+if ($request->branch_id === 'all' || empty($request->branch_id)) {
+    $request->merge(['branch_id' => null]); 
+}
+
         // Update the record
         $letterhead->update($data);
 
@@ -165,15 +206,15 @@ class LetterheadController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Deleted successfully']);
     }
 
-    // ========================================================
-    // PRINT PREVIEW LOGIC (Laravel Query Builder - Fixes Table Name Errors)
+   // ========================================================
+    // PRINT PREVIEW LOGIC
     // ========================================================
     public function printPreview($id)
     {
-        $letterhead = \App\Models\Letterhead::with('branch')->findOrFail($id);
+        $letterhead = \App\Models\Letterhead::with('branch', 'company')->findOrFail($id);
 
         // ==========================================
-        // 🛡️ 4. PRINT OWNERSHIP CHECK (Web Route)
+        // 🛡️ PRINT OWNERSHIP CHECK (Web Route)
         // ==========================================
         $authUser = auth('sanctum')->user() ?? auth()->user();
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
@@ -197,7 +238,7 @@ class LetterheadController extends Controller
 
         if ($empCode && strtolower($empCode) !== 'all') {
 
-            // 1. Check in Employees Table
+            // 1. Check in Employees Table (FIXED WITH DESIGNATION MAPPING)
             $emp = \Illuminate\Support\Facades\DB::table('adm_regist')->where('member_id', $empCode)->first();
             if ($emp) {
                 $paid_to_name = $emp->full_name ?? null;
@@ -206,7 +247,15 @@ class LetterheadController extends Controller
                 $paid_to_address = $emp->communication_address ?? $emp->address ?? null;
                 $paid_to_relation = $emp->father_spouse_name ?? null;
                 $paid_to_doj = $emp->doj ?? '-';
-                $paid_to_designation = $emp->designation ?? 'Employee';
+                
+                // 🔥 NAYA FIX: designation_id se designations table se original naam nikalna
+                $paid_to_designation = 'Employee'; // Default Fallback
+                if (!empty($emp->designation_id)) {
+                    $desg = \Illuminate\Support\Facades\DB::table('designations')->where('id', $emp->designation_id)->first();
+                    if ($desg) {
+                        $paid_to_designation = $desg->designation_name;
+                    }
+                }
             }
 
             // 2. Check in Members Table
@@ -282,6 +331,44 @@ class LetterheadController extends Controller
             'paid_to_designation' => $paid_to_designation
         ];
 
-        return view('admin.print_letterhead', compact('records'));
+        // Header Component settings
+        if (empty($letterhead->company_id) || $letterhead->company_id === 'global') {
+            $companyForHeader = \App\Models\Company::whereNull('parent_id')->first() ?? \App\Models\Company::find(1);
+        } else {
+            $companyForHeader = \App\Models\Company::find($letterhead->company_id);
+        }
+
+        if (empty($letterhead->branch_id) || $letterhead->branch_id === 'all') {
+            $branchForHeader = null;
+        } else {
+            $branchForHeader = \App\Models\Branch::find($letterhead->branch_id);
+        }
+
+        return view('admin.print_letterhead', compact('records', 'companyForHeader', 'branchForHeader'));
+    }
+   // Frontend ko agla Number (Series) bhejne ke liye
+    public function getNextRefNo()
+    {
+        $lastRecord = \App\Models\Letterhead::orderBy('id', 'desc')->first();
+        $nextRef = 53; // Default starting series
+
+        if ($lastRecord && $lastRecord->ref_no) {
+            // Pattern check (e.g., ABDPL/BIH/PAT/HO/53/2026)
+            $parts = explode('/', $lastRecord->ref_no);
+            
+            // Agar full format me hai (kam se kam 5 hisse hain), to 2nd last item series hogi
+            if (count($parts) >= 5) {
+                $seriesPart = $parts[count($parts) - 2]; 
+                if (is_numeric($seriesPart)) {
+                    $nextRef = intval($seriesPart) + 1;
+                }
+            } 
+            // Agar purana record sirf number format me hai
+            elseif (is_numeric($lastRecord->ref_no)) {
+                $nextRef = intval($lastRecord->ref_no) + 1;
+            }
+        }
+
+        return response()->json(['status' => 'success', 'next_ref_no' => $nextRef]);
     }
 }

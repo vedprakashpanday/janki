@@ -225,14 +225,19 @@
                     <table id="empTable" class="table table-hover table-custom w-100">
                         <thead>
                             <tr>
-                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll"
-                                        class="form-check-input border-secondary"></th>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" class="form-check-input border-secondary"></th>
+                                <th class="d-none">Sl No</th>
                                 <th>Emp ID</th>
                                 <th>Name</th>
                                 <th>Company & Branch</th>
+                                <th class="d-none">Company</th>
+                                <th class="d-none">Branch</th>
                                 <th>Dept & Role</th>
+                                <th class="d-none">Department</th>
+                                <th class="d-none">Role</th>
                                 <th>Mobile</th>
-                                <th>Status</th>
+                                <th>Joining Date</th>
+                                <th>Stage</th> <th>Sys Status</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
@@ -642,30 +647,45 @@
                                             accept=".pdf"></div>
                                 </div>
 
-                                <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Service
-                                    Status</h6>
+                          <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Service Status & Stage</h6>
                                 <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label small fw-bold">Employee Status</label>
-                                        <select class="form-select border-primary" name="emp_status" id="emp_status">
-                                            <option value="active">Active</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="inactive">In-Active</option>
-                                            <option value="transferred">Transferred</option>
-                                            <option value="terminated">Terminated</option>
-                                            <option value="resigned">Resigned</option>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold">System Status <span class="text-danger">*</span></label>
+                                        <select class="form-select border-primary fw-bold" name="emp_status" id="emp_status">
+                                            <option value="active" class="text-success">Active</option>
+                                            <option value="inactive" class="text-danger">In-Active</option>
+                                            <option value="pending" class="text-warning">Pending</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-4 leave-fields" style="display:none;">
-                                        <label class="form-label small fw-bold text-danger">Date of Leaving (D.O.L)</label>
-                                        <input type="date" name="d_o_l" id="d_o_l"
-                                            class="form-control border-danger">
+                                    
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-bold text-primary">Employment Stage</label>
+                                        <select class="form-select border-primary" name="employment_stage" id="employment_stage">
+                                            <option value="On Board">On Board</option>
+                                            <option value="Probation">Probation</option>
+                                            <option value="Confirmed">Confirmed</option>
+                                            <option value="Notice Period">Notice Period</option>
+                                            <option value="Resigned">Resigned</option>
+                                            <option value="Relieved">Relieved</option>
+                                            <option value="Terminated">Terminated</option>
+                                            <option value="Dismissed">Dismissed</option>
+                                            {{-- <option value="Absconded">Absconded</option> --}}
+                                            <option value="Retired">Retired</option>
+                                            <option value="Deceased">Deceased</option>
+                                            <option value="Suspended">Suspended</option>
+                                            <option value="Transferred">Transferred</option>
+                                            
+                                            <option value="Rehired">Rehired</option>
+                                        </select>
                                     </div>
-                                    <div class="col-md-4 transferred-fields" style="display:none;">
-                                        <label class="form-label small fw-bold text-primary">Transferred To (Company) <span
-                                                class="text-danger">*</span></label>
-                                        <select class="form-select border-primary" name="transferred_to_company"
-                                            id="transferred_to_company">
+
+                                    <div class="col-md-3 leave-fields" style="display:none;">
+                                        <label class="form-label small fw-bold text-danger">Date of Leaving (D.O.L)</label>
+                                        <input type="date" name="d_o_l" id="d_o_l" class="form-control border-danger">
+                                    </div>
+                                    <div class="col-md-3 transferred-fields" style="display:none;">
+                                        <label class="form-label small fw-bold text-primary">Transferred To (Company)</label>
+                                        <select class="form-select border-primary" name="transferred_to_company" id="transferred_to_company">
                                             <option value="">-- Select Company --</option>
                                         </select>
                                     </div>
@@ -761,9 +781,7 @@
                 $('#emp_status').html(`
                     <option value="active">Active</option>
                     <option value="inactive">In-Active</option>
-                    <option value="transferred">Transferred</option>
-                    <option value="terminated">Terminated</option>
-                    <option value="resigned">Resigned</option>
+                    
                 `).val('active').prop('disabled', false);
                 $('#modalTitle').html('<i class="fas fa-user-plus me-2 text-primary"></i> Register New Employee');
                 $('#saveBtn').text('Save Employee Record');
@@ -782,11 +800,18 @@
         $(document).ready(function() {
             $.fn.dataTable.ext.errMode = 'none';
 
-            $.ajax({
+           $.ajax({
                 url: `/api/v1/${currentPortal}/auth/me`,
                 type: 'GET',
                 success: function(res) {
                     currentUserData = res.data;
+                    
+                    // 🔥 BUG FIX: Admin ke liye frontend par God Mode true set karein
+                    let developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+                    if (currentUserData && (developerEmails.includes(currentUserData.email) || ['admin', 'superadmin', 'ceo', 'super_admin'].includes(currentUserData.role?.toLowerCase()))) {
+                        window.userGodMode = true;
+                    }
+                    
                     applyRoleRestrictions();
                 }
             });
@@ -1023,13 +1048,25 @@
                     text: '<i class="fas fa-file-excel me-1"></i> Export to Excel',
                     className: 'btn btn-success btn-sm fw-bold shadow-sm secured-item',
                     attr: {
-                        'data-permission': 'employee_request_export'
+                        'data-permission': 'employee_export'
+                    },
+                    // 🔥 1. Download hone wali file ka naam
+                    filename: function() {
+                        let compName = (currentUserData && currentUserData.company_name) ? currentUserData.company_name : 'Jankivilla';
+                        return compName + ' - Excel Report';
+                    },
+                    // 🔥 2. Excel Sheet ke andar ka Main Title
+                    title: function() {
+                        let compName = (currentUserData && currentUserData.company_name) ? currentUserData.company_name : 'Jankivilla';
+                        return compName + ' | Excel Report';
                     },
                     exportOptions: {
-                        columns: ':visible:not(:last-child)'
+                        columns: [1, 2, 3, 5, 6, 8, 9, 10, 11, 12,13],
+                        orthogonal: 'export'
                     }
                 }],
-                columns: [{
+                columns: [
+                    {
                         data: 'id',
                         orderable: false,
                         searchable: false,
@@ -1039,16 +1076,27 @@
                         }
                     },
                     {
+                        data: null, // 🔥 Sl No
+                        className: 'd-none',
+                        orderable: false,
+                        searchable: false,
+                        render: function (data, type, row, meta) {
+                            return meta.row + 1;
+                        }
+                    },
+                    {
                         data: 'member_id',
-                        render: d => `<span class="emp-id-badge">${d || 'N/A'}</span>`
+                        render: function(data, type) {
+                            if (type === 'export') return data || 'N/A';
+                            return `<span class="emp-id-badge">${data || 'N/A'}</span>`;
+                        }
                     },
                     {
                         data: 'full_name',
                         render: function(data, type, row) {
                             let name = data || 'Unknown';
-                            let role = row.role ?
-                                `<br><small class="text-muted"><i class="fas fa-shield-alt text-warning"></i> ${row.role}</small>` :
-                                '';
+                            if (type === 'export') return name; // 🔥 Excel mein sirf naam aayega, badge/role nahi
+                            let role = row.role ? `<br><small class="text-muted"><i class="fas fa-shield-alt text-warning"></i> ${row.role}</small>` : '';
                             return `<div class="fw-bold text-dark">${name}</div>${role}`;
                         }
                     },
@@ -1061,34 +1109,75 @@
                         }
                     },
                     {
+                        data: null, // 🔥 Excel ke liye Company
+                        className: 'd-none',
+                        render: function(data, type, row) {
+                            return row.company ? row.company.company_name : 'Master Head Office';
+                        }
+                    },
+                    {
+                        data: null, // 🔥 Excel ke liye Branch
+                        className: 'd-none',
+                        render: function(data, type, row) {
+                            return row.branch ? row.branch.branch_name : 'Head Office';
+                        }
+                    },
+                    {
                         data: null,
                         render: function(data, type, row) {
                             let dept = row.department ? row.department.department_name : 'N/A';
-                            let desig = row.designation ? (typeof row.designation === 'object' ? row
-                                .designation.designation_name : row.designation) : 'N/A';
+                            let desig = row.designation ? (typeof row.designation === 'object' ? row.designation.designation_name : row.designation) : 'N/A';
                             return `<div class="fw-medium">${dept}</div><small class="text-primary fw-bold">${desig}</small>`;
                         }
                     },
                     {
+                        data: null, // 🔥 Excel ke liye Department
+                        className: 'd-none',
+                        render: function(data, type, row) {
+                            return row.department ? row.department.department_name : 'N/A';
+                        }
+                    },
+                    {
+                        data: null, // 🔥 Excel ke liye Role/Designation
+                        className: 'd-none',
+                        render: function(data, type, row) {
+                            return row.designation ? (typeof row.designation === 'object' ? row.designation.designation_name : row.designation) : 'N/A';
+                        }
+                    },
+                    {
                         data: 'contact_no',
-                        render: function(data) {
+                        render: function(data, type) {
+                            if (type === 'export') return data || 'N/A';
                             return `<i class="fas fa-phone-alt text-success me-1"></i> ${data || 'N/A'}`;
+                        }
+                    },
+                    {
+                        data: 'doj',
+                        render: function(data, type) {
+                            if (type === 'export') return data || 'N/A';
+                            if (!data) return '<span class="text-muted">N/A</span>';
+                            return `<i class="fas fa-calendar-alt text-secondary me-1"></i> <span class="fw-medium">${data}</span>`;
+                        }
+                    },
+                    {
+                        data: 'employment_stage',
+                        render: function(data, type) {
+                            let stage = data || 'On Board';
+                            if (type === 'export') return stage;
+                            return `<span class="badge border border-info text-info"><i class="fas fa-layer-group me-1"></i> ${stage}</span>`;
                         }
                     },
                     {
                         data: 'emp_status',
                         className: 'text-center',
-                        render: function(data) {
+                        render: function(data, type) {
                             let s = (data || 'active').toLowerCase();
+                            if (type === 'export') return s.charAt(0).toUpperCase() + s.slice(1);
                             if (s === 'active') return `<span class="status-active">Active</span>`;
-                            if (s === 'pending')
-                                return `<span class="status-pending">Pending</span>`;
-                            if (s === 'transferred')
-                                return `<span class="status-transferred">Transferred</span>`;
-                            if (s === 'terminated')
-                                return `<span class="status-terminated">Terminated</span>`;
-                            if (s === 'resigned')
-                                return `<span class="status-resigned">Resigned</span>`;
+                            if (s === 'pending') return `<span class="status-pending">Pending</span>`;
+                            if (s === 'transferred') return `<span class="status-transferred">Transferred</span>`;
+                            if (s === 'terminated') return `<span class="status-terminated">Terminated</span>`;
+                            if (s === 'resigned') return `<span class="status-resigned">Resigned</span>`;
                             return `<span class="status-inactive">Inactive</span>`;
                         }
                     },
@@ -1097,24 +1186,20 @@
                         orderable: false,
                         className: 'text-center action-btns',
                         render: function(data, type, row) {
-                            let actions =
-                                `<button class="btn btn-sm btn-info view-employee text-white shadow-sm" data-id="${row.id}" title="View Details"><i class="fas fa-eye"></i></button>`;
+                            let actions = `<button class="btn btn-sm btn-info view-employee text-white shadow-sm" data-id="${row.id}" title="View Details"><i class="fas fa-eye"></i></button>`;
                             let currentStatus = (row.emp_status || '').toLowerCase();
 
                             if (currentStatus === 'pending') {
                                 if (window.hasPerm('employee_approve')) {
-                                    actions +=
-                                        ` <button class="btn btn-sm btn-success approve-emp-btn shadow-sm" data-id="${row.id}" title="Approve Employee"><i class="fas fa-check-circle"></i></button>`;
+                                    actions += ` <button class="btn btn-sm btn-success approve-emp-btn shadow-sm" data-id="${row.id}" title="Approve Employee"><i class="fas fa-check-circle"></i></button>`;
                                 }
                                 if (window.hasPerm('employee_reject')) {
-                                    actions +=
-                                        ` <button class="btn btn-sm btn-danger reject-emp-btn shadow-sm" data-id="${row.id}" title="Reject Employee"><i class="fas fa-times-circle"></i></button>`;
+                                    actions += ` <button class="btn btn-sm btn-danger reject-emp-btn shadow-sm" data-id="${row.id}" title="Reject Employee"><i class="fas fa-times-circle"></i></button>`;
                                 }
                             }
 
                             if (window.hasPerm('employee_edit')) {
-                                actions +=
-                                    ` <button class="btn btn-sm btn-primary edit-employee shadow-sm" data-id="${row.id}" title="Edit"><i class="fas fa-edit"></i></button>`;
+                                actions += ` <button class="btn btn-sm btn-primary edit-employee shadow-sm" data-id="${row.id}" title="Edit"><i class="fas fa-edit"></i></button>`;
                             }
 
                             return actions;
@@ -1157,6 +1242,7 @@
                 } else {
                     data.forEach(emp => {
                         let statusHtml = '';
+                        let stageHtml = `<span class="badge border border-secondary text-secondary ms-2">${emp.employment_stage || 'On Board'}</span>`;
                         let s = (emp.emp_status || 'active').toLowerCase();
                         if (s === 'active') statusHtml = `<span class="status-active">Active</span>`;
                         else if (s === 'pending') statusHtml =
@@ -1206,14 +1292,13 @@
                                     ${checkboxHtml}
                                     <div><h6 class="fw-bold mb-0">${emp.full_name}</h6><span class="emp-id-badge">${emp.member_id}</span></div>
                                 </div>
-                                ${statusHtml}
+                                ${statusHtml} ${stageHtml}
                             </div>
                             <div class="small text-secondary mb-3">
-                                <div><i class="fas fa-building me-1 text-muted"></i> ${compName} - ${branchName}</div>
                                 <div class="mt-1"><i class="fas fa-briefcase me-1 text-muted"></i> ${deptName} - ${desigName}</div>
-                                <div class="mt-1"><i class="fas fa-phone-alt me-1 text-muted"></i> ${emp.contact_no || 'N/A'}</div>
-                            </div>
-                            ${actionHtml}
+<div class="mt-1"><i class="fas fa-phone-alt me-1 text-muted"></i> ${emp.contact_no || 'N/A'}</div>
+<div class="mt-1"><i class="fas fa-calendar-check me-1 text-muted"></i> DOJ: <span class="text-dark fw-bold">${emp.doj || 'N/A'}</span></div> </div>
+${actionHtml}
                         </div>`;
                     });
                 }
@@ -1258,6 +1343,23 @@
                         input.val(emp[key]);
                     }
                 });
+
+                // 🔥 BUG FIX: Bank details relation ko manually input fields mein set karein
+let bd = emp.bank_details || emp.bankDetails;
+if (bd) {
+    $('#account_name').val(bd.account_name || '');
+    $('#account_no').val(bd.account_no || '');
+    $('#account_type').val(bd.account_type || '');
+    $('#bank_name').val(bd.bank_name || '');
+    $('#bank_branch').val(bd.branch || ''); // DB field is 'branch', input is 'bank_branch'
+    $('#ifsc_code').val(bd.ifsc_code || '');
+} else {
+    $('#account_name, #account_no, #account_type, #bank_name, #bank_branch, #ifsc_code').val('');
+}
+
+// 🔥 BUG FIX: Puraane file previews ko clear karna zaroori hai
+$('.file-preview-wrapper').hide().find('.preview-content').empty();
+
 
                 if (emp.gender) $(`input[name="gender"][value="${emp.gender}"]`).prop('checked', true);
                 if (emp.marital_status) {
@@ -1320,7 +1422,7 @@
                         let isDirector = currentUserData?.designation_name?.toLowerCase()
                             .includes('director');
                         let hasDirect = isGod || isDirector || window.hasPerm(
-                            'employee_edit_direct');
+                            'employee_edit');
 
                         $('#emp_status').html(`
                             <option value="active">Active</option>
@@ -1337,13 +1439,101 @@
                             $('#emp_status').val(emp.emp_status).prop('disabled', false);
                         }
 
+                       // 1. Fill basic text and select fields (including Nominee details which are in emp object)
                         Object.keys(emp).forEach(key => {
                             let input = $(`#empForm [name="${key}"]`);
-                            if (input.attr('type') !== 'file' && input.attr('type') !==
-                                'radio') {
+                            if (input.length > 0 && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
                                 input.val(emp[key]);
                             }
                         });
+
+                        $('#m_role').val(emp.role || 'employee');
+                        if (emp.gender) $(`input[name="gender"][value="${emp.gender}"]`).prop('checked', true);
+
+                        if (emp.marital_status) {
+                            $(`input[name="marital_status"][value="${emp.marital_status}"]`).prop('checked', true).trigger('change');
+                        }
+                        $('#emp_status').trigger('change');
+
+                        // 🔥 2. BUG FIX: Bank Details Autofill (Bulletproof)
+                        let bd = emp.bank_details || emp.bankDetails;
+                        if (bd) {
+                            $('#account_name').val(bd.account_name || '');
+                            $('#account_no').val(bd.account_no || '');
+                            
+                            // Account Type mein case mismatch roknay ke liye toLowerCase aur trigger() add kiya gaya hai
+                            let accType = bd.account_type ? bd.account_type.toLowerCase() : '';
+                            $('#account_type').val(accType).trigger('change'); 
+                            
+                            $('#bank_name').val(bd.bank_name || '');
+                            $('#bank_branch').val(bd.branch || ''); // Database 'branch' map hoga 'bank_branch' id wale input par
+                            $('#ifsc_code').val(bd.ifsc_code || '');
+                        } else {
+                            $('#account_name, #account_no, #bank_name, #bank_branch, #ifsc_code').val('');
+                            $('#account_type').val('').trigger('change');
+                        }
+
+                        // Company & Branch Selection logic
+                        if (isGod) {
+                            $('#m_company_id, #m_branch_id').prop('disabled', false);
+                            $('#m_company_id').val(emp.company_id || '').trigger('change');
+                        } else if (currentUserData) {
+                           let compOption = new Option(currentUserData.company_name || 'Assigned Company', currentUserData.company_id || '', true, true);
+                            $('#m_company_id').empty().append(compOption).prop('disabled', true);
+
+                            if (isDirector) {
+                                $('#m_branch_id').prop('disabled', false);
+                            } else {
+                               let branchOption = new Option(currentUserData.branch_name || 'Assigned Branch', currentUserData.branch_id || '', true, true);
+                                $('#m_branch_id').empty().append(branchOption).prop('disabled', true);
+                            }
+                            $('#m_company_id').trigger('change');
+                        }
+
+                        setTimeout(() => {
+                            if (!$('#m_branch_id').prop('disabled')) {
+                                $('#m_branch_id').val(emp.branch_id || '').trigger('change');
+                            }
+                            $('#m_department_id').val(emp.department_id || '').trigger('change');
+                            setTimeout(() => {
+                                $('#designation_input').val(emp.designation_id || '').trigger('change');
+                            }, 400);
+                        }, 400);
+
+                        // 🔥 3. BUG FIX: Files and Previews Autofill
+                        // Pehle sabhi purani previews clear karein
+                        $('.file-preview-wrapper').hide().find('.preview-content').empty();
+                        
+                        let fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf',
+                            'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf',
+                            'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf',
+                            'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf',
+                            'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 'nom_tenth_pdf',
+                            'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf',
+                            'nom_other_pdf'
+                        ];
+                        
+                        fileFields.forEach(function(field) {
+                            let filePath = emp[field];
+                            let input = $(`#empForm input[name="${field}"]`);
+                            if (input.length > 0 && filePath) {
+                                let wrapper = input.next('.file-preview-wrapper');
+                                let content = wrapper.find('.preview-content');
+                                let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
+                                let ext = filePath.split('.').pop().toLowerCase();
+                                let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
+                                
+                                if (imageExts.includes(ext)) {
+                                    content.html(`<img src="${fullUrl}" style="max-height:90px; border-radius:6px; object-fit:contain;">`);
+                                } else {
+                                    content.html(`<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas fa-file-pdf text-danger fs-3"></i><a href="${fullUrl}" target="_blank" class="text-decoration-none" style="font-size:12px;">View Doc</a></div>`);
+                                }
+                                wrapper.show();
+                            }
+                        });
+
+                        $('.nav-pills a:first').tab('show');
+                        $('#employeeModal').modal('show');
 
                         $('#m_role').val(emp.role || 'employee');
                         if (emp.gender) $(`input[name="gender"][value="${emp.gender}"]`).prop(
@@ -1390,14 +1580,14 @@
                             }, 400);
                         }, 400);
 
-                        let fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf',
-                            'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf',
-                            'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf',
-                            'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf',
-                            'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_tenth_pdf',
-                            'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf',
-                            'nom_other_pdf'
-                        ];
+                        // let fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf',
+                        //     'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf',
+                        //     'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf',
+                        //     'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf',
+                        //     'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_tenth_pdf',
+                        //     'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf',
+                        //     'nom_other_pdf'
+                        // ];
                         fileFields.forEach(function(field) {
                             let filePath = emp[field];
                             let input = $(`#empForm input[name="${field}"]`);
@@ -1549,9 +1739,9 @@
                                             <div class="row g-4">
                                                 <div class="col-sm-6"><label class="text-muted small mb-1">Aadhar No</label><h6 class="fw-bold">${d.aadhar_no || 'N/A'}</h6></div>
                                                 <div class="col-sm-6"><label class="text-muted small mb-1">PAN No</label><h6 class="fw-bold text-uppercase">${d.pan_no || 'N/A'}</h6></div>
-                                                <div class="col-sm-6"><label class="text-muted small mb-1">Bank Name</label><h6 class="fw-bold">${d.bankDetails ? d.bankDetails.bank_name : 'N/A'}</h6></div>
-                                                <div class="col-sm-6"><label class="text-muted small mb-1">Account No</label><h6 class="fw-bold">${d.bankDetails ? d.bankDetails.account_no : 'N/A'}</h6></div>
-                                                <div class="col-sm-6"><label class="text-muted small mb-1">IFSC Code</label><h6 class="fw-bold text-uppercase">${d.bankDetails ? d.bankDetails.ifsc_code : 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Bank Name</label><h6 class="fw-bold">${d.bank_details ? d.bank_details.bank_name : 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">Account No</label><h6 class="fw-bold">${d.bank_details ? d.bank_details.account_no : 'N/A'}</h6></div>
+                                                <div class="col-sm-6"><label class="text-muted small mb-1">IFSC Code</label><h6 class="fw-bold text-uppercase">${d.bank_details ? d.bank_details.ifsc_code : 'N/A'}</h6></div>
                                             </div>
                                         </div>
 
@@ -1583,13 +1773,15 @@
                 });
             });
 
-            $('#emp_status').off('change').on('change', function() {
+$('#employment_stage').off('change').on('change', function() {
                 let val = $(this).val();
-                if (['inactive', 'transferred', 'terminated', 'resigned'].includes(val)) {
+                let leavingStages = ['Notice Period', 'Resigned', 'Relieved', 'Terminated', 'Dismissed', 'Absconded', 'Retired', 'Deceased', 'Transferred'];
+                
+                if (leavingStages.includes(val)) {
                     $('.leave-fields').slideDown();
                     $('#d_o_l').attr('required', true);
 
-                    if (val === 'transferred') {
+                    if (val === 'Transferred') {
                         $('.transferred-fields').slideDown();
                         $('#transferred_to_company').attr('required', true);
                     } else {
@@ -1639,14 +1831,14 @@
                 });
             });
 
-            function updateEmployeeStatus(id, newStatus) {
-                $.ajax({
-                    url: apiPrefix + '/employees/' + id + '/status',
-                    type: 'PUT',
-                    data: {
-                        status: newStatus,
-                        _token: $('meta[name="csrf-token"]').attr('content')
-                    },
+           function updateEmployeeStatus(id, newStatus) {
+    $.ajax({
+        url: `/api/v1/employees/${id}/status`, // ✅ Yahan correct URL route set kar diya gaya hai
+        type: 'POST',
+        data: {
+            status: newStatus,
+            _token: $('meta[name="csrf-token"]').attr('content')
+        },
                     success: function(res) {
                         Swal.fire({
                             icon: 'success',

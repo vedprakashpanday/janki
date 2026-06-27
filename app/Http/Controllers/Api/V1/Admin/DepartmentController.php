@@ -409,51 +409,50 @@ class DepartmentController extends Controller
     }
 
     // 🔥 FIX: Added Branch Scoping check and Global Context to fix cascading issue
+   
+    
     public function getDepartmentsByCompany(Request $request)
     {
-        $context = $this->getGlobalContext();
+        $companyId = $request->company_id;
+        $branchId = $request->branch_id;
+
         $query = Department::where('status', 'active');
 
-        // 1. Company Scoping Logic
-        $companyId = $context->is_god ? $request->company_id : $context->company_id;
-
-        if ($companyId) {
+        // 1. Company Filter: Global departments (null/'all') ya us specific company ke departments
+        if (!empty($companyId)) {
             $query->where(function ($q) use ($companyId) {
                 $q->whereNull('company_ids')
-                    ->orWhereJsonContains('company_ids', 'all')
-                    ->orWhereJsonContains('company_ids', (string)$companyId)
-                    ->orWhereJsonContains('company_ids', (int)$companyId);
+                  ->orWhereJsonContains('company_ids', 'all')
+                  ->orWhereJsonContains('company_ids', (string)$companyId)
+                  ->orWhereJsonContains('company_ids', (int)$companyId);
             });
         }
 
-        // 2. Branch & Head Office Scoping Logic
-        if ($request->has('branch_id')) {
-            $branchId = $request->branch_id;
-            if ($branchId === '' || $branchId === null) {
-                // Agar Head Office select kiya hai, toh sirf Global departments aayenge
-                $query->where(function ($q) {
+        // 2. Branch/HO Filter: STRICT LOGIC
+        if (!empty($branchId) && $branchId !== 'null') {
+            if ($branchId === 'HO' || str_starts_with($branchId, 'HO_')) {
+                // Agar Head Office hai, toh sirf wahi departments lao jinka branch_ids null hai
+                $query->where(function($q) {
                     $q->whereNull('branch_ids')
-                        ->orWhere('branch_ids', '[]')
-                        ->orWhere('branch_ids', '')
-                        ->orWhereRaw("JSON_LENGTH(branch_ids) = 0");
+                      ->orWhereJsonContains('branch_ids', null);
                 });
             } else {
-                // Agar koi Branch select ki hai, toh Branch specific + Global dono aayenge
+                // Agar normal branch hai, toh us branch ke departments lao
                 $query->where(function ($q) use ($branchId) {
                     $q->whereNull('branch_ids')
-                        ->orWhere('branch_ids', '[]')
-                        ->orWhere('branch_ids', '')
-                        ->orWhereRaw("JSON_LENGTH(branch_ids) = 0")
-                        ->orWhereJsonContains('branch_ids', (string)$branchId)
-                        ->orWhereJsonContains('branch_ids', (int)$branchId)
-                        ->orWhereJsonContains('branch_ids', 'all');
+                      ->orWhereJsonContains('branch_ids', 'all')
+                      ->orWhereJsonContains('branch_ids', (string)$branchId)
+                      ->orWhereJsonContains('branch_ids', (int)$branchId);
                 });
             }
         }
 
-        return response()->json(['status' => 'success', 'data' => $query->get(['id', 'department_name'])]);
+        $departments = $query->orderBy('department_name', 'asc')->get(['id', 'department_name']);
+
+        return response()->json(['status' => 'success', 'data' => $departments]);
     }
 
+    
     public function getBranchesByCompanies(Request $request)
     {
         $context = $this->getGlobalContext();

@@ -7,10 +7,13 @@ use App\Models\Employee;
 use Illuminate\Http\Request;
 use App\Models\EmployeeLogin;
 use Illuminate\Support\Facades\DB;
+use App\Models\AttendanceTimeWindow;
+use App\Services\MediaConverterService;
+use Carbon\Carbon;
+use App\Models\Attendance;
 
 class AuthController extends Controller
 {
-
 
 public function verifyId(Request $request)
     {
@@ -40,59 +43,37 @@ public function verifyId(Request $request)
             }
         }
 
-        $currentTime = now()->format('H:i:s');
-        $currentDate = now()->format('Y-m-d');
-
-        // 🔥 FIX: Night-Shift Proof Time Check (Primary) 🔥
-        $isPrimaryTime = false;
-        if ($login->p_time_from < $login->p_time_to) {
-            $isPrimaryTime = ($currentTime >= $login->p_time_from && $currentTime <= $login->p_time_to);
-        } else {
-            $isPrimaryTime = ($currentTime >= $login->p_time_from || $currentTime <= $login->p_time_to);
-        }
-
-        // 🔥 FIX: Night-Shift Proof Time Check (Secondary) 🔥
-        $isSecondaryTime = false;
-        if ($login->s_status === 'allow' && $login->s_date_from && $login->s_date_to && $login->s_time_from && $login->s_time_to) {
-            if ($currentDate >= $login->s_date_from && $currentDate <= $login->s_date_to) {
-                if ($login->s_time_from < $login->s_time_to) {
-                    $isSecondaryTime = ($currentTime >= $login->s_time_from && $currentTime <= $login->s_time_to);
-                } else {
-                    $isSecondaryTime = ($currentTime >= $login->s_time_from || $currentTime <= $login->s_time_to);
-                }
-            }
-        }
-
         // 1. First Time Login Check
         if (empty($login->primary_device)) {
             return response()->json(['status' => 'require_password', 'message' => 'First time login. Enter Password to bind device.']);
         }
 
-        // 2. 🔥 NEW FIX: Smart Secondary Self-Binding 🔥
-        // Agar admin ne override diya hai par device empty hai, toh password mango!
-        if ($login->s_status === 'allow' && empty($login->secondary_device) && $isSecondaryTime) {
+        // 2. Secondary Device Slot Active
+        if ($login->s_status === 'allow' && empty($login->secondary_device)) {
             if (!str_ends_with($login->primary_device, '_' . $baseToken)) {
-                return response()->json(['status' => 'require_password', 'message' => 'Emergency Shift Active. Enter Password to temporarily bind this device.']);
+                return response()->json(['status' => 'require_password', 'message' => 'Secondary Slot Active. Enter Password to permanently bind this device.']);
             }
         }
 
-        // 3. Check if it's the Primary Device
+        // 3. Check if Primary
         if (str_ends_with($login->primary_device, '_' . $baseToken)) {
-            if (!$isPrimaryTime && !$isSecondaryTime) {
-                return response()->json(['status' => 'error', 'message' => 'Outside working hours. Access Denied.'], 403);
-            }
             return $this->sendOtp($login, 'Welcome back! OTP sent to your registered email.');
         }
 
-        // 4. Check if it's the Secondary Device
+        // 4. Check if Secondary
         if (!empty($login->secondary_device) && str_ends_with($login->secondary_device, '_' . $baseToken)) {
-            if (!$isSecondaryTime) {
-                return response()->json(['status' => 'error', 'message' => 'Emergency shift parameters expired.'], 403);
-            }
-            return $this->sendOtp($login, 'Emergency Access Verified! OTP sent to your email.');
+            return $this->sendOtp($login, 'Secondary Access Verified! OTP sent to your email.');
         }
 
-        // Log Unauthorized Attempt
+        // 5. Cross-Device Office Bypass (Bina GPS ke, sirf check karega ki device kisi aur ka registered toh nahi)
+        $isRecognizedDevice = \App\Models\EmployeeLogin::where('primary_device', 'LIKE', '%' . $baseToken)
+                                           ->orWhere('secondary_device', 'LIKE', '%' . $baseToken)
+                                           ->exists();
+        if ($isRecognizedDevice) {
+             return $this->sendOtp($login, 'Shared Device Detected! Bypass successful, OTP sent.');
+        }
+
+        // 6. Log Unauthorized Attempt
         $otherDevices = $login->other_devices ?? [];
         $fullOtherToken = $empId . '_O_' . $baseToken;
         $alreadyLogged = false;
@@ -242,7 +223,7 @@ public function verifyId(Request $request)
 //         ]);
 //     }
 
-    public function verifyOtp(Request $request)
+   public function verifyOtp(Request $request)
     {
         $request->validate([
             'panel_id' => 'required',
@@ -266,9 +247,15 @@ public function verifyId(Request $request)
                 return response()->json(['status' => 'error', 'message' => 'Employee Record Not Found in Database!'], 404);
             }
 
-            // Naya code:
-    $fullTokenName = $loginRecord->user_id . '_P_' . $request->device_token;
-    $token = $employee->createToken($fullTokenName)->plainTextToken;
+            // 🔥 MASTER FIX: Detect if device is Secondary or Primary
+            $isSecondary = !empty($loginRecord->secondary_device) && str_ends_with($loginRecord->secondary_device, '_' . $request->device_token);
+            
+            // Agar secondary hai toh '_S_' lagao, varna '_P_'
+            $prefix = $isSecondary ? '_S_' : '_P_';
+            $fullTokenName = $loginRecord->user_id . $prefix . $request->device_token;
+            
+            // Correct token create karo
+            $token = $employee->createToken($fullTokenName)->plainTextToken;
 
             return response()->json([
                 'status' => 'success',
@@ -281,11 +268,9 @@ public function verifyId(Request $request)
         }
     }
 
-    // ==========================================
-    // PHASE 4: SMART AUTO-ATTENDANCE (MULTI-SESSION REPAIRED)
-    // ==========================================
-    public function markAttendance(Request $request)
+public function markAttendance(Request $request, MediaConverterService $mediaConverter)
     {
+        // 1. Existing Device Security Check
         $request->validate([
             'panel_id' => 'required|string',
             'latitude' => 'nullable|string',
@@ -294,59 +279,123 @@ public function verifyId(Request $request)
 
         $login = EmployeeLogin::where('panel_id', $request->panel_id)->first();
         if (!$login) {
-            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+            return response()->json(['status' => 'error', 'message' => 'User not found or invalid device panel.'], 404);
         }
 
-        $today = now()->format('Y-m-d');
-        $currentTime = now()->format('H:i:s');
+        $user = $request->user();
+        $today = Carbon::now()->format('Y-m-d');
+        $systemTime = Carbon::now();
 
-        $attendance = \App\Models\Attendance::where('user_id', $login->user_id)
-            ->where('date', $today)
+        // 2. Get Applicable Time Window (Prioritize Branch level rule)
+        $timeWindow = AttendanceTimeWindow::where('company_id', $user->company_id)
+            ->where(function($q) use ($user) {
+                if ($user->branch_id) {
+                    $q->where('branch_id', $user->branch_id)->orWhereNull('branch_id');
+                } else {
+                    $q->whereNull('branch_id'); // Head Office
+                }
+            })
+            ->where('status', 'active')
+            ->orderBy('branch_id', 'desc')
             ->first();
 
-        // Har login par naya session banega
+        // 3. Time Validations
+        $claimedTimeStr = $request->claimed_time ?? $systemTime->format('H:i:s');
+        $claimedTime = Carbon::parse($today . ' ' . $claimedTimeStr);
+
+        $diffInMinutes = $systemTime->diffInMinutes($claimedTime);
+        $needsProof = $diffInMinutes > 5;
+
+        // Strict Enforcement: Reject if > 5 mins difference and no proof
+        if ($needsProof && (!$request->has('reason') || !$request->hasFile('proof_images'))) {
+            return response()->json(['status' => 'error', 'message' => 'Time discrepancy detected! Proof Images and Reason are strictly required for this punch-in.'], 422);
+        }
+
+        // 3 Late = 1 Leave tracking parameter
+        $isLate = false;
+        if ($timeWindow) {
+            $loginStart = Carbon::parse($today . ' ' . $timeWindow->login_start);
+            $isLate = $claimedTime->greaterThan($loginStart->copy()->addMinutes(30));
+        }
+
+        // 4. Handle Proof Images Upload via Service
+        $proofPaths = [];
+        if ($request->hasFile('proof_images')) {
+            foreach ($request->file('proof_images') as $file) {
+                $media = $mediaConverter->uploadAndConvert($file);
+                if ($media) {
+                    $proofPaths[] = $media->file_path;
+                }
+            }
+        }
+
+        $verificationStatus = (count($proofPaths) > 0 || $request->reason) ? 'pending' : 'none';
+
+        // 5. Existing Database Schema & Session Array Builder
+        $attendance = Attendance::where('user_id', $login->user_id)->where('date', $today)->first();
+
         $newSession = [
-            'in' => $currentTime,
-            'out' => null
+            'in' => $claimedTimeStr,
+            'out' => null,
+            'lat' => $request->latitude ?? null,
+            'lng' => $request->longitude ?? null
         ];
 
         if (!$attendance) {
-            // Din ka pehla login
-            \App\Models\Attendance::create([
+            // First Punch of the day
+            Attendance::create([
                 'user_id' => $login->user_id,
                 'date' => $today,
                 'present' => 1,
-                'login_time' => $currentTime,
+                'login_time' => $claimedTimeStr,
                 'latitude' => $request->latitude,
                 'longitude' => $request->longitude,
-                'remarks' => 'Auto-marked via Secure Login',
-                'session_logs' => json_encode([$newSession]) // Pehla session push hua
+                'remarks' => 'Manual Punch via Dashboard',
+                'session_logs' => json_encode([$newSession]),
+                
+                // New Tracking Columns
+                'is_late_punch' => $isLate,
+                'punch_reason' => $request->reason,
+                'punch_proof_images' => count($proofPaths) > 0 ? $proofPaths : null,
+                'hr_verification_status' => $verificationStatus
             ]);
-            return response()->json(['status' => 'success', 'message' => 'Attendance Marked!']);
-        } else {
-            // Din me dobara login (Array me push karo)
-            $logs = $attendance->session_logs ? json_decode($attendance->session_logs, true) : [];
-            $lastIndex = count($logs) - 1;
 
-            if ($lastIndex >= 0 && $logs[$lastIndex]['out'] === null) {
-                // Agar pichla session bina manual logout ke close hua tha (Auto-Logout)
-                $logs[$lastIndex]['out'] = 'Auto-Closed';
+            // Existing logic: Cancel Leave if employee logged in
+            $employeeId = $login->employee->id ?? 0;
+            if ($employeeId) {
+                $todayLeave = \App\Models\LeaveApplication::where('user_id', $employeeId)
+                    ->where('status', 'approved')
+                    ->where('start_datetime', '<=', now()->format('Y-m-d 23:59:59'))
+                    ->where('end_datetime', '>=', now()->format('Y-m-d 00:00:00'))
+                    ->first();
+
+                if ($todayLeave) {
+                    if ($todayLeave->duration > 1) {
+                        $todayLeave->decrement('duration', 1.00);
+                        if ($todayLeave->approved_duration > 1) $todayLeave->decrement('approved_duration', 1.00);
+                    } else {
+                        $todayLeave->update([
+                            'duration' => 0, 'approved_duration' => 0, 'status' => 'rejected',
+                            'remarks' => ($todayLeave->remarks ? $todayLeave->remarks . ' | ' : '') . 'Cancelled due to system Punch-In.'
+                        ]);
+                    }
+                }
             }
-
-            // Naya session jod do
+        } else {
+            // Agar employee naya session create karta hai same day par (e.g. Break se wapas)
+            $logs = $attendance->session_logs ? json_decode($attendance->session_logs, true) : [];
             $logs[] = $newSession;
-
             $attendance->update([
                 'session_logs' => json_encode($logs)
             ]);
-
-            return response()->json(['status' => 'success', 'message' => 'Re-Login Session Recorded!']);
         }
-    }
 
-    // ==========================================
-    // SECURE LOGOUT (MULTI-SESSION REPAIRED)
-    // ==========================================
+        return response()->json([
+            'status' => 'success', 
+            'message' => $verificationStatus === 'pending' ? 'Punch Recorded. Sent to HR for Validation!' : 'Attendance Marked Successfully!'
+        ]);
+    }
+    
    // ==========================================
     // SECURE LOGOUT (WITH AUTO-LOGOUT DETECTION)
     // ==========================================
@@ -386,13 +435,13 @@ public function verifyId(Request $request)
             }
 
             // CLEAN-UP: Remove Emergency Access on Logout
-            if ($login->s_status === 'allow') {
-                $login->update([
-                    's_status' => 'deny',
-                    's_time_from' => null,
-                    's_time_to' => null
-                ]);
-            }
+            // if ($login->s_status === 'allow') {
+            //     $login->update([
+            //         's_status' => 'deny',
+            //         's_time_from' => null,
+            //         's_time_to' => null
+            //     ]);
+            // }
         }
 
         // Token destroy karo
@@ -408,9 +457,17 @@ public function me(Request $request)
     {
         $user = $request->user();
 
-        // 🔥 YAHAN FIX KIYA HAI: Purane "getAllPermissions" ko hatakar apna "Live" wala lagaya 🔥
-        // Ab API frontend ko wahi permission degi jo time ke hisaab se valid hain
+        // 🔥 Purane "getAllPermissions" ko hatakar apna "Live" wala lagaya
         $permissions = \App\Http\Controllers\Controller::getLiveActivePermissions($user);
+        
+        $isSecondaryDevice = false;
+
+        // Agar Token me '_S_' hai, to sirf flag ON karenge, Permissions change NAHI karenge
+        if ($user && $user->currentAccessToken() && str_contains($user->currentAccessToken()->name, '_S_')) {
+            $isSecondaryDevice = true;
+            // Yahan se saara permission filter karne wala code hata diya gaya hai.
+            // Ab jiske paas 'add_direct' hai usko wahi milega, jiske paas 'add_request' hai usko wahi milega.
+        }
 
         $logoUrl = null;
         $companyName = 'N/A';
@@ -443,15 +500,16 @@ public function me(Request $request)
                 'company_logo' => $logoUrl,
                 'company_id' => $user->company_id ?? '',
                 'company_name' => $companyName,
-                'branch_id' => $user->branch_id ?? '',
+                'branch_id' => $user->branch_id ?? null,
                 'branch_name' => $branchName,
-                // 🔥 NAYA ARRAY JAYEGA FRONTEND PAR 🔥
-                'permissions' => $permissions 
+                'is_secondary_device' => $isSecondaryDevice, // Frontend ko restriction ke liye flag
+                'permissions' => $permissions // Sahi permissions bina modify kiye bhejein
             ]
         ]);
     }
-    // ==========================================
-    // DASHBOARD DATA (SALARY FIXED)
+   
+  // ==========================================
+    // DASHBOARD DATA (HOLIDAYS & SANDWICH LEAVE RULE APPLIED)
     // ==========================================
     public function getDashboardData(Request $request)
     {
@@ -461,109 +519,262 @@ public function me(Request $request)
 
         $memberId = $user->member_id ?? $user->id;
 
+        $monthStart = sprintf('%04d-%02d-01', $year, $month);
+        $monthEnd = date('Y-m-t', strtotime($monthStart));
+
+        // Sandwich rule ke liye mahine ke ek din pehle aur ek din baad ka data bhi chahiye hoga
+        $checkStart = date('Y-m-d', strtotime($monthStart . ' -1 day'));
+        $checkEnd = date('Y-m-d', strtotime($monthEnd . ' +1 day'));
+
         $attendances = \App\Models\Attendance::where('user_id', $memberId)
-            ->whereMonth('date', $month)
-            ->whereYear('date', $year)
+            ->whereBetween('date', [$checkStart, $checkEnd])
             ->get()->keyBy('date');
+
+        // 1. Fetch Active Holidays
+        $holidays = \App\Models\Holiday::where('status', 'active')
+            ->where(function($q) use ($checkStart, $checkEnd) {
+                $q->whereBetween('start_date', [$checkStart, $checkEnd])
+                  ->orWhereBetween('end_date', [$checkStart, $checkEnd])
+                  ->orWhere(function($q2) use ($checkStart, $checkEnd) {
+                      $q2->where('start_date', '<=', $checkStart)
+                         ->where('end_date', '>=', $checkEnd);
+                  });
+            })->get();
+
+        $holidayDates = [];
+        foreach ($holidays as $h) {
+            $start = strtotime($h->start_date);
+            $end = $h->end_date ? strtotime($h->end_date) : $start;
+            for ($time = $start; $time <= $end; $time += 86400) {
+                $holidayDates[date('Y-m-d', $time)] = true;
+            }
+        }
+
+        // 2. Fetch Approved Leaves
+        $leaves = \App\Models\LeaveApplication::where('user_id', $user->id)
+            ->where('status', 'approved')
+            ->where(function($q) use ($checkStart, $checkEnd) {
+                $q->whereBetween('start_datetime', [$checkStart . ' 00:00:00', $checkEnd . ' 23:59:59'])
+                  ->orWhereBetween('end_datetime', [$checkStart . ' 00:00:00', $checkEnd . ' 23:59:59'])
+                  ->orWhere(function($q2) use ($checkStart, $checkEnd) {
+                      $q2->where('start_datetime', '<=', $checkStart . ' 00:00:00')
+                         ->where('end_datetime', '>=', $checkEnd . ' 23:59:59');
+                  });
+            })->get();
+
+        $leaveDates = [];
+        foreach ($leaves as $leave) {
+            $start = strtotime($leave->approved_start_datetime ?? $leave->start_datetime);
+            $end = strtotime($leave->approved_end_datetime ?? $leave->end_datetime);
+            for ($time = $start; $time <= $end; $time += 86400) {
+                $leaveDates[date('Y-m-d', $time)] = true;
+            }
+        }
 
         $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
         $todayDate = date('Y-m-d');
 
         $dailyData = [];
-        $stats = [
-            'present' => 0,
-            'absent' => 0,
-            'half_day' => 0,
-            'ot_hours' => 0,
-            'fine_amount' => 0,
-            'cl_available' => 1,
-            'total_leave' => 0
-        ];
+        $rawStatuses = [];
 
-       // 🔥 PERFECT FIX: Fetching Exact Salary from Salary Model 🔥
-        // Database se direct us employee ki salary nikalenge
-        $salaryRecord = \App\Models\Salary::where('employee_id', $user->id)->first();
-        
-        // Agar admin ne salary daali hai to amount aayega, varna 0
-        $salaryAmount = $salaryRecord ? $salaryRecord->amount : 0; 
-        
-        // 30 Days Basis Calculation (Agar salary 0 hai to per day bhi 0 hoga)
-        $perDaySalary = $salaryAmount > 0 ? ($salaryAmount / 30) : 0;
-
-        for ($i = 1; $i <= $daysInMonth; $i++) {
+        // ==========================================
+        // ROUND 1: HAR DIN KA STATUS NIKALNA
+        // ==========================================
+       for ($i = 1; $i <= $daysInMonth; $i++) {
             $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $i);
-            $dayOfWeek = date('w', strtotime($dateStr)); // 0=Sun, 1=Mon, 2=Tue
+            $dayOfWeek = date('w', strtotime($dateStr));
 
-            if ($dayOfWeek == 2) {
-                $dailyData[$dateStr] = ['status' => 'off'];
-                continue;
-            }
-
-            if ($dateStr > $todayDate) {
-                $dailyData[$dateStr] = ['status' => 'future'];
-                continue;
-            }
+            $isTuesday = ($dayOfWeek == 2);
+            $isHoliday = isset($holidayDates[$dateStr]);
+            $isLeave = isset($leaveDates[$dateStr]);
 
             $att = $attendances->get($dateStr);
+            $status = 'absent';
+            $remark = '';
+            $inTime = '--:--';
+            $outTime = '--:--';
+            $ot = 0;
 
-            if ($att && $att->login_time) {
-                $loginTime = $att->login_time;
-                $logoutTime = $att->logout_time;
-
+            if ($dateStr > $todayDate) {
+                $status = 'future';
+            } elseif ($att && $att->login_time) {
+                $inTime = date('h:i A', strtotime($att->login_time));
+                $outTime = $att->logout_time ? date('h:i A', strtotime($att->logout_time)) : '--:--';
+                
                 $hoursWorked = 0;
-                $isHalfDay = false;
-
-                if (!$logoutTime && $dateStr != $todayDate) {
-                    $isHalfDay = true;
-                } elseif ($logoutTime) {
-                    $t1 = strtotime($loginTime);
-                    $t2 = strtotime($logoutTime);
+                if ($att->logout_time) {
+                    $t1 = strtotime($att->login_time);
+                    $t2 = strtotime($att->logout_time);
                     $hoursWorked = ($t2 - $t1) / 3600;
-                    if ($hoursWorked < 4.8) {
-                        $isHalfDay = true;
-                    }
                 }
 
-                if ($isHalfDay) {
-                    $dailyData[$dateStr] = [
-                        'status' => 'half_day',
-                        'login_time' => date('h:i A', strtotime($loginTime)),
-                        'logout_time' => $logoutTime ? date('h:i A', strtotime($logoutTime)) : '--:--',
-                        'ot' => 0
-                    ];
-                    $stats['half_day']++;
+                // 🔥 POINT 4: EXTRA DAY 4-HOURS & LOGOUT MANDATORY RULE 🔥
+                if ($isTuesday || $isHoliday) {
+                    if ($att->logout_time && $hoursWorked >= 4.0) {
+                        $status = 'extra_day';
+                        $remark = $isTuesday ? 'Worked on Weekly Off' : 'Worked on Holiday';
+                    } else {
+                        $status = $isHoliday ? 'holiday' : 'off';
+                        $remark = (!$att->logout_time) ? 'No Logout (Not Eligible)' : 'Worked < 4 Hrs (Not Eligible)';
+                    }
                 } else {
-                    $ot = ($hoursWorked > 8) ? round($hoursWorked - 8, 1) : 0;
-                    $dailyData[$dateStr] = [
-                        'status' => 'present',
-                        'login_time' => date('h:i A', strtotime($loginTime)),
-                        'logout_time' => $logoutTime ? date('h:i A', strtotime($logoutTime)) : '--:--',
-                        'ot' => $ot
-                    ];
-                    $stats['present']++;
-                    $stats['ot_hours'] += $ot;
+                    $isHalfDay = false;
+                    $timeOnly = date('H:i:s', strtotime($att->login_time));
+
+                    if ($timeOnly > '11:00:00') {
+                        $isHalfDay = true;
+                        $remark = 'Late: After 11 AM (Half Day)';
+                    }
+
+                    if (!$att->logout_time && $dateStr != $todayDate) {
+                        $isHalfDay = true;
+                        $remark = $remark ?: 'No Logout (Half Day)';
+                    } elseif ($att->logout_time) {
+                        // 🔥 POINT 5: WORKING HOURS SET TO 8.25 HOURS 🔥
+                        if ($hoursWorked < 8.25 && !$isHalfDay) {
+                            $isHalfDay = true;
+                            $remark = $remark ?: 'Short Hours (< 8.25 Hrs Half Day)';
+                        }
+                        
+                        $logoutTimeOnly = date('H:i:s', strtotime($att->logout_time));
+                        if (($logoutTimeOnly < '18:00:00' || $logoutTimeOnly > '19:00:00') && !$isHalfDay) {
+                            $isHalfDay = true;
+                            $remark = $remark ?: 'Logout outside 6-7 PM window';
+                        }
+                    } else {
+                        if ($dateStr != $todayDate) {
+                            $isHalfDay = true;
+                        } elseif (date('H:i:s') > '19:00:00') {
+                            $isHalfDay = true;
+                            $remark = 'Missed 6-7 PM Logout window';
+                        }
+                    }
+
+                    $status = $isHalfDay ? 'half_day' : 'present';
+                    $ot = ($hoursWorked > 8.25) ? round($hoursWorked - 8.25, 1) : 0;
                 }
             } else {
-                $dailyData[$dateStr] = ['status' => 'absent'];
-                if ($stats['cl_available'] > 0) {
-                    $stats['cl_available']--;
-                    $dailyData[$dateStr]['status'] = 'cl';
+                if ($isHoliday) {
+                    $status = 'holiday';
+                } elseif ($isLeave) {
+                    $status = 'leave';
+                    $remark = 'Approved Leave';
+                } elseif ($isTuesday) {
+                    $status = 'off';
                 } else {
-                    $stats['absent']++;
+                    $status = 'absent';
                 }
             }
+
+            $rawStatuses[$dateStr] = [
+                'status' => $status,
+                'remark' => $remark,
+                'login_time' => $inTime,
+                'logout_time' => $outTime,
+                'ot' => $ot
+            ];
         }
+
+        // Sandwich ke liye bahar ki date check karne ka function
+        $checkBoundaryStatus = function($dStr) use ($attendances, $leaveDates, $holidayDates, $todayDate) {
+             if ($dStr > $todayDate) return 'future';
+             if ($attendances->has($dStr)) return 'present';
+             if (isset($leaveDates[$dStr])) return 'leave';
+             if (isset($holidayDates[$dStr])) return 'holiday';
+             return 'absent';
+        };
+
+        // ==========================================
+        // ROUND 2: SANDWICH RULE & CL DEDUCTION 
+        // ==========================================
+        $stats = [
+            'present' => 0, 'absent' => 0, 'half_day' => 0, 'extra_days' => 0,
+            'fine_amount' => 0, 'cl_available' => 1, 'total_leave' => 0, 'late_10_11_count' => 0
+        ];
+
+        foreach ($rawStatuses as $dateStr => $data) {
+            
+           
+           // 🔥 SANDWICH RULE APPLY (Agar Tuesday hai) 🔥
+            if ($data['status'] === 'off') { 
+                $mondayStr = date('Y-m-d', strtotime($dateStr . ' -1 day'));
+                $wednesdayStr = date('Y-m-d', strtotime($dateStr . ' +1 day'));
+
+                $monStatus = isset($rawStatuses[$mondayStr]) ? $rawStatuses[$mondayStr]['status'] : $checkBoundaryStatus($mondayStr);
+                $wedStatus = isset($rawStatuses[$wednesdayStr]) ? $rawStatuses[$wednesdayStr]['status'] : $checkBoundaryStatus($wednesdayStr);
+
+                $monAbsent = in_array($monStatus, ['absent', 'leave', 'cl']);
+                $wedAbsent = in_array($wedStatus, ['absent', 'leave', 'cl']);
+
+                // 🔥 Removed the $todayDate limit so it predicts correctly for future as well
+                if ($monAbsent && $wedAbsent) {
+                    $data['status'] = 'absent'; 
+                    $data['remark'] = 'Sandwich Rule Applied (Mon & Wed Leave)';
+                }
+            }
+            // 🔥 COMPENSATORY LEAVE (CL) AUTO-APPLY 🔥
+            if ($data['status'] === 'absent') {
+                if ($stats['cl_available'] > 0) {
+                    $stats['cl_available']--;
+                    $data['status'] = 'cl';
+                    $data['remark'] = ($data['remark'] ? $data['remark'] . ' | ' : '') . 'CL Applied';
+                }
+            }
+
+            // Stats Update
+            if ($data['status'] === 'present') $stats['present']++;
+            elseif ($data['status'] === 'half_day') $stats['half_day']++;
+            elseif ($data['status'] === 'absent') $stats['absent']++;
+            elseif ($data['status'] === 'leave' || $data['status'] === 'cl') $stats['total_leave']++;
+            elseif ($data['status'] === 'extra_day') $stats['extra_days']++;
+
+            $dailyData[$dateStr] = $data;
+        }
+
+        // Salary Record & Fine Calculation
+        $salaryRecord = \App\Models\Salary::where('employee_id', $user->id)->first();
+        $salaryAmount = $salaryRecord ? $salaryRecord->amount : 0; 
+        $perDaySalary = $salaryAmount > 0 ? ($salaryAmount / 30) : 0;
 
         $fineDays = $stats['absent'] + ($stats['half_day'] * 0.5);
         $stats['fine_amount'] = round($fineDays * $perDaySalary, 2);
-        $stats['total_leave'] = $stats['absent'] + (1 - $stats['cl_available']);
+
+        // 🔥 NAYA: Fetch Active Time Window for this employee
+        $timeWindow = AttendanceTimeWindow::where('company_id', $user->company_id)
+            ->where(function($q) use ($user) {
+                if ($user->branch_id) {
+                    $q->where('branch_id', $user->branch_id)->orWhereNull('branch_id');
+                } else {
+                    $q->whereNull('branch_id'); // Head Office
+                }
+            })
+            ->where('status', 'active')
+            ->orderBy('branch_id', 'desc') // Branch specific rule overrides HO rule
+            ->first();
 
         return response()->json([
             'status' => 'success',
             'month' => $month,
             'year' => $year,
             'stats' => $stats,
-            'daily_data' => $dailyData
+            'daily_data' => $dailyData,
+            'time_window' => $timeWindow
         ]);
     }
+
+    private function calculateDistance($lat1, $lon1, $lat2, $lon2)
+    {
+        if (!$lat1 || !$lon1 || !$lat2 || !$lon2) return 999999; // Fallback agar location na ho
+        $earth_radius = 6371000; // Meters mein
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) * sin($dLat / 2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) * sin($dLon / 2);
+        $c = 2 * asin(sqrt($a));
+        return $earth_radius * $c;
+    }
+
+
+
+
+
 }

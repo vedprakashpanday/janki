@@ -11,7 +11,7 @@
             font-size: 13px;
             border: none;
         }
-
+ 
         .table-custom td {
             font-size: 13px;
             vertical-align: middle;
@@ -192,6 +192,10 @@
                                 <h6 class="fw-bold mb-3 border-bottom pb-2" style="color: var(--brand-primary);">Personal
                                     Details</h6>
                                 <div class="row g-3">
+                                    <div class="col-md-4">
+        <label class="form-label small fw-bold">CEO ID</label>
+        <input type="text" name="ceo_id" id="ceo_id" class="form-control fw-bold text-primary bg-light border-primary" readonly placeholder="Loading...">
+    </div>
                                     <div class="col-md-4">
                                         <label class="form-label small fw-bold">Full Name <span
                                                 class="text-danger">*</span></label>
@@ -680,6 +684,23 @@
                 $('.nav-pills a:first').tab('show');
                 $('#ceoModal').modal('show');
                 $('#doa_container').hide();
+                // 🚀 CEO ID Load karne ka naya logic
+    $('#ceo_id').val('Generating...');
+    $.ajax({
+        url: '/api/v1/super-admins/next-id',
+        type: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
+        },
+        success: function(res) {
+            if(res.status === 'success') {
+                $('#ceo_id').val(res.next_id);
+            }
+        },
+        error: function() {
+            $('#ceo_id').val('Auto Generated');
+        }
+    });
             };
 
             $('#ceoForm').on('submit', function(e) {

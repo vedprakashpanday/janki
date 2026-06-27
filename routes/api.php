@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\V1\Admin\TelecallerAccessController;
 use App\Http\Controllers\Api\V1\Admin\ActionApprovalController;
 use App\Http\Controllers\Api\V1\Admin\TaskTrackingModuleController;
 use App\Http\Controllers\Api\V1\Admin\TaskController;
+use App\Http\Controllers\Api\V1\NotificationController;
 
 
 
@@ -47,12 +48,15 @@ use App\Http\Controllers\Api\V1\Admin\TaskController;
 
 Route::prefix('v1')->group(function () {
 
-   
+
     // ==========================================================================
     // SECTION 1: ISOLATED AUTHENTICATION ROUTES (Portal Specific)
     // ==========================================================================
     Route::prefix('admin')->group(function () {
         Route::post('/auth/login-request', [AdminAuthController::class, 'requestLogin']);
+        // 🔥 Ye dono nayi line add karni hai CEO OTP Login ke liye
+        Route::post('/auth/super-admin/request-otp', [AdminAuthController::class, 'superAdminRequestOtp']);
+        Route::post('/auth/super-admin/verify-otp', [AdminAuthController::class, 'superAdminVerifyOtp']);
 
         Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/auth/me', [AdminAuthController::class, 'me']);
@@ -95,7 +99,7 @@ Route::prefix('v1')->group(function () {
 
 
     // 🛡️ PROTECTED CORE DATA APIs (Time Matrix applies here)
-    Route::middleware(['auth:sanctum', 'time.matrix'])->group(function () {
+    Route::middleware(['auth:sanctum', 'time.matrix', \App\Http\Middleware\SecondaryDeviceGuard::class])->group(function () {
 
         // ====================================================================
         // 🔴 ZONE 1: STRICT DEVELOPER ONLY ROUTES (God Mode Required)
@@ -105,6 +109,8 @@ Route::prefix('v1')->group(function () {
             Route::get('modules/parents', [ModuleController::class, 'getParents']);
             Route::apiResource('modules', ModuleController::class);
             Route::apiResource('system-actions', SystemActionController::class);
+            // Isko show/update/destroy wale routes se upar add karein
+            Route::get('v1/super-admins/next-id', [SuperAdminController::class, 'getNextId']);
             Route::apiResource('super-admins', SuperAdminController::class);
 
             // Dynamic Task Tracking Setup (Developer Only)
@@ -117,6 +123,12 @@ Route::prefix('v1')->group(function () {
         // ====================================================================
         // 🟡 ZONE 2: SHARED BUSINESS & HR ROUTES (Role Managed)
         // ====================================================================
+
+        // UI Context & Permissions API
+        Route::get('/context', function () {
+            $controller = new \App\Http\Controllers\Controller();
+            return response()->json($controller->getGlobalContext());
+        });
 
         // Role Manager Setup & Write Permissions
         Route::get('role-manager/users', [RolePermissionController::class, 'getUsers']);
@@ -203,6 +215,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/get-authorized-signatories', [DebitVoucherApiController::class, 'getAuthorizedSignatories']);
 
         // --- Leads & CRM ---
+      Route::post('/phases/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'bulkDelete']);
+        Route::get('/phases/form-data', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'create']);
+        Route::get('/phases/get-branches/{company_id}', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'getBranches']);
+        Route::apiResource('phases', \App\Http\Controllers\Api\V1\Admin\PhaseApiController::class);
+        Route::post('/interested-customers/report-employees', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'getReportEmployees']);
+        Route::post('/interested-customers/generate-report', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'generatePerformanceReport']);
+        Route::post('/interested-customers/check-mobile', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'checkMobile']);
+        Route::post('/interested-customers/bulk-delete', [InterestedCustomerController::class, 'bulkDelete']);
         Route::apiResource('interested-customers', InterestedCustomerController::class);
         Route::post('interested-customers/assign-telecaller', [InterestedCustomerController::class, 'assignTelecaller']);
         Route::post('interested-customers/filter-reports', [InterestedCustomerController::class, 'filterReports']);
@@ -210,6 +230,8 @@ Route::prefix('v1')->group(function () {
         Route::post('interested-customers/import', [InterestedCustomerController::class, 'import']);
 
         // --- Operations & Utilities ---
+
+        Route::get('/letterheads/next-ref', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'getNextRefNo']);
         Route::apiResource('letterheads', LetterheadController::class);
         Route::post('letterheads/upload-image', [LetterheadController::class, 'uploadImage']);
         Route::get('/id-cards/staff-list', [IdCardController::class, 'getStaffList']);
@@ -227,19 +249,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/welcome-letter/generate', [\App\Http\Controllers\Api\V1\Employee\WelcomeLetterApiController::class, 'getLetter']);
 
         // --- Notices & Communications ---
-    Route::apiResource('notices', \App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class);
-    // --- User Portal Notices API ---
-    Route::get('/my-notices', [\App\Http\Controllers\Api\V1\Employee\NoticeApiController::class, 'index']);
-    Route::get('/my-notices/{id}', [\App\Http\Controllers\Api\V1\Employee\NoticeApiController::class, 'show']);
-    Route::post('/my-notices/{id}/reply', [\App\Http\Controllers\Api\V1\Employee\NoticeApiController::class, 'submitReply']);
-    
-    // 🔥 New Approve & Reject Routes 🔥
-    Route::post('notices/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'approve']);
-    Route::post('notices/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'reject']);
-    
-    Route::get('notices/{id}/replies', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'getReplies']);
+        Route::apiResource('notices', \App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class);
+        // --- User Portal Notices API ---
+        Route::get('/my-notices', [\App\Http\Controllers\Api\V1\Employee\NoticeApiController::class, 'index']);
+        Route::get('/my-notices/{id}', [\App\Http\Controllers\Api\V1\Employee\NoticeApiController::class, 'show']);
+        Route::post('/my-notices/{id}/reply', [\App\Http\Controllers\Api\V1\Employee\NoticeApiController::class, 'submitReply']);
 
-    // --- Travel Allowance (TA) API ---
+        // 🔥 New Approve & Reject Routes 🔥
+        Route::post('notices/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'approve']);
+        Route::post('notices/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'reject']);
+
+        Route::get('notices/{id}/replies', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'getReplies']);
+
+        // --- Travel Allowance (TA) API ---
         Route::apiResource('travel-allowances', \App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class);
         Route::post('travel-allowances/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'bulkDelete']);
         Route::post('travel-allowances/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'approve']);
@@ -247,12 +269,56 @@ Route::prefix('v1')->group(function () {
         Route::post('travel-allowances/{id}/remarks', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'updateRemarks']);
 
         // --- Leave, Short Leave & Other Applications ---
-Route::apiResource('leave-applications', \App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class);
-// --- Leave Applications API ---
+        Route::apiResource('leave-applications', \App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class);
+        // --- Leave Applications API ---
         Route::get('leave-applications/dropdown/users', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getUsersByDesignation']);
         Route::apiResource('leave-applications', \App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class);
         Route::post('leave-applications/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'approve']);
+        Route::get('leave-applications/dropdown/apply-to', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getApplyToOptions']);
         Route::post('leave-applications/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'reject']);
+        Route::get('leave-applications/{id}/view', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'viewHtml']);
+        // Fine Penalty Module
+        Route::apiResource('fine-penalties', \App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class);
+        Route::post('fine-penalties/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'bulkDelete']);
+        Route::post('fine-penalties/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'approve']);
+        Route::post('fine-penalties/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'reject']);
+        Route::post('fine-penalties/{id}/remark', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'updateRemark']);
+
+        // Dependency Dropdowns
+        Route::post('get-filtered-departments', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'getFilteredDepartments']);
+        Route::post('get-filtered-designations', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'getFilteredDesignations']);
+        Route::post('get-filtered-employees', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'getFilteredEmployees']);
+        Route::get('/notifications/unread', [NotificationController::class, 'getUnread']);
+        Route::post('/notifications/mark-read', [NotificationController::class, 'markAsRead']);
+
+        // 🔥 NAYA: Attendance Matrix Routes Yahan Add Karein 🔥
+        Route::post('attendance-matrix', [\App\Http\Controllers\Api\V1\Admin\AttendanceAdminController::class, 'getFilteredAttendance']);
+        Route::post('attendance-correction', [\App\Http\Controllers\Api\V1\Admin\AttendanceAdminController::class, 'saveCorrection']);
+
+        // Yeh line add karni hai 👇
+        Route::post('attendance-verify-punch', [\App\Http\Controllers\Api\V1\Admin\AttendanceAdminController::class, 'verifyPendingPunch']);
+
+       Route::get('attendance-time-windows/dropdown', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'getDropdownData']);
+Route::post('attendance-time-windows/store', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'store']);
+Route::post('attendance-time-windows/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'bulkDelete']); // 🔥 NAYA BULK DELETE ROUTE
+Route::get('attendance-time-windows', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'index']);
+Route::put('attendance-time-windows/{id}', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'update']);
+Route::delete('attendance-time-windows/{id}', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'destroy']);
+
+        // Auto Task Settings API
+        Route::post('auto-task-settings/{id}/status', [\App\Http\Controllers\Api\V1\Admin\AutoTaskSettingController::class, 'updateStatus']);
+        Route::apiResource('auto-task-settings', \App\Http\Controllers\Api\V1\Admin\AutoTaskSettingController::class);
+
+// Telecaller Calling Panel APIs
+        Route::get('/telecalling/allocations', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'getAllocations']);
+        Route::post('/telecalling/allocations/{id}/feedback', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'updateFeedback']);
+// 🔥 NAYA: Print Route 🔥
+        Route::get('/telecalling/allocations/print', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'printReport']);
+
+
+        // API Routes for Time Window
+Route::get('attendance-time-windows/dropdown', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'getDropdownData']);
+Route::post('attendance-time-windows/store', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'store']);
 
 
     });

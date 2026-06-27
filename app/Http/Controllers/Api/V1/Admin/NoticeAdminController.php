@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\Notice;
 use App\Models\NoticeReply;
 use Carbon\Carbon;
+use App\Notifications\SystemAlertNotification;
+use App\Helpers\NotificationHelper;
+use Illuminate\Support\Facades\Notification;
 
 class NoticeAdminController extends Controller
 {
@@ -273,8 +276,14 @@ class NoticeAdminController extends Controller
     }
 
     // 🔥 REAL-TIME NOTIFICATION DISPATCHER 🔥
+   // 🔥 REAL-TIME NOTIFICATION DISPATCHER 🔥
     protected function fireNoticeEvent($notice)
     {
+        $title = 'Notice: ' . $notice->title;
+        $message = 'A new notice has been published and requires your attention.';
+        $icon = 'fa-bullhorn';
+        $color = 'text-warning';
+
         // 1. Employees ko Notification
         if (in_array($notice->target_audience, ['all', 'employee'])) {
             $query = \App\Models\Employee::where('emp_status', 'active');
@@ -282,8 +291,9 @@ class NoticeAdminController extends Controller
             if ($notice->target_branch_id) $query->where('branch_id', $notice->target_branch_id);
             if ($notice->target_department_id) $query->where('department_id', $notice->target_department_id);
             
-            foreach($query->pluck('id') as $id) {
-                event(new \App\Events\GlobalUserNotification("global.user.employee.{$id}", $notice->id, $notice->title, ['actor_name' => 'Admin/HR', 'type' => 'notice']));
+            $employees = $query->get();
+            if ($employees->isNotEmpty()) {
+                Notification::send($employees, new SystemAlertNotification($title, $message, '/employee/my-notices', $icon, $color));
             }
         }
 
@@ -293,14 +303,35 @@ class NoticeAdminController extends Controller
             if ($notice->target_company_id) $query->where('company_id', $notice->target_company_id);
             if ($notice->target_branch_id) $query->where('branch_id', $notice->target_branch_id);
             
-            foreach($query->pluck('id') as $id) {
-                event(new \App\Events\GlobalUserNotification("global.user.member.{$id}", $notice->id, $notice->title, ['actor_name' => 'Admin/HR', 'type' => 'notice']));
+            $members = $query->get();
+            if ($members->isNotEmpty()) {
+                Notification::send($members, new SystemAlertNotification($title, $message, '/customer/my-notices', $icon, $color));
             }
         }
         
         // 3. Agar kisi Specific Insaan ko bheja hai
         if ($notice->target_audience === 'other' && $notice->entity_id) {
-            event(new \App\Events\GlobalUserNotification("global.user.{$notice->entity_type}.{$notice->entity_id}", $notice->id, $notice->title, ['actor_name' => 'Admin/HR', 'type' => 'notice']));
+            $modelClass = '\\App\\Models\\' . ucfirst(strtolower($notice->entity_type));
+            if (class_exists($modelClass)) {
+                $entity = $modelClass::find($notice->entity_id);
+                if ($entity) {
+                    // Entity ke hisaab se URL set karein
+                    $url = $notice->entity_type === 'employee' ? '/employee/my-notices' : '/customer/my-notices';
+                    $entity->notify(new SystemAlertNotification($title, $message, $url, $icon, $color));
+                }
+            }
+        }
+
+        // 4. Admins aur Directors ko NotificationHelper ke through notify karein
+        $managementTargets = NotificationHelper::getTargets($notice->target_company_id, $notice->target_branch_id, 'notices_view');
+        if ($managementTargets && $managementTargets->isNotEmpty()) {
+            Notification::send($managementTargets, new SystemAlertNotification(
+                'Notice System Alert', 
+                'Notice "' . $notice->title . '" has been published/updated.', 
+                '/admin/notices', 
+                'fa-info-circle', 
+                'text-info'
+            ));
         }
     }
 

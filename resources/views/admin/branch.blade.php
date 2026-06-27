@@ -192,13 +192,12 @@
                             <label class="form-label text-secondary small fw-bold">Location Details</label>
                             <textarea class="form-control" name="branch_location" rows="2" placeholder="Full address of the branch"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label text-secondary small fw-bold">Google Map Iframe (Optional)</label>
-                            <input type="text" class="form-control" id="mapInput" name="branch_map"
-                                placeholder="Paste <iframe...> here">
-                            <div id="mapPreview" class="mt-2 text-muted small">
-                                <div class="text-center"><i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview
-                                </div>
+                       <div class="mb-3">
+                            <label class="form-label text-secondary small fw-bold">Google Map Location (Link or Iframe)</label>
+                            <textarea class="form-control border-primary-subtle" id="add_map_url" name="map_url" rows="2" placeholder='Paste Google Map share link or <iframe> embed code here...'></textarea>
+                            <small class="text-muted" style="font-size: 11px;">System will automatically extract Latitude & Longitude from this link.</small>
+                            <div id="add_mapPreview" class="mt-2 text-muted small d-none">
+                                <div class="text-center"><i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview</div>
                             </div>
                         </div>
                         <div class="d-grid mt-4">
@@ -264,9 +263,9 @@
                             <textarea class="form-control" name="branch_location" id="edit_branch_location" rows="2"></textarea>
                         </div>
                         <div class="mb-3">
-                            <label class="small fw-bold text-secondary">Google Map Iframe</label>
-                            <input type="text" class="form-control" id="edit_mapInput" name="branch_map">
-                            <div id="edit_mapPreview" class="mt-2 text-muted small"></div>
+                            <label class="small fw-bold text-secondary">Google Map Location (Link or Iframe)</label>
+                            <textarea class="form-control border-primary-subtle" id="edit_map_url" name="map_url" rows="2"></textarea>
+                            <div id="edit_mapPreview" class="mt-2 text-muted small d-none"></div>
                         </div>
                         <div class="mb-3">
                             <label class="small fw-bold text-secondary">Status</label>
@@ -664,17 +663,17 @@
                 $('.buttons-excel').click();
             });
 
-            $('#mapInput').on('input', function() {
+
+$('#add_map_url, #edit_map_url').on('input', function() {
                 let inputVal = $(this).val();
+                let previewBox = $(this).attr('id') === 'add_map_url' ? $('#add_mapPreview') : $('#edit_mapPreview');
+                
                 if (inputVal.includes('<iframe')) {
-                    $('#mapPreview').html(inputVal).removeClass('text-muted');
-                } else if (inputVal === '') {
-                    $('#mapPreview').html(
-                        '<div class="text-center"><i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview</div>'
-                        ).addClass('text-muted');
+                    previewBox.html(inputVal).removeClass('text-muted d-none');
+                } else if (inputVal !== '') {
+                     previewBox.html('<div class="text-success small fw-bold"><i class="fas fa-check-circle"></i> URL Detected</div>').removeClass('d-none');
                 } else {
-                    $('#mapPreview').html('<span class="text-danger small">Invalid iframe</span>').addClass(
-                        'text-muted');
+                     previewBox.html('<div class="text-center"><i class="fas fa-map-marked-alt fs-3 mb-1"></i><br>Map Preview</div>').addClass('text-muted d-none');
                 }
             });
 
@@ -739,14 +738,16 @@
                                 '<span class="badge bg-warning text-dark">Pending</span>' :
                                 '<span class="badge bg-danger">Inactive</span>'));
 
-                        if (data.branch_map && data.branch_map.includes('<iframe')) {
-                            $('#v_map').html(data.branch_map.replace(/width="[^"]+"/,
-                                'width="100%"').replace(/height="[^"]+"/,
-                                'height="100%"'));
+                      // 🔥 NAYA: View me map aur external link dono support
+                        let mapContainer = $('#v_map');
+                        if (data.map_url) {
+                            if (data.map_url.includes('<iframe')) {
+                                mapContainer.html(data.map_url.replace(/width="[^"]+"/, 'width="100%"').replace(/height="[^"]+"/, 'height="100%"'));
+                            } else {
+                                mapContainer.html(`<a href="${data.map_url}" target="_blank" class="btn btn-outline-primary shadow-sm"><i class="fas fa-external-link-alt me-2"></i> Open Location in Google Maps</a>`);
+                            }
                         } else {
-                            $('#v_map').html(
-                                '<div class="text-muted"><i class="fas fa-map-marker-slash fs-3 mb-2"></i><br>No Map Found</div>'
-                                );
+                            mapContainer.html('<div class="text-muted text-center"><i class="fas fa-map-marker-slash fs-3 mb-2"></i><br>No Map Found</div>');
                         }
                         $('#viewBranchModal').modal('show');
                     }
@@ -791,10 +792,13 @@
                                 'pointer-events', 'auto').removeClass('bg-light');
                         }
 
-                        $('#edit_mapInput').val(branch.branch_map);
-                        if (branch.branch_map) $('#edit_mapPreview').html(branch.branch_map);
-                        else $('#edit_mapPreview').html(
-                            '<div class="text-muted small">No map available</div>');
+                      // 🔥 NAYA: Naye DB structure ke hisab se data set karo
+                        $('#edit_map_url').val(branch.map_url);
+                        if (branch.map_url && branch.map_url.includes('<iframe')) {
+                             $('#edit_mapPreview').html(branch.map_url).removeClass('d-none');
+                        } else {
+                             $('#edit_mapPreview').addClass('d-none');
+                        }
 
                         $('#editBranchModal').modal('show');
                     }

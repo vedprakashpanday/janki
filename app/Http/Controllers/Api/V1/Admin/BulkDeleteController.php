@@ -26,7 +26,9 @@ class BulkDeleteController extends Controller
             'companies',        // Companies Table
             'branches',         // Branches Table
             'departments',
-            'tasks'
+            'tasks',
+            'auto_task_settings',
+            'leave_applications'
         ];
 
         if (!in_array($table, $allowedTables)) {

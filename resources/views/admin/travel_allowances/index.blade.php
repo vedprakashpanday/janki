@@ -47,17 +47,16 @@
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="taTable">
                         <thead class="table-light">
-                            <tr>
-                                <th class="ps-3"><input type="checkbox" id="selectAllDesktop" class="form-check-input">
-                                </th>
-                                <th>Date</th>
-                                <th>Employee</th>
-                                <th>Purpose & Destination</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th class="pe-3">Actions</th>
-                            </tr>
-                        </thead>
+                        <tr>
+                            <th class="ps-3"><input type="checkbox" id="selectAllDesktop" class="form-check-input"></th>
+                            <th>Date</th>
+                            <th>Employee</th>
+                            <th>Person Info</th> <th>Purpose & Destination</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th class="pe-3">Actions</th>
+                        </tr>
+                    </thead>
                         <tbody id="taTableBody"></tbody>
                     </table>
                 </div>
@@ -125,8 +124,24 @@
                                     class="form-control" name="ta_date" id="ta_date" required></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Vehicle No.</label><input type="text"
                                     class="form-control" name="vehicle_no" id="vehicle_no"></div>
-                            <div class="col-md-6 mb-3"><label class="form-label">Purpose of Work</label>
-                                <textarea class="form-control" name="purpose" id="purpose" rows="2" required></textarea>
+
+                                    <div class="col-md-4 mb-3">
+                            <label class="form-label">Person Name</label>
+                            <input type="text" class="form-control" name="person_name" id="person_name" placeholder="Self or Guest Name">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Person Contact</label>
+                            <input type="text" class="form-control" name="person_number" id="person_number" placeholder="Mobile Number">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">No. of Persons <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="number_of_persons" id="number_of_persons" value="1" min="1" required>
+                        </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Purpose of Work <span class="text-danger">*</span></label>
+                                <textarea class="form-control" name="purpose" id="purpose" rows="3" minlength="200" placeholder="Detail your purpose (Minimum 200 characters required)..." required></textarea>
+                                <small id="purposeCount" class="text-danger fw-bold">0 / 200 minimum characters</small>
                             </div>
                             <div class="col-md-6 mb-3"><label class="form-label">Destination</label>
                                 <textarea class="form-control" name="destination" id="destination" rows="2" required></textarea>
@@ -142,6 +157,13 @@
                             <div class="col-md-4 mb-3"><label class="form-label fw-bold">Amount (₹)</label><input
                                     type="number" step="0.01" class="form-control border-primary" name="amount"
                                     id="amount" required></div>
+                               <!-- 🔥 MULTIPLE PROOF PREVIEW FIELD 🔥 -->
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold">Upload Proof(s) <span class="text-danger">*</span> <small class="text-muted">(Select multiple JPG/PDF)</small></label>
+                            <input type="file" class="form-control" id="proof_file_input" accept=".jpg,.jpeg,.png,.webp,.pdf" multiple>
+                            <!-- Image previews box -->
+                            <div id="proof_preview_container" class="d-flex flex-wrap gap-2 mt-2"></div>
+                        </div>
                         </div>
                     </div>
                     <div class="modal-footer bg-light">
@@ -215,6 +237,19 @@
                     loadData(1);
                 }, 500);
             });
+
+            // 🔥 NAYA: Live character counter for Purpose
+            $('#purpose').on('input', function() {
+                let len = $(this).val().trim().length;
+                $('#purposeCount').text(`${len} / 200 minimum characters`);
+                if(len < 200) {
+                    $('#purposeCount').removeClass('text-success').addClass('text-danger');
+                } else {
+                    $('#purposeCount').removeClass('text-danger').addClass('text-success');
+                }
+            });
+
+
         });
 
         // ===============================
@@ -247,65 +282,84 @@
                 let mobileHtml = '';
 
                 records.forEach(item => {
-                    // 🔥 Rename active to Approved, inactive/rejected to Rejected
-                    let statusLabel = item.status === 'active' ? 'APPROVED' : (item.status === 'rejected' ?
-                        'REJECTED' : 'PENDING');
-                    let badgeClass = item.status === 'active' ? 'bg-success' : (item.status === 'rejected' ?
-                        'bg-danger' : 'bg-warning text-dark');
-                    let employeeName = item.employee ?
-                        `${item.employee.full_name} (${item.employee.member_id})` : 'N/A';
+                    let statusLabel = item.status === 'active' ? 'APPROVED' : (item.status === 'rejected' ? 'REJECTED' : 'PENDING');
+                    let badgeClass = item.status === 'active' ? 'bg-success' : (item.status === 'rejected' ? 'bg-danger' : 'bg-warning text-dark');
+                    let employeeName = item.employee ? `${item.employee.full_name} (${item.employee.member_id})` : 'N/A';
                     let isOwnTA = (item.employee_id == window.userId);
 
-                    // View, Print, Remarks
-                    let actions = `
-                    <button class="btn btn-sm btn-light border text-dark" onclick="viewTA(${item.id})" title="View"><i class="fas fa-eye"></i></button>
-                    <button class="btn btn-sm btn-info text-white secured-item" data-permission="ta_print" onclick="printTA(${item.id})" title="Print"><i class="fas fa-print"></i></button>
-                    <button class="btn btn-sm btn-secondary" onclick="openRemarks(${item.id}, '${item.remarks || ''}', ${isOwnTA})" title="Remarks"><i class="fas fa-comment"></i></button>
-                `;
-
-                    if(item.status === 'pending') {
-                    // 🔥 FIX: Added (window.userPerms || []) fallback
-                    let hasEditPerm = (window.userPerms || []).includes('ta_edit'); 
-                    if(isOwnTA || hasEditPerm || window.userGodMode) {
-                        actions += `<button class="btn btn-sm btn-primary" onclick="editTA(${item.id})" title="Edit"><i class="fas fa-pencil-alt"></i></button>`;
-                    }
-                        if (!isOwnTA || window.userGodMode) {
-                            actions += `
-                            <button class="btn btn-sm btn-success secured-item" data-permission="ta_appr" onclick="updateStatus(${item.id}, 'approve')" title="Approve"><i class="fas fa-check"></i></button>
-                            <button class="btn btn-sm btn-danger secured-item" data-permission="ta_rej" onclick="updateStatus(${item.id}, 'reject')" title="Reject"><i class="fas fa-times"></i></button>
-                        `;
+                    // 🔥 AMOUNT DISPLAY LOGIC (Strikerthrough requested amount if changed)
+                    let amountDisplay = `<span class="fw-bold">₹${item.amount}</span>`;
+                    if (item.status === 'active' && item.approved_amount) {
+                        if (parseFloat(item.amount) !== parseFloat(item.approved_amount)) {
+                            amountDisplay = `<del class="text-muted small">₹${item.amount}</del> <br> <span class="fw-bold text-success">₹${item.approved_amount}</span>`;
+                        } else {
+                            amountDisplay = `<span class="fw-bold text-success">₹${item.approved_amount}</span>`;
                         }
                     }
 
-                    desktopHtml += `
-                    <tr>
-                        <td class="ps-3"><input type="checkbox" class="form-check-input row-checkbox" value="${item.id}"></td>
-                        <td>${item.ta_date}</td>
-                        <td class="fw-medium">${employeeName}</td>
-                        <td><div class="text-truncate" style="max-width:200px;">${item.purpose}</div><small class="text-muted d-block text-truncate" style="max-width:200px;">${item.destination}</small></td>
-                        <td class="fw-bold text-nowrap">₹${item.amount}</td>
-                        <td><span class="badge ${badgeClass}">${statusLabel}</span></td>
-                        <td class="pe-3"><div class="d-flex flex-wrap gap-1" style="min-width: 140px;">${actions}</div></td>
-                    </tr>
-                `;
+                    let actions = `
+                        <button class="btn btn-sm btn-light border text-dark" onclick="viewTA(${item.id})" title="View"><i class="fas fa-eye"></i></button>
+                        <button class="btn btn-sm btn-info text-white secured-item" data-permission="ta_print" onclick="printTA(${item.id})" title="Print"><i class="fas fa-print"></i></button>
+                    `;
 
+                    if(item.status === 'pending') {
+                        let hasEditPerm = (window.userPerms || []).includes('ta_edit'); 
+                        if(isOwnTA || hasEditPerm || window.userGodMode) {
+                            actions += `<button class="btn btn-sm btn-primary" onclick="editTA(${item.id})" title="Edit Details"><i class="fas fa-pencil-alt"></i></button>`;
+                        }
+                    }
+
+                    // 🔥 YAHAN FIX KIYA: Approve/Reject buttons status kuch bhi ho, Admin ko hamesha dikhenge
+                    if (!isOwnTA || window.userGodMode) {
+                        let currentApproved = item.approved_amount || item.amount;
+                        let safeRemark = item.remarks ? item.remarks.replace(/'/g, "\\'") : '';
+                        
+                        // Re-Approve / Edit Approve button
+                        actions += `<button class="btn btn-sm btn-success secured-item" data-permission="ta_appr" onclick="updateStatus(${item.id}, 'approve', ${item.amount}, ${currentApproved}, '${safeRemark}')" title="Approve / Re-Approve"><i class="fas fa-check-double"></i></button>`;
+                        
+                        // Reject / Cancel Reject button
+                        actions += `<button class="btn btn-sm btn-danger secured-item" data-permission="ta_rej" onclick="updateStatus(${item.id}, 'reject', ${item.amount}, null, '${safeRemark}')" title="Reject / Re-Reject"><i class="fas fa-ban"></i></button>`;
+                    }
+                    // 🔥 YAHAN EK EXTRA } THA JISKO HATA DIYA GAYA HAI 🔥
+
+                    // 🔥 Naya Person Info Display Logic
+                    let personInfoDisplay = `
+                        <div class="text-truncate" style="max-width:180px;">
+                            <i class="fas fa-user-friends text-primary"></i> <b>${item.person_name || 'Self'}</b> <span class="badge bg-secondary ms-1">x${item.number_of_persons || 1}</span>
+                        </div>
+                        ${item.person_number ? `<small class="text-muted"><i class="fas fa-phone-alt"></i> ${item.person_number}</small>` : ''}
+                    `;
+
+                    desktopHtml += `
+                        <tr>
+                            <td class="ps-3"><input type="checkbox" class="form-check-input row-checkbox" value="${item.id}"></td>
+                            <td>${item.ta_date}</td>
+                            <td class="fw-medium">${employeeName}</td>
+                            <td>${personInfoDisplay}</td> <td><div class="text-truncate" style="max-width:200px;">${item.purpose}</div><small class="text-muted d-block text-truncate" style="max-width:200px;">${item.destination}</small></td>
+                            <td class="text-nowrap">${amountDisplay}</td>
+                            <td><span class="badge ${badgeClass}">${statusLabel}</span></td>
+                            <td class="pe-3"><div class="d-flex flex-wrap gap-1" style="min-width: 140px;">${actions}</div></td>
+                        </tr>
+                    `;
+
+                    // Same amountDisplay mobileHtml me bhi replace kar dein
                     mobileHtml += `
-                    <div class="mobile-card shadow-sm">
-                        <div class="d-flex justify-content-between mb-2 border-bottom pb-2">
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="checkbox" class="form-check-input row-checkbox" value="${item.id}">
-                                <strong>${item.ta_date}</strong>
+                        <div class="mobile-card shadow-sm">
+                            <div class="d-flex justify-content-between mb-2 border-bottom pb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="checkbox" class="form-check-input row-checkbox" value="${item.id}">
+                                    <strong>${item.ta_date}</strong>
+                                </div>
+                                <span class="badge ${badgeClass}">${statusLabel}</span>
                             </div>
-                            <span class="badge ${badgeClass}">${statusLabel}</span>
+                            <div class="text-muted small mb-1"><i class="fas fa-user"></i> ${employeeName}</div>
+                            <div class="small mb-2"><i class="fas fa-map-marker-alt"></i> ${item.purpose} - ${item.destination}</div>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                <h6 class="mb-0 text-primary">${amountDisplay}</h6>
+                                <div class="d-flex flex-wrap gap-1">${actions}</div>
+                            </div>
                         </div>
-                        <div class="text-muted small mb-1"><i class="fas fa-user"></i> ${employeeName}</div>
-                        <div class="small mb-2"><i class="fas fa-map-marker-alt"></i> ${item.purpose} - ${item.destination}</div>
-                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                            <h6 class="mb-0 fw-bold text-primary">₹${item.amount}</h6>
-                            <div class="d-flex flex-wrap gap-1">${actions}</div>
-                        </div>
-                    </div>
-                `;
+                    `;
                 });
 
                 $('#taTableBody').html(desktopHtml);
@@ -333,23 +387,75 @@
             });
         }
 
+       // 🔥 FILE PREVIEW & CUT LOGIC 🔥
+        let selectedFiles = []; 
+        let existingFiles = []; 
+
+        $('#proof_file_input').on('change', function(e) {
+            let files = e.target.files;
+            for(let i=0; i<files.length; i++) {
+                selectedFiles.push(files[i]);
+            }
+            $(this).val(''); // Reset taaki same file dubara select ho sake
+            renderPreviews();
+        });
+
+        function renderPreviews() {
+            $('#proof_preview_container').empty();
+            
+            // Existing Files Render (Edit mode)
+            existingFiles.forEach((path, index) => {
+                let isPdf = path.toLowerCase().endsWith('.pdf');
+                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' : `<img src="/${path}" style="width:100%; height:100%; object-fit:cover;">`;
+                
+                $('#proof_preview_container').append(`
+                    <div class="position-relative border rounded shadow-sm" style="width: 80px; height: 80px; overflow: hidden; background: #f8f9fa; text-align:center;">
+                        ${content}
+                        <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 rounded-circle" style="padding: 1px 5px; font-size: 10px; margin: 2px;" onclick="removeExisting(${index})"><i class="fas fa-times"></i></button>
+                    </div>
+                `);
+            });
+
+            // New Selected Files Render
+            selectedFiles.forEach((file, index) => {
+                let isPdf = file.type === 'application/pdf';
+                let url = URL.createObjectURL(file);
+                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' : `<img src="${url}" style="width:100%; height:100%; object-fit:cover;">`;
+                
+                $('#proof_preview_container').append(`
+                    <div class="position-relative border border-primary border-2 rounded shadow-sm" style="width: 80px; height: 80px; overflow: hidden; background: #e3f2fd; text-align:center;">
+                        ${content}
+                        <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 rounded-circle" style="padding: 1px 5px; font-size: 10px; margin: 2px;" onclick="removeNew(${index})"><i class="fas fa-times"></i></button>
+                    </div>
+                `);
+            });
+        }
+
+        window.removeNew = function(index) { selectedFiles.splice(index, 1); renderPreviews(); };
+        window.removeExisting = function(index) { existingFiles.splice(index, 1); renderPreviews(); };
+
         function openTAModal() {
+            $('#purpose').trigger('input');
             $('#taForm')[0].reset();
             $('#ta_id').val('');
             $('#taModalTitle').text('Request Travel Allowance');
+            selectedFiles = [];
+            existingFiles = [];
+            renderPreviews();
             prepareFormView();
             $('#taModal').modal('show');
         }
 
-        // 🔥 SMART ASYNC EDIT (Fixes Dropdown Pre-fill)
         async function editTA(id) {
             let item = window.taDataList.find(t => t.id === id);
             if (!item) return;
+            $('#purpose').trigger('input');
 
             $('#taForm')[0].reset();
             $('#ta_id').val(item.id);
             $('#taModalTitle').text('Edit Travel Allowance');
-
+            
+            // Text inputs set karna
             $('#ta_date').val(item.ta_date);
             $('#vehicle_no').val(item.vehicle_no);
             $('#purpose').val(item.purpose);
@@ -359,35 +465,25 @@
             $('#in_time').val(item.in_time);
             $('#out_time').val(item.out_time);
             $('#amount').val(item.amount);
+            $('#person_name').val(item.person_name);
+            $('#person_number').val(item.person_number);
+            $('#number_of_persons').val(item.number_of_persons || 1);
 
-            prepareFormView(item);
-
-            // Wait for dropdowns to sequentially load if Admin
-            if (portal !== 'employee' && (window.userGodMode || window.userPerms.includes('ta_edit'))) {
-                $('#taModalBody').css('opacity', '0.5'); // Optional loading state
-
-                await loadCompaniesAsync();
-                $('#company_id').val(item.company_id);
-
-                await loadBranchesAsync(item.company_id);
-                $('#branch_id').val(item.branch_id || 'HO');
-
-                await loadDepartmentsAsync(item.company_id, item.branch_id || 'HO');
-                $('#department_id').val(item.department_id);
-
-                await loadDesignationsAsync(item.department_id);
-                $('#designation_id').val(item.designation_id);
-
-                await loadEmployeesAsync(item.designation_id, item.branch_id || 'HO', item.company_id, item
-                    .department_id);
-                $('#employee_id').val(item.employee_id);
-
-                $('#taModalBody').css('opacity', '1');
+            // Files Parsing
+            selectedFiles = [];
+            existingFiles = [];
+            if (item.proof_file) {
+                try {
+                    let parsed = JSON.parse(item.proof_file);
+                    existingFiles = Array.isArray(parsed) ? parsed : [item.proof_file];
+                } catch(e) {
+                    existingFiles = [item.proof_file];
+                }
             }
-
+            renderPreviews();
+            prepareFormView(item);
             $('#taModal').modal('show');
         }
-
         function prepareFormView(item = null) {
             if (portal === 'employee' || (!window.userGodMode && !window.userPerms.includes('ta_appr'))) {
                 $('#adminSelectionArea').hide();
@@ -415,20 +511,34 @@
                 if (!item) loadCompanies();
             }
         }
+function saveTA() {
+            if (selectedFiles.length === 0 && existingFiles.length === 0) {
+                Swal.fire('Required', 'Please upload at least one proof file.', 'error');
+                return;
+            }
 
-        function saveTA() {
             let id = $('#ta_id').val();
+            let formData = new FormData($('#taForm')[0]);
+
+            // Append new files array
+            selectedFiles.forEach(file => { formData.append('proof_files[]', file); });
+            // Keep track of files user didn't delete
+            formData.append('existing_proofs', JSON.stringify(existingFiles));
+
+            if (id) { formData.append('_method', 'PUT'); }
+
             $.ajax({
                 url: id ? `${apiUrl}/${id}` : apiUrl,
-                type: id ? 'PUT' : 'POST',
-                data: $('#taForm').serialize(),
+                type: 'POST',
+                data: formData,
+                processData: false, contentType: false,
                 success: function(res) {
                     $('#taModal').modal('hide');
                     loadData(currentPage);
                     Swal.fire('Success', res.message, 'success');
                 },
                 error: function(err) {
-                    Swal.fire('Error', 'Please fill required fields properly.', 'error');
+                    Swal.fire('Error', 'Failed to save data.', 'error');
                 }
             });
         }
@@ -436,19 +546,68 @@
         // ===============================
         // 3. WORKFLOW ACTIONS
         // ===============================
-        function updateStatus(id, action) {
-            Swal.fire({
-                title: `Confirm ${action}?`,
-                icon: 'warning',
-                showCancelButton: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.post(`${apiUrl}/${id}/${action}`, function(res) {
-                        loadData(currentPage);
-                        Swal.fire('Done!', res.message, 'success');
-                    });
-                }
-            });
+        function updateStatus(id, action, requestedAmount = 0, currentApprovedAmount = null, currentRemark = '') {
+            let safeApproved = currentApprovedAmount !== null ? currentApprovedAmount : requestedAmount;
+            let safeRemark = currentRemark && currentRemark !== 'null' ? currentRemark : '';
+
+            if (action === 'approve') {
+                Swal.fire({
+                    title: 'Approve TA Request',
+                    html: `
+                        <div class="text-start">
+                            <label class="form-label small fw-bold text-muted">Requested Amount: ₹${requestedAmount}</label>
+                            <input id="swal-amount" class="form-control border-success mb-3" type="number" value="${safeApproved}">
+                            <label class="form-label small fw-bold text-muted">Approver's Remark (Optional)</label>
+                            <textarea id="swal-remark" class="form-control" rows="2" placeholder="Add approval remarks...">${safeRemark}</textarea>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Confirm Approve',
+                    confirmButtonColor: '#28a745',
+                    preConfirm: () => {
+                        let amt = document.getElementById('swal-amount').value;
+                        if (!amt || amt <= 0) {
+                            Swal.showValidationMessage('Please enter a valid amount!');
+                            return false;
+                        }
+                        return {
+                            approved_amount: amt,
+                            remarks: document.getElementById('swal-remark').value
+                        }
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post(`${apiUrl}/${id}/approve`, result.value, function(res) {
+                            loadData(currentPage);
+                            Swal.fire('Approved!', res.message, 'success');
+                        });
+                    }
+                });
+            } else {
+                Swal.fire({
+                    title: `Reject TA Request`,
+                    html: `
+                        <div class="text-start">
+                            <label class="form-label small fw-bold text-muted">Reason for Rejection (Optional)</label>
+                            <textarea id="swal-remark" class="form-control border-danger" rows="2" placeholder="Why are you rejecting this?">${safeRemark}</textarea>
+                        </div>
+                    `,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Confirm Reject',
+                    preConfirm: () => {
+                        return { remarks: document.getElementById('swal-remark').value }
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post(`${apiUrl}/${id}/reject`, result.value, function(res) {
+                            loadData(currentPage);
+                            Swal.fire('Rejected!', res.message, 'success');
+                        });
+                    }
+                });
+            }
         }
 
         function openRemarks(id, currentRemark, isOwnTA) {

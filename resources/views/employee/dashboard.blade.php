@@ -26,9 +26,7 @@
         .calendar-wrapper {
             background: #fff;
             border-radius: 12px;
-            border: 1px solid var(--border-color);
-            padding: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+            padding: 10px;
         }
 
         .cal-header {
@@ -114,8 +112,6 @@
             color: #b91c1c;
         }
 
-        /* Dark Red for Half Day */
-
         .day-cl {
             border-color: #bfdbfe;
             background: #f0f9ff;
@@ -126,7 +122,15 @@
             color: #0369a1;
         }
 
-        /* Blue for CL */
+        .day-holiday {
+            border-color: #fde047;
+            background: #fefce8;
+        }
+
+        .day-holiday .status-box {
+            background: #fef08a;
+            color: #854d0e;
+        }
 
         .day-off {
             border-color: #e2e8f0;
@@ -148,10 +152,48 @@
             border-top: 1px solid rgba(0, 0, 0, 0.05);
             padding-top: 5px;
         }
+
+        /* Mobile Specific Calendar Fixes */
+        @media (max-width: 768px) {
+            .cal-day {
+                padding: 4px;
+                min-height: 75px;
+            }
+
+            .cal-date {
+                font-size: 11px;
+                text-align: center;
+            }
+
+            .status-box {
+                font-size: 14px !important;
+                padding: 2px;
+            }
+
+            .time-box {
+                font-size: 8.5px;
+                text-align: center;
+                padding-top: 3px;
+            }
+
+            .time-box .fw-bold {
+                display: block;
+            }
+
+            .stat-card {
+                padding: 10px;
+            }
+
+            .stat-icon {
+                width: 35px;
+                height: 35px;
+                font-size: 16px;
+            }
+        }
     </style>
 
     <div class="container-fluid p-0">
-        <!-- TOP HEADER -->
+        <!-- Header Profile -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="d-flex align-items-center gap-3">
                 <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold fs-4"
@@ -160,8 +202,11 @@
                 </div>
                 <div>
                     <h5 class="fw-bold mb-0" style="color:var(--sidebar-bg);" id="empNameDisplay">Employee Workspace</h5>
-                    <p class="text-secondary small mb-0"><span id="empRoleDisplay">Loading Profile...</span> | <span
-                            class="fw-bold text-dark">Calc. Basis: 30 Days</span></p>
+                    <p class="text-secondary small mb-0"><span id="empRoleDisplay">Loading Profile...</span></p>
+                    <p class="text-muted small mb-0" style="font-size: 11px;">
+                        <strong>EMP ID:</strong> <span id="empIdDisplay">Loading...</span> |
+                        <strong>DEVICE:</strong> <span id="empDeviceDisplay">Loading...</span>
+                    </p>
                 </div>
             </div>
 
@@ -170,9 +215,68 @@
             </button>
         </div>
 
-        <!-- STATS ROW -->
+        <!-- 🔥 FIX 1: NAYA Manual Attendance Panel (Bahar nikal diya calendar modal se) 🔥 -->
+        <div class="card shadow-sm border-0 mb-4" id="attendancePanel"
+            style="border-radius: 12px; display: none; border-left: 4px solid #3b82f6 !important;">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-primary mb-0"><i class="fas fa-fingerprint me-2"></i> Action Required: Mark
+                        Attendance</h6>
+                    <small class="badge bg-light text-dark border" id="activeWindowDisplay">Loading Window...</small>
+                </div>
+                <div class="row align-items-end g-3">
+                    <div class="col-md-4">
+                        <label class="small text-muted fw-bold">Actual Punch Time</label>
+                        <input type="time" id="claimedTime" class="form-control fw-bold border-primary" required>
+                        <small class="text-muted" style="font-size:10px;">Select exact time of reporting.</small>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary fw-bold w-100 py-2 shadow-sm" id="btnInitiatePunch">
+                            <i class="fas fa-check-circle me-1"></i> Submit Punch
+                        </button>
+                    </div>
+                </div>
+                <div class="text-danger small mt-2 fw-bold d-none" id="windowClosedMsg"><i class="fas fa-lock me-1"></i>
+                    Attendance window is currently closed.</div>
+            </div>
+        </div>
+
+        <!-- Today's Attendance Trigger Card -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0"
+                    style="border-radius: 12px; cursor: pointer; border-left: 4px solid var(--brand-primary) !important;"
+                    data-bs-toggle="modal" data-bs-target="#calendarModal">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <div id="todayStatusIcon"
+                                class="rounded-circle bg-secondary text-white d-flex justify-content-center align-items-center shadow-sm"
+                                style="width: 45px; height: 45px; font-weight: bold; font-size: 20px;">
+                                -
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Today's Attendance <span
+                                        class="badge bg-light text-primary border ms-2" style="font-size: 10px;">Click to
+                                        view full calendar</span></h6>
+                                <p class="text-muted small mb-0 text-uppercase" style="letter-spacing: 0.5px;">
+                                    {{ now()->format('d M, Y') }} <span id="todayStatusText"
+                                        class="ms-1 fw-bold text-secondary">Checking...</span></p>
+                            </div>
+                        </div>
+                        <div class="text-end" id="todayTimeBox" style="display: none;">
+                            <div class="small fw-bold text-success"><i class="fas fa-sign-in-alt me-1"></i> In: <span
+                                    id="todayInTime">--:--</span></div>
+                            <div class="small fw-bold text-danger mt-1"><i class="fas fa-sign-out-alt me-1"></i> Out: <span
+                                    id="todayOutTime">--:--</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Statistics -->
         <div class="row g-3 mb-4">
-            <div class="col-4 col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <div class="stat-card">
                     <div>
                         <div class="small text-muted fw-bold">Present</div>
@@ -181,7 +285,7 @@
                     <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="fas fa-check-circle"></i></div>
                 </div>
             </div>
-            <div class="col-4 col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <div class="stat-card">
                     <div>
                         <div class="small text-muted fw-bold">Absent</div>
@@ -190,16 +294,16 @@
                     <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="fas fa-times-circle"></i></div>
                 </div>
             </div>
-            <div class="col-4 col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <div class="stat-card">
                     <div>
                         <div class="small text-muted fw-bold">Half Days</div>
-                        <h4 class="fw-bold text-danger mb-0" id="statHalfDay">0</h4>
+                        <h4 class="fw-bold text-warning mb-0" id="statHalfDay">0</h4>
                     </div>
-                    <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="fas fa-adjust"></i></div>
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="fas fa-adjust"></i></div>
                 </div>
             </div>
-            <div class="col-4 col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <div class="stat-card">
                     <div>
                         <div class="small text-muted fw-bold">Available CL</div>
@@ -208,69 +312,115 @@
                     <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="fas fa-calendar-day"></i></div>
                 </div>
             </div>
-            <div class="col-4 col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <div class="stat-card">
                     <div>
                         <div class="small text-muted fw-bold">Total Leave</div>
                         <h4 class="fw-bold text-secondary mb-0" id="statLeaves">0</h4>
                     </div>
-                    <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="fas fa-plane-departure"></i>
-                    </div>
+                    <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i
+                            class="fas fa-plane-departure"></i></div>
                 </div>
             </div>
-            <div class="col-4 col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <div class="stat-card">
                     <div>
-                        <div class="small text-muted fw-bold">Overtime (Hrs)</div>
-                        <h4 class="fw-bold text-warning mb-0" id="statOT">0</h4>
+                        <div class="small text-muted fw-bold">Extra Days</div>
+                        <h4 class="fw-bold text-primary mb-0" id="statExtraDays">0</h4>
                     </div>
-                    <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="fas fa-clock"></i></div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="fas fa-briefcase"></i></div>
                 </div>
             </div>
-            <div class="col-12 col-md-4 mt-3">
+            <div class="col-12 col-lg-4 mt-3">
                 <div class="stat-card border-danger">
                     <div>
                         <div class="small text-danger fw-bold">Total Fine Calculation (This Month)</div>
                         <h3 class="fw-bold text-danger mb-0">₹ <span id="statFine">0.00</span></h3>
                     </div>
-                    <div class="stat-icon bg-danger bg-opacity-10 text-danger fs-3"><i class="fas fa-rupee-sign"></i></div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger fs-3"><i class="fas fa-rupee-sign"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- CALENDAR SECTION -->
-        <div class="row">
-            <div class="col-12">
-                <div class="calendar-wrapper">
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
-                        <h5 class="fw-bold text-dark mb-3 mb-md-0"><i class="fas fa-calendar-alt text-primary me-2"></i>
+        <!-- Full Calendar Modal -->
+        <div class="modal fade" id="calendarModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                    <div class="modal-header bg-light" style="border-radius: 15px 15px 0 0;">
+                        <h5 class="modal-title fw-bold"><i class="fas fa-calendar-alt text-primary me-2"></i> Monthly
                             Attendance Record</h5>
-
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="small text-muted fw-bold"><i class="fas fa-info-circle me-1"></i> Tuesdays are
-                                Weekly Offs</div>
-                            <!-- MONTH SELECTOR -->
-                            <input type="month" id="monthSelector"
-                                class="form-control form-control-sm border-primary fw-bold" style="width: auto;">
+                        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3 bg-light">
+                        <div class="calendar-wrapper border-0 shadow-none m-0 p-0" style="background: transparent;">
+                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+                                <div class="small text-muted fw-bold"><i class="fas fa-info-circle me-1"></i> Check your
+                                    exact P/A/H/L status</div>
+                                <input type="month" id="monthSelector"
+                                    class="form-control form-control-sm border-primary fw-bold" style="width: auto;">
+                            </div>
+                            <div class="cal-header">
+                                <div class="text-danger">SUN</div>
+                                <div>MON</div>
+                                <div>TUE</div>
+                                <div>WED</div>
+                                <div>THU</div>
+                                <div>FRI</div>
+                                <div>SAT</div>
+                            </div>
+                            <div class="cal-grid" id="calendarGrid">
+                                <div class="text-center py-5 text-muted col-span-7" style="grid-column: span 7;"><i
+                                        class="fas fa-spinner fa-spin me-2"></i> Loading Backend Data...</div>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
 
-                    <div class="cal-header">
-                        <div class="text-danger">SUN</div>
-                        <div>MON</div>
-                        <div class="text-warning">TUE</div>
-                        <div>WED</div>
-                        <div>THU</div>
-                        <div>FRI</div>
-                        <div>SAT</div>
+        <!-- Proof Collection Modal -->
+        <div class="modal fade" id="proofModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                    <div class="modal-header bg-danger text-white" style="border-radius: 15px 15px 0 0;">
+                        <h6 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-2"></i> Time Discrepancy
+                            Detected</h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="cal-grid" id="calendarGrid">
-                        <div class="text-center py-5 text-muted col-span-7" style="grid-column: span 7;"><i
-                                class="fas fa-spinner fa-spin me-2"></i> Loading Backend Data...</div>
+                    <div class="modal-body p-4 bg-light">
+                        <div class="alert alert-warning py-2 small fw-bold mb-3 border-warning">
+                            You are claiming a time that is more than 5 minutes older than the current system time. Proof is
+                            strictly required!
+                        </div>
+                        <form id="proofForm">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-dark">Reason for late punch-in <span
+                                        class="text-danger">*</span></label>
+                                <textarea id="punchReason" class="form-control form-control-sm border-secondary" rows="2"
+                                    placeholder="e.g., Biometric machine issue, site work, etc." required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-dark">Upload Proof (Images) <span
+                                        class="text-danger">*</span></label>
+                                <input type="file" id="proofImages"
+                                    class="form-control form-control-sm border-secondary" multiple accept="image/*"
+                                    required>
+                                <small class="text-muted" style="font-size:10px;">Hold Ctrl/Cmd to select multiple
+                                    images.</small>
+                            </div>
+                            <div id="imagePreviewContainer" class="d-flex flex-wrap gap-2 mb-3"></div>
+                            <button type="submit" class="btn btn-danger btn-sm w-100 fw-bold py-2 shadow-sm"
+                                id="btnSubmitProof">
+                                <i class="fas fa-upload me-1"></i> Submit with Proof
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
 @endsection
 
@@ -301,12 +451,20 @@
                 },
                 success: function(res) {
                     $('#empNameDisplay').text(res.data.name);
-                    $('#empRoleDisplay').text(res.data.designation_name + ' | ' + res.data.email);
+                    $('#empRoleDisplay').text((res.data.designation_name || 'Employee') + ' | ' + (res
+                        .data.department_name || 'General Dept'));
                     $('#profileInitial').html(res.data.name.charAt(0).toUpperCase());
+                    $('#empIdDisplay').text(res.data.id || 'N/A');
+                    $('#empDeviceDisplay').text(currentPanelId || 'N/A');
                 }
             });
 
-            // Fetch Real Data from New API
+            // ==========================================
+            // 🔥 NAYA: SMART MANUAL ATTENDANCE LOGIC 🔥
+            // ==========================================
+            let globalTimeWindow = null;
+
+            // Updated fetchDashboardData (Fix 2 & 3: Consolidated and Crash-proof)
             function fetchDashboardData(month, year) {
                 $('#calendarGrid').html(
                     '<div class="text-center py-5 text-muted col-span-7" style="grid-column: span 7;"><i class="fas fa-spinner fa-spin me-2"></i> Fetching Live Records...</div>'
@@ -319,28 +477,46 @@
                         'Authorization': 'Bearer ' + empToken
                     },
                     success: function(res) {
-                        updateStats(res.stats);
-                        renderCalendar(res.month, res.year, res.daily_data);
+                        // Crash Protection Check
+                        if (res && res.stats) {
+                            updateStats(res.stats);
+                            renderCalendar(res.month, res.year, res.daily_data);
+
+                            if (res.time_window) {
+                                globalTimeWindow = res.time_window;
+                                checkTimeWindowAndToggleUI();
+                            } else {
+                                $('#attendancePanel').hide(); // Hide if no window assigned
+                            }
+                        } else {
+                            $('#calendarGrid').html(
+                                '<div class="text-center py-5 text-danger col-span-7 fw-bold" style="grid-column: span 7;">Data payload structure is invalid.</div>'
+                                );
+                        }
                     },
                     error: function(err) {
-                        console.error('Data Fetch Error');
+                        $('#calendarGrid').html(
+                            '<div class="text-center py-5 text-danger col-span-7" style="grid-column: span 7;">Failed to load data. Permission or API error.</div>'
+                            );
                     }
                 });
             }
 
             function updateStats(stats) {
-                $('#statPresent').text(stats.present);
-                $('#statAbsent').text(stats.absent);
-                $('#statHalfDay').text(stats.half_day);
-                $('#statCL').text(stats.cl_available);
-                $('#statLeaves').text(stats.total_leave);
-                $('#statOT').text(stats.ot_hours);
-                $('#statFine').text(stats.fine_amount.toFixed(2));
+                // Safeguard against missing keys
+                if (!stats) return;
+                $('#statPresent').text(stats.present || 0);
+                $('#statAbsent').text(stats.absent || 0);
+                $('#statHalfDay').text(stats.half_day || 0);
+                $('#statCL').text(stats.cl_available || 0);
+                $('#statLeaves').text(stats.total_leave || 0);
+                $('#statExtraDays').text(stats.extra_days || 0);
+                let fineAmt = stats.fine_amount ? parseFloat(stats.fine_amount).toFixed(2) : "0.00";
+                $('#statFine').text(fineAmt);
             }
 
             // CALENDAR RENDERER
             function renderCalendar(month, year, dailyData) {
-                // Parse month correctly (JavaScript months are 0-indexed)
                 let mIndex = parseInt(month) - 1;
                 let yIndex = parseInt(year);
 
@@ -348,7 +524,6 @@
                 let daysInMonth = new Date(yIndex, mIndex + 1, 0).getDate();
 
                 let calHtml = '';
-
                 for (let i = 0; i < firstDay; i++) {
                     calHtml += `<div class="cal-day empty"></div>`;
                 }
@@ -362,37 +537,56 @@
 
                     let boxClass = 'day-future';
                     let statusHtml = '';
+                    let remarkHtml = (record.remark && record.remark !== 'On Time') ?
+                        `<div class="text-danger mt-1" style="font-size:9.5px; font-weight:600;"><i class="fas fa-exclamation-circle"></i> ${record.remark}</div>` :
+                        '';
 
                     if (record.status === 'off') {
                         boxClass = 'day-off';
-                        statusHtml = `<div class="status-box"><i class="fas fa-bed"></i> Weekly Off</div>`;
+                        statusHtml =
+                            `<div class="status-box"><span class="d-none d-md-inline"><i class="fas fa-bed"></i> Weekly Off</span><span class="d-inline d-md-none fw-bold">WO</span></div>`;
                     } else if (record.status === 'present') {
                         boxClass = 'day-present';
-                        let otText = record.ot > 0 ?
-                            ` <span class="badge bg-warning text-dark ms-1" style="font-size:9px;">${record.ot}h OT</span>` :
-                            '';
                         statusHtml = `
-                            <div class="status-box"><i class="fas fa-check-square"></i> Present${otText}</div>
+                            <div class="status-box"><span class="d-none d-md-inline"><i class="fas fa-check-square"></i> Present</span><span class="d-inline d-md-none fw-bold">P</span></div>
                             <div class="time-box">
-                                <div class="d-flex justify-content-between mb-1"><span class="text-muted">In:</span> <span class="fw-bold text-success">${record.login_time}</span></div>
-                                <div class="d-flex justify-content-between"><span class="text-muted">Out:</span> <span class="fw-bold text-danger">${record.logout_time}</span></div>
-                            </div>
-                        `;
+                                <div class="mb-1"><span class="text-muted d-none d-md-inline">In:</span> <span class="fw-bold text-success">${record.login_time || '--:--'}</span></div>
+                                <div><span class="text-muted d-none d-md-inline">Out:</span> <span class="fw-bold text-danger">${record.logout_time || '--:--'}</span></div>
+                                ${remarkHtml}
+                            </div>`;
                     } else if (record.status === 'half_day') {
                         boxClass = 'day-halfday';
                         statusHtml = `
-                            <div class="status-box"><i class="fas fa-adjust"></i> Half Day</div>
+                            <div class="status-box"><span class="d-none d-md-inline"><i class="fas fa-adjust"></i> Half Day</span><span class="d-inline d-md-none fw-bold">HD</span></div>
                             <div class="time-box">
-                                <div class="d-flex justify-content-between mb-1"><span class="text-muted">In:</span> <span class="fw-bold text-success">${record.login_time}</span></div>
-                                <div class="d-flex justify-content-between"><span class="text-muted">Out:</span> <span class="fw-bold text-danger">${record.logout_time}</span></div>
-                            </div>
-                        `;
-                    } else if (record.status === 'cl') {
+                                <div class="mb-1"><span class="text-muted d-none d-md-inline">In:</span> <span class="fw-bold text-success">${record.login_time || '--:--'}</span></div>
+                                <div><span class="text-muted d-none d-md-inline">Out:</span> <span class="fw-bold text-danger">${record.logout_time || '--:--'}</span></div>
+                                ${remarkHtml}
+                            </div>`;
+                    } else if (record.status === 'extra_day') {
+                        boxClass = 'day-present';
+                        statusHtml = `
+                            <div class="status-box" style="background:#3b82f6; color:white;"><span class="d-none d-md-inline"><i class="fas fa-star"></i> Extra Day</span><span class="d-inline d-md-none fw-bold">ED</span></div>
+                            <div class="time-box">
+                                <div class="mb-1"><span class="text-muted d-none d-md-inline">In:</span> <span class="fw-bold text-success">${record.login_time || '--:--'}</span></div>
+                                <div><span class="text-muted d-none d-md-inline">Out:</span> <span class="fw-bold text-danger">${record.logout_time || '--:--'}</span></div>
+                                <div class="text-primary mt-1" style="font-size:8.5px; font-weight:600;"><i class="fas fa-info-circle d-none d-md-inline"></i> ${record.remark}</div>
+                            </div>`;
+                    } else if (record.status === 'cl' || record.status === 'leave') {
                         boxClass = 'day-cl';
-                        statusHtml = `<div class="status-box"><i class="fas fa-umbrella-beach"></i> CL Taken</div>`;
+                        let isShort = record.remark && record.remark.includes('Short Leave');
+                        let deskText = record.status === 'cl' ? 'CL Taken' : (isShort ? 'Short Leave' : 'On Leave');
+                        let mobText = record.status === 'cl' ? 'CL' : (isShort ? 'SL' : 'L');
+                        statusHtml =
+                            `<div class="status-box"><span class="d-none d-md-inline"><i class="fas fa-umbrella-beach"></i> ${deskText}</span><span class="d-inline d-md-none fw-bold">${mobText}</span></div>`;
+                    } else if (record.status === 'holiday') {
+                        boxClass = 'day-holiday';
+                        statusHtml =
+                            `<div class="status-box"><span class="d-none d-md-inline"><i class="fas fa-star"></i> Holiday</span><span class="d-inline d-md-none fw-bold">HO</span></div>`;
                     } else if (record.status === 'absent') {
                         boxClass = 'day-absent';
-                        statusHtml = `<div class="status-box"><i class="fas fa-times-square"></i> Absent</div>`;
+                        statusHtml =
+                            `<div class="status-box"><span class="d-none d-md-inline"><i class="fas fa-times-square"></i> Absent</span><span class="d-inline d-md-none fw-bold">A</span></div>`;
                     }
 
                     // Highlight Today
@@ -401,18 +595,216 @@
                             ) ? 'border: 2px solid var(--brand-primary); box-shadow: 0 0 10px rgba(0,0,0,0.15);' :
                         '';
 
-                    calHtml += `
-                        <div class="cal-day ${boxClass}" style="${isToday}">
-                            <div class="cal-date">${day}</div>
-                            ${statusHtml}
-                        </div>
-                    `;
+                    calHtml +=
+                        `<div class="cal-day ${boxClass}" style="${isToday}"><div class="cal-date">${day}</div>${statusHtml}</div>`;
                 }
 
                 $('#calendarGrid').html(calHtml);
+
+                // --- CHHOTE CARD KA LOGIC UPDATE ---
+                let todayStr =
+                    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                let todayRec = dailyData[todayStr];
+
+                if (todayRec) {
+                    if (todayRec.status === 'present') {
+                        $('#todayStatusIcon').attr('class',
+                            'rounded-circle bg-success text-white d-flex justify-content-center align-items-center shadow-sm'
+                            ).text('P');
+                        $('#todayStatusText').attr('class', 'ms-1 fw-bold text-success').text('(Present)');
+                        $('#todayInTime').text(todayRec.login_time || '--:--');
+                        $('#todayOutTime').text(todayRec.logout_time || '--:--');
+                        $('#todayTimeBox').show();
+                    } else if (todayRec.status === 'half_day') {
+                        $('#todayStatusIcon').attr('class',
+                            'rounded-circle bg-warning text-white d-flex justify-content-center align-items-center shadow-sm'
+                            ).text('H');
+                        $('#todayStatusText').attr('class', 'ms-1 fw-bold text-warning').text('(Half Day)');
+                        $('#todayInTime').text(todayRec.login_time || '--:--');
+                        $('#todayOutTime').text(todayRec.logout_time || '--:--');
+                        $('#todayTimeBox').show();
+                    } else if (todayRec.status === 'leave' || todayRec.status === 'cl') {
+                        $('#todayStatusIcon').attr('class',
+                            'rounded-circle bg-info text-white d-flex justify-content-center align-items-center shadow-sm'
+                            ).text('L');
+                        $('#todayStatusText').attr('class', 'ms-1 fw-bold text-info').text('(On Leave)');
+                        $('#todayTimeBox').hide();
+                    } else if (todayRec.status === 'holiday') {
+                        $('#todayStatusIcon').attr('class',
+                            'rounded-circle bg-primary text-white d-flex justify-content-center align-items-center shadow-sm'
+                            ).html('<i class="fas fa-star" style="font-size:16px;"></i>');
+                        $('#todayStatusText').attr('class', 'ms-1 fw-bold text-primary').text('(Holiday)');
+                        $('#todayTimeBox').hide();
+                    } else if (todayRec.status === 'off' || todayRec.status === 'future') {
+                        $('#todayStatusIcon').attr('class',
+                            'rounded-circle bg-secondary text-white d-flex justify-content-center align-items-center shadow-sm'
+                            ).text('-');
+                        $('#todayStatusText').attr('class', 'ms-1 fw-bold text-secondary').text('');
+                        $('#todayTimeBox').hide();
+                    } else {
+                        $('#todayStatusIcon').attr('class',
+                            'rounded-circle bg-danger text-white d-flex justify-content-center align-items-center shadow-sm'
+                            ).text('A');
+                        $('#todayStatusText').attr('class', 'ms-1 fw-bold text-danger').text('(Absent)');
+                        $('#todayTimeBox').hide();
+                    }
+                }
             }
 
-            // On Month Selector Change
+            function checkTimeWindowAndToggleUI() {
+                if (!globalTimeWindow) return;
+
+                let now = new Date();
+                let currentTimeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString()
+                    .padStart(2, '0');
+
+                let loginStart = globalTimeWindow.login_start.substring(0, 5);
+                let loginEnd = globalTimeWindow.login_end.substring(0, 5);
+
+                $('#activeWindowDisplay').text(`Window: ${loginStart} to ${loginEnd}`);
+                $('#attendancePanel').show();
+
+                if (currentTimeStr >= loginStart && currentTimeStr <= loginEnd) {
+                    $('#claimedTime').prop('disabled', false);
+                    $('#btnInitiatePunch').show();
+                    $('#windowClosedMsg').addClass('d-none');
+
+                    if (!$('#claimedTime').val()) $('#claimedTime').val(currentTimeStr);
+                } else {
+                    $('#claimedTime').prop('disabled', true);
+                    $('#btnInitiatePunch').hide();
+                    $('#windowClosedMsg').removeClass('d-none');
+                }
+            }
+
+            // Image Preview Logic
+            let selectedFiles = [];
+            $('#proofImages').on('change', function(e) {
+                let files = e.target.files;
+                let previewContainer = $('#imagePreviewContainer');
+                previewContainer.empty();
+                selectedFiles = Array.from(files);
+
+                selectedFiles.forEach((file, index) => {
+                    let reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewContainer.append(`
+                            <div class="position-relative" style="width: 60px; height: 60px;">
+                                <img src="${e.target.result}" class="img-thumbnail w-100 h-100" style="object-fit: cover;">
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="cursor:pointer; font-size:8px;" onclick="removeImage(${index})">X</span>
+                            </div>
+                        `);
+                    }
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            window.removeImage = function(index) {
+                selectedFiles.splice(index, 1);
+                let dt = new DataTransfer();
+                selectedFiles.forEach(file => dt.items.add(file));
+                document.getElementById('proofImages').files = dt.files;
+                $('#proofImages').trigger('change');
+            };
+
+            // Initiate Punch (Check 5-minute rule)
+            $('#btnInitiatePunch').click(function() {
+                let claimedVal = $('#claimedTime').val();
+                if (!claimedVal) return Swal.fire('Warning', 'Please select your punch-in time.',
+                'warning');
+
+                let now = new Date();
+                let claimedDate = new Date();
+                let parts = claimedVal.split(':');
+                claimedDate.setHours(parts[0], parts[1], 0);
+
+                let diffMins = (now - claimedDate) / 1000 / 60;
+
+                if (diffMins > 5) {
+                    $('#proofForm')[0].reset();
+                    $('#imagePreviewContainer').empty();
+                    selectedFiles = [];
+                    $('#proofModal').modal('show');
+                } else {
+                    executePunchAPI(claimedVal);
+                }
+            });
+
+            $('#proofForm').submit(function(e) {
+                e.preventDefault();
+                let reason = $('#punchReason').val().trim();
+
+                if (selectedFiles.length === 0 || reason === '') {
+                    return Swal.fire({
+                        icon: 'error',
+                        title: 'Strictly Prohibited',
+                        text: 'Without proof/reason, HR may mark you as Half-Day regardless of your working hours. Please provide both.',
+                        confirmButtonText: 'I Understand',
+                        confirmButtonColor: '#d33'
+                    });
+                }
+
+                executePunchAPI($('#claimedTime').val(), reason, selectedFiles);
+                $('#proofModal').modal('hide');
+            });
+
+            function executePunchAPI(claimedTimeStr, reason = null, files = []) {
+                Swal.fire({
+                    title: 'Recording Punch...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                let formData = new FormData();
+                formData.append('panel_id', currentPanelId);
+                formData.append('claimed_time', claimedTimeStr);
+
+                if (reason) formData.append('reason', reason);
+                if (files.length > 0) {
+                    files.forEach((file) => formData.append('proof_images[]', file));
+                }
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            formData.append('latitude', position.coords.latitude);
+                            formData.append('longitude', position.coords.longitude);
+                            sendData(formData);
+                        },
+                        function(error) {
+                            sendData(formData);
+                        }
+                    );
+                } else {
+                    sendData(formData);
+                }
+            }
+
+            function sendData(formData) {
+                $.ajax({
+                    url: '/api/v1/employee/mark-attendance',
+                    type: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + empToken
+                    },
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        Swal.fire('Success!', res.message, 'success');
+                        let curMonth = $('#monthSelector').val().split('-');
+                        fetchDashboardData(curMonth[1], curMonth[0]);
+                    },
+                    error: function(xhr) {
+                        let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Punch Failed';
+                        Swal.fire('Error', msg, 'error');
+                    }
+                });
+            }
+
+            // Month Selector Priority Rules
             $('#monthSelector').on('change', function() {
                 let val = $(this).val();
                 if (val) {
@@ -421,99 +813,20 @@
                 }
             });
 
-            // Initial Data Load
-            fetchDashboardData(String(today.getMonth() + 1).padStart(2, '0'), today.getFullYear());
-
-
-            // ==========================================
-            // AUTO ATTENDANCE & SECURITY LOGIC 
-            // ==========================================
-            function markAttendance(lat = null, long = null) {
-                $.ajax({
-                    url: '/api/v1/employee/mark-attendance',
-                    type: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + empToken
-                    },
-                    data: {
-                        panel_id: currentPanelId,
-                        latitude: lat,
-                        longitude: long
-                    },
-                    success: function(res) {
-                        let curMonth = $('#monthSelector').val().split('-');
-                        fetchDashboardData(curMonth[1], curMonth[0]);
-                    }
-                });
-            }
-
-           // Sirf tabhi call karo jab user sach mein Naya Login karke aaya ho!
-if (!sessionStorage.getItem('attendance_marked_today')) {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(position) { 
-                markAttendance(position.coords.latitude, position.coords.longitude); 
-                sessionStorage.setItem('attendance_marked_today', 'yes');
-            },
-            function(error) { 
-                markAttendance(null, null); 
-                sessionStorage.setItem('attendance_marked_today', 'yes');
-            }
-        );
-    } else {
-        markAttendance(null, null);
-        sessionStorage.setItem('attendance_marked_today', 'yes');
-    }
-}
-
-            $('#btnLogout').click(function() {
-                $.post({
-                    url: '/api/v1/employee/logout',
-                    headers: {
-                        'Authorization': 'Bearer ' + empToken
-                    },
-                    data: {
-                        panel_id: currentPanelId
-                    }
-                }).always(function() {
-                    localStorage.removeItem('emp_token');
-                    localStorage.removeItem('emp_panel_id');
-                    window.location.href = '/employee/login';
-                });
+            // SECURE LOGOUT
+            $('#btnLogout').click(function(e) {
+                e.preventDefault();
+                if (typeof window.performNormalLogout === 'function') {
+                    window.performNormalLogout();
+                } else {
+                    console.error("Global logout function not found in app.blade.php!");
+                }
             });
 
-            // let idleTime = 0;
-            // let idleInterval = setInterval(function() {
-            //     idleTime++;
-            //     if (idleTime >= 15) {
-            //         clearInterval(idleInterval);
-            //         Swal.fire({
-            //             title: 'Session Expired!',
-            //             text: '15 minutes of inactivity detected.',
-            //             icon: 'warning',
-            //             allowOutsideClick: false
-            //         }).then(() => {
-            //             $('#btnLogout').click();
-            //         });
-            //     }
-            // }, 60000);
-            // $(document).on('mousemove keydown scroll click', function() {
-            //     idleTime = 0;
-            // });
-
-            // setInterval(function() {
-            //     let now = new Date();
-            //     if (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 15)) {
-            //         Swal.fire({
-            //             title: 'Shift Over!',
-            //             text: 'Your shift limit (18:15) has been reached.',
-            //             icon: 'info',
-            //             allowOutsideClick: false
-            //         }).then(() => {
-            //             $('#btnLogout').click();
-            //         });
-            //     }
-            // }, 60000);
+            // Initial Data Load
+            fetchDashboardData(String(today.getMonth() + 1).padStart(2, '0'), today.getFullYear());
+            // Periodic check for UI button visibility
+            setInterval(checkTimeWindowAndToggleUI, 60000);
 
         });
     </script>

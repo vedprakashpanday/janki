@@ -183,6 +183,12 @@
                                     placeholder="Full Address">
                             </div>
 
+                            <div class="col-md-12 mt-2">
+                                <label class="small fw-bold text-primary"><i class="fas fa-map-marker-alt me-1"></i> Google Map Location (Link or Iframe)</label>
+                                <textarea class="form-control border-primary-subtle" id="c_map_url" name="map_url" rows="2" placeholder='Paste Google Map share link or <iframe> embed code here...'></textarea>
+                                <small class="text-muted" style="font-size: 11px;">System will automatically extract Latitude & Longitude from this link.</small>
+                            </div>
+
                             <div class="col-md-4">
                                 <label class="small fw-bold">GST No (Optional)</label>
                                 <input type="text" class="form-control text-uppercase" id="c_gst_no" name="gst_no"
@@ -281,6 +287,14 @@
                         <div class="col-md-6">
                             <div class="small fw-bold text-dark mb-1">Logo Reg. No:</div>
                             <div class="text-muted text-uppercase" id="v_logo_reg_display"></div>
+                        </div>
+                    </div>
+                    <div class="px-4 py-2 fw-bold border-bottom border-top mt-3" style="background-color: #e9ecef; color: #495057; font-size: 13px; text-transform: uppercase;">
+                        <i class="fas fa-map text-secondary me-1"></i> Location Map
+                    </div>
+                    <div class="p-4 pt-3 text-center">
+                        <div id="v_map_display" class="w-100 rounded border overflow-hidden shadow-sm" style="min-height: 250px; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                            <span class="text-muted"><i class="fas fa-map-marked-alt fa-2x mb-2 text-light"></i><br>Loading Map...</span>
                         </div>
                     </div>
                 </div>
@@ -714,6 +728,7 @@
         window.openAddModal = function(mode = 'direct') {
             $('#companyForm')[0].reset();
             $('#c_id').val('');
+            $('#c_map_url').val('');
             $('#directorRows').empty();
             $('#logoPreviewBox').addClass('d-none');
             $('#remove_logo_flag').val('0');
@@ -749,6 +764,7 @@
                     $('#c_state').val(data.state);
                     $('#c_district').val(data.district);
                     $('#c_address').val(data.address);
+                    $('#c_map_url').val('');
                     $('#c_gst_no').val(data.gst_no);
                     $('#c_status').val(data.status);
                     $('#c_cin_no').val(data.cin_no);
@@ -833,6 +849,20 @@
                     $('#v_iso_display').text(data.iso_no || 'N/A');
                     $('#v_trademark_display').text(data.trademark || 'N/A');
                     $('#v_logo_reg_display').text(data.logo_reg_no || 'N/A');
+
+                    // 🔥 NAYA: Map Rendering Logic
+                    let mapContainer = $('#v_map_display');
+                    if (data.map_url) {
+                        if (data.map_url.includes('<iframe')) {
+                            // Agar Iframe hai to direct render karo aur uski width 100% kardo
+                            mapContainer.html(data.map_url).find('iframe').css({width: '100%', height: '250px', border: 'none'});
+                        } else {
+                            // Agar normal link hai toh button dikhao
+                            mapContainer.html(`<a href="${data.map_url}" target="_blank" class="btn btn-outline-primary shadow-sm"><i class="fas fa-external-link-alt me-2"></i> Open Location in Google Maps</a>`);
+                        }
+                    } else {
+                        mapContainer.html('<span class="text-muted"><i class="fas fa-map-marker-slash mb-2 fs-3 text-secondary"></i><br>Location Map not provided</span>');
+                    }
 
                     $('#viewCompanyModal').modal('show');
                 }

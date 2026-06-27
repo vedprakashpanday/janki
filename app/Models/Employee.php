@@ -7,10 +7,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Spatie\Permission\Traits\HasRoles;
 // 👇 YEH LINE ADD KAREIN
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Notifications\Notifiable;
 
 class Employee extends Authenticatable
 {
-    use HasApiTokens,HasFactory, HasRoles;
+    use HasApiTokens,HasFactory, HasRoles,Notifiable;
 
     protected $guard_name = 'web';
 
@@ -30,7 +31,7 @@ class Employee extends Authenticatable
 
     public function bankDetails()
     {
-        return $this->hasOne(EmployeeBankDetail::class, 'member_id', 'member_id');
+        return $this->hasMany(EmployeeBankDetail::class, 'member_id', 'member_id');
     }
 
     public function salary()
@@ -87,4 +88,8 @@ class Employee extends Authenticatable
         return $this->hasMany(TravelAllowance::class, 'approver_id');
     }
 
+    public function receivesBroadcastNotificationsOn()
+    {
+        return new \Illuminate\Broadcasting\PrivateChannel('global.user.employee.' . $this->id);
+    }
 }

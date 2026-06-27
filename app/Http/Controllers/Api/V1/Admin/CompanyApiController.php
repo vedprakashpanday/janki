@@ -127,6 +127,8 @@ class CompanyApiController extends Controller
         if (!$isGodMode && !$user->can('company_add_direct') && $user->can('company_add_request')) {
             $finalStatus = 'pending';
         }
+        // 🔥 NAYA: Extract Location
+        $mapData = $this->extractLatLng($request->map_url);
 
         $company = Company::create([
             'company_name'  => $request->company_name,
@@ -143,7 +145,12 @@ class CompanyApiController extends Controller
             'district'      => $request->district,
             'address'       => $request->address,
             'gst_no'        => $request->gst_no,
-            'status'        => $finalStatus 
+            'status'        => $finalStatus,
+            
+            // 🔥 NAYA: Database me fields save karein
+            'map_url'       => $request->map_url,
+            'latitude'      => $mapData['latitude'],
+            'longitude'     => $mapData['longitude']
         ]);
 
         if ($request->has('board_assignments')) {
@@ -244,6 +251,9 @@ if (!$user->can('company_edit')) {
         $oldStatus = $company->status;
         $newStatus = $request->status ?? 'active';
 
+        // 🔥 NAYA: Extract Location for Update
+        $mapData = $this->extractLatLng($request->map_url);
+
         $company->update([
             'company_name'  => $request->company_name,
             'company_code'  => strtoupper($request->company_code),
@@ -260,6 +270,11 @@ if (!$user->can('company_edit')) {
             'gst_no'        => $request->gst_no,
             'status'        => $newStatus,
             'company_logo'  => $logoPath,
+
+            // 🔥 NAYA: Database fields update karein
+            'map_url'       => $request->map_url,
+            'latitude'      => $mapData['latitude'],
+            'longitude'     => $mapData['longitude']
         ]);
 
         // 🔥 NAYA: JSON PAYLOAD UPDATE LOGIC 🔥
@@ -326,5 +341,36 @@ if (!$user->can('company_delete')) {
 
         $companies = $query->get();
         return response()->json(['status' => 'success', 'data' => $companies]);
+    }
+
+    // 🔥 NAYA: Google Map Link/Iframe se Lat-Lng extract karne ka function
+    private function extractLatLng($mapString)
+    {
+        if (empty($mapString)) {
+            return ['latitude' => null, 'longitude' => null];
+        }
+
+        // 1. Iframe ya Embed URL check (pb parameter me !3d aur !2d/!4d hota hai)
+        if (strpos($mapString, '<iframe') !== false || strpos($mapString, 'pb=') !== false) {
+            preg_match('/!3d([-0-9.]+)/', $mapString, $latMatch);
+            // Longitude kabhi !2d hota hai aur kabhi !4d
+            preg_match('/![24]d([-0-9.]+)/', $mapString, $lngMatch); 
+
+            if (isset($latMatch[1]) && isset($lngMatch[1])) {
+                return ['latitude' => $latMatch[1], 'longitude' => $lngMatch[1]];
+            }
+        }
+
+        // 2. Normal URL '@lat,lng' format (eg: google.com/maps/@26.12,85.34,15z)
+        if (preg_match('/@([-0-9.]+),([-0-9.]+)/', $mapString, $matches)) {
+            return ['latitude' => $matches[1], 'longitude' => $matches[2]];
+        }
+
+        // 3. Query parameter 'q=lat,lng' format
+        if (preg_match('/[?&]q=([-0-9.]+),([-0-9.]+)/', $mapString, $matches)) {
+            return ['latitude' => $matches[1], 'longitude' => $matches[2]];
+        }
+
+        return ['latitude' => null, 'longitude' => null];
     }
 }

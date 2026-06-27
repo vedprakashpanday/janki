@@ -110,21 +110,23 @@ class EmployeeController extends Controller
     {
         $context = $this->getGlobalContext();
 
-        // 🔥 FIX: Company, Branch aur Department relations me active hone ki strict check add ki gayi
+       // 🔥 FIX: Relation load karte waqt agar branch_id NULL hai toh use reject nahi karna hai
         $query = Employee::with([
             'company' => function ($q) {
                 $q->where('status', 'active');
             },
             'branch' => function ($q) {
+                // Yahan se strict where hatakar sirf active branch laane ka logic lagaya hai
                 $q->where('branch_status', 'active');
             },
             'department' => function ($q) {
                 $q->where('status', 'active');
             },
-            'designation'
+            'designation',
+            'bankDetails' // 🔥 Isko bhi zaroor add karein taaki data aaye
         ]);
        // 🔥 1. Sirf ACTIVE employees ko lana hai
-    $query->where('emp_status', 'active');
+ 
 
         if (!$context->is_god) {
             if ($context->is_director) {
@@ -140,6 +142,8 @@ class EmployeeController extends Controller
         } elseif ($request->filled('company_id')) {
             $query->where('company_id', $request->company_id);
         }
+
+
 
         if ($request->filled('branch_ids')) {
             $branchIds = explode(',', $request->branch_ids);
@@ -183,14 +187,23 @@ class EmployeeController extends Controller
         //     $query->whereIn('designation_id', explode(',', $request->designation_ids));
         // }
 
-        // 4. Department ID filter (Optional but good for accuracy)
-        if ($request->filled('department_id')) {
+       // 4. Department ID filter (Multi-Select Support)
+        if ($request->filled('department_ids')) {
+            $query->whereIn('department_id', explode(',', $request->department_ids));
+        } elseif ($request->filled('department_id')) {
             $query->where('department_id', $request->department_id);
         }
 
-        // 🔥 5. Designation ID filter (YEH SABSE ZAROORI HAI)
-        if ($request->filled('designation_id')) {
+        // 5. Designation ID filter (Multi-Select Support)
+        if ($request->filled('designation_ids')) {
+            $query->whereIn('designation_id', explode(',', $request->designation_ids));
+        } elseif ($request->filled('designation_id')) {
             $query->where('designation_id', $request->designation_id);
+        }
+
+          // 🔥 NAYA: Status filter support (Agar frontend se status aaye toh filter kare)
+        if ($request->filled('status')) {
+            $query->where('emp_status', $request->status);
         }
 
         // Uske baad aapka existing data fetch karne ka code hoga
@@ -208,7 +221,8 @@ class EmployeeController extends Controller
         $totalData = Employee::count();
         $totalFiltered = $query->count();
 
-        if ($request->input('length', 10) != -1) {
+       // 🔥 BUG FIX: Limit tabhi lage jab datatable khud request kare (serverSide ke liye)
+        if ($request->has('length') && $request->input('length') != -1) {
             $query->offset($request->input('start', 0))->limit($request->input('length', 10));
         }
 
@@ -276,7 +290,9 @@ class EmployeeController extends Controller
             $aadharPart = substr(preg_replace('/\D/', '', $request->aadhar_no ?? '0000'), -4);
             $password = $namePart . '@' . $aadharPart;
 
-            $employeeData = $request->except(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'ifsc_code', 'is_transfer', 'transfer_old_id']);
+           $employeeData = $request->except(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'branch', 'ifsc_code', 'is_transfer', 'transfer_old_id']);
+unset($employeeData['bank_branch']);
+unset($employeeData['branch']);
             if ($request->marital_status !== 'Married') $employeeData['anniversary_date'] = null;
 
             $employeeData['member_id'] = $memberId;
@@ -294,9 +310,17 @@ class EmployeeController extends Controller
 
             $employee = Employee::create($employeeData);
 
-            if ($request->filled('account_no')) {
-                EmployeeBankDetail::create(array_merge(['member_id' => $employee->member_id], $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'branch', 'ifsc_code'])));
-            }
+           if ($request->filled('account_no')) {
+    $bankData = $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'ifsc_code']);
+    
+    // Yahan hum ensure kar rahe hain ki database ke 'branch' column mein hi data jaye
+    $bankData['branch'] = $request->bank_branch ?? $request->branch; 
+
+    EmployeeBankDetail::updateOrCreate(
+        ['member_id' => $employee->member_id], 
+        $bankData
+    );
+}
 
             ServiceRecord::create([
                 'user_id' => $employee->id,
@@ -391,24 +415,48 @@ class EmployeeController extends Controller
 
             $hasDirect = $context->is_god;
             if (!$hasDirect && method_exists(auth()->user(), 'getAllPermissions')) {
-                if (in_array('employee_edit_direct', auth()->user()->getAllPermissions()->pluck('name')->toArray())) $hasDirect = true;
+                if (in_array('employee_edit', auth()->user()->getAllPermissions()->pluck('name')->toArray())) $hasDirect = true;
             }
 
-            $updateData = $request->except(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'ifsc_code', '_method', 'is_transfer', 'transfer_old_id']);
-            if (!$hasDirect) $updateData['emp_status'] = 'pending';
+ // Yahan hum 'branch' aur 'bank_branch' dono ko filter kar rahe hain
+            $updateData = $request->except(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'branch', 'ifsc_code', '_method', 'is_transfer', 'transfer_old_id']);
+
+            // 🔥 EXTRA SAFETY: Array se forcefully remove kar rahe hain
+            unset($updateData['bank_branch']);
+            unset($updateData['branch']);
+
+            // 🔥 BUG FIX: Agar JS galti se string 'null' bheje toh usko actual PHP null banayein
+            foreach (['company_id', 'branch_id', 'department_id', 'designation_id'] as $fld) {
+                if (isset($updateData[$fld]) && $updateData[$fld] === 'null') {
+                    $updateData[$fld] = null;
+                }
+            }
+
+if (!$hasDirect) $updateData['emp_status'] = 'pending';
             if ($request->marital_status !== 'Married') $updateData['anniversary_date'] = null;
 
             $fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'];
-            foreach ($fileFields as $field) {
-                if ($request->hasFile($field)) $updateData[$field] = $this->uploadFile($request->file($field), $field);
-            }
-
-            $employee->update($updateData);
+            // 🔥 BUG FIX: Pehle file fields ko array se hata dein taaki purani file null se overwrite na ho
+foreach ($fileFields as $field) {
+    unset($updateData[$field]); 
+    if ($request->hasFile($field)) {
+        $updateData[$field] = $this->uploadFile($request->file($field), $field);
+    }
+}
+$employee->update($updateData);
             $newCompanyId = $employee->company_id;
 
-            if ($request->filled('account_no')) {
-                EmployeeBankDetail::updateOrCreate(['member_id' => $employee->member_id], $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'ifsc_code']));
-            }
+     if ($request->filled('account_no')) {
+    $bankData = $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'ifsc_code']);
+    
+    // Database table ke actual column 'branch' mein data bhej rahe hain
+    $bankData['branch'] = $request->bank_branch ?? $request->branch;
+
+    EmployeeBankDetail::updateOrCreate(
+        ['member_id' => $employee->member_id], 
+        $bankData
+    );
+}
 
             $latestRecord = ServiceRecord::where('user_id', $employee->id)->orderBy('id', 'desc')->first();
             if ($latestRecord) {

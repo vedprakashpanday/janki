@@ -41,4 +41,10 @@ class SuperAdmin extends Authenticatable
         return $this->morphMany(Task::class, 'assigner');
     }
   
+    public function receivesBroadcastNotificationsOn()
+    {
+        return new \Illuminate\Broadcasting\PrivateChannel('global.user.admin.' . $this->id);
+    }
+
+
 }

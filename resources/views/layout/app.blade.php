@@ -11,6 +11,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     @vite(['resources/js/app.js'])
     <style>
         :root {
@@ -684,11 +685,25 @@
                             <i class="fas fa-envelope-open-text text-info"></i> Welcome Letter
                         </a>
                     </li>
+                    <!-- 🔥 PERMANENT TASK BUTTON ADDED HERE FOR DESKTOP 🔥 -->
                     <li class="secured-item" data-permission="public">
-    <a href="{{ url($currentPortalPrefix . '/leave-applications') }}" class="{{ request()->is('*/leave-applications') ? 'active' : '' }}">
-        <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
-    </a>
-</li>
+                        <a href="{{ url($currentPortalPrefix . '/tasks') }}"
+                            class="{{ request()->is('*/tasks') ? 'active' : '' }}">
+                            <i class="fas fa-tasks text-success"></i> Tasks
+                        </a>
+                    </li>
+                    <li class="secured-item" data-permission="phases_view">
+                        <a href="{{ url($currentPortalPrefix . '/phases') }}"
+                            class="{{ request()->is('*/phases') ? 'active' : '' }}">
+                            <i class="fas fa-building text-warning"></i> Phases
+                        </a>
+                    </li>
+                    <li class="secured-item" data-permission="public">
+                        <a href="{{ url($currentPortalPrefix . '/leave-applications') }}"
+                            class="{{ request()->is('*/leave-applications') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
+                        </a>
+                    </li>
                     {!! buildDesktopMenu($rootModules, $allModules, $currentPortalPrefix) !!}
 
                     <li class="secured-item" data-permission="public">
@@ -700,7 +715,8 @@
                 </ul>
             </div>
 
-            <button class="nav-scroll-btn right-btn" id="btnScrollRight"><i class="fas fa-chevron-right"></i></button>
+            <button class="nav-scroll-btn right-btn" id="btnScrollRight"><i
+                    class="fas fa-chevron-right"></i></button>
         </div>
     </header>
 
@@ -721,17 +737,29 @@
                     <div><i class="fas fa-home text-warning menu-icon"></i> Dashboard</div>
                 </a>
 
-
                 <a href="{{ url('employee/welcome-letter') }}"
                     class="nav-item-custom secured-item border-bottom mb-2" data-permission="public">
                     <div><i class="fas fa-envelope-open-text text-info menu-icon"></i> Welcome Letter</div>
                 </a>
 
+                <!-- 🔥 PERMANENT TASK BUTTON ADDED HERE FOR MOBILE SIDEBAR 🔥 -->
+                <a href="{{ url($currentPortalPrefix . '/tasks') }}"
+                    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/tasks') ? 'active' : '' }}"
+                    data-permission="public">
+                    <div><i class="fas fa-tasks text-success menu-icon"></i> Tasks</div>
+                </a>
+
+                <a href="{{ url($currentPortalPrefix . '/phases') }}"
+                    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/phases') ? 'active' : '' }}"
+                    data-permission="phases_view">
+                    <div><i class="fas fa-building text-warning menu-icon"></i> Phases</div>
+                </a>
+
                 <a href="{{ url($currentPortalPrefix . '/leave-applications') }}"
-    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/leave-applications') ? 'active' : '' }}" 
-    data-permission="public">
-    <div><i class="fas fa-calendar-alt text-primary menu-icon"></i> Leaves & Apps</div>
-</a>
+                    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/leave-applications') ? 'active' : '' }}"
+                    data-permission="public">
+                    <div><i class="fas fa-calendar-alt text-primary menu-icon"></i> Leaves & Apps</div>
+                </a>
 
                 <a href="{{ url($currentPortalPrefix . '/terms-conditions') }}"
                     class="nav-item-custom border-bottom mb-2 text-info">
@@ -767,13 +795,17 @@
         @yield('content')
     </main>
 
+    <!-- 🔥 PERMANENT TASK BUTTON ADDED HERE FOR MOBILE BOTTOM NAV 🔥 -->
     <nav class="mobile-bottom-nav shadow-sm">
-        <a href="{{ url($currentPortalPrefix . '/dashboard') }}" class="active"><i
-                class="fas fa-layer-group"></i>Home</a>
-        <a href="{{ url('employee/welcome-letter') }}" class="secured-item" data-permission="public"><i
+        <a href="{{ url($currentPortalPrefix . '/dashboard') }}"
+            class="{{ request()->is('*/dashboard') ? 'active' : '' }}"><i class="fas fa-layer-group"></i>Home</a>
+        <a href="{{ url('employee/welcome-letter') }}"
+            class="secured-item {{ request()->is('*/welcome-letter') ? 'active' : '' }}" data-permission="public"><i
                 class="fas fa-envelope-open-text"></i>Letter</a>
-        <a href="#" class="secured-item" data-permission="employee_view"><i
-                class="fas fa-user-tie"></i>Staff</a>
+        <!-- Nav me Task Fix kar diya -->
+        <a href="{{ url($currentPortalPrefix . '/tasks') }}"
+            class="secured-item {{ request()->is('*/tasks') ? 'active' : '' }}" data-permission="public"><i
+                class="fas fa-tasks"></i>Tasks</a>
         <a href="#" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar"><i
                 class="fas fa-bars"></i>Menu</a>
     </nav>
@@ -783,6 +815,10 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+
+
 
     <script>
         (function() {
@@ -823,22 +859,6 @@
                 if (typeof window.axios !== 'undefined') {
                     window.axios.defaults.headers.common['Authorization'] = 'Bearer ' + layoutToken;
                 }
-
-                // 🔥 THE ULTIMATE ECHO REBOOT (Runs only ONCE per page load) 🔥
-                // if (typeof window.Echo !== 'undefined') {
-                //     let echoOptions = window.Echo.connector.options;
-
-                //     // Force the token deep into Pusher's core configuration
-                //     echoOptions.authEndpoint = '/broadcasting/auth?token=' + encodeURIComponent(layoutToken);
-                //     echoOptions.auth = echoOptions.auth || {};
-                //     echoOptions.auth.headers = echoOptions.auth.headers || {};
-                //     echoOptions.auth.headers['Authorization'] = 'Bearer ' + layoutToken;
-                //     echoOptions.auth.headers['Accept'] = 'application/json';
-
-                //     // Rebuild the Echo instance completely authorized
-                //     window.Echo.disconnect();
-                //     window.Echo = new window.Echo.constructor(echoOptions);
-                // }
             }
 
             $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
@@ -857,30 +877,92 @@
                 window.location.href = loginUrl;
             };
 
-            window.performNormalLogout = function() {
+          // 🔥 URL FIX AUR MANUAL CONFIRMATION ALERT LOGIC
+            window.performNormalLogout = function(isAuto = false) {
                 let payload = {};
-                if (currentPortal === 'employee') payload = {
-                    panel_id: localStorage.getItem('emp_panel_id')
-                };
-                Swal.fire({
-                    title: 'Logging out...',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                $.ajax({
-                    url: logoutApiUrl,
-                    type: 'POST',
-                    data: payload,
-                    success: function() {
-                        clearLocalDataAndRedirect();
-                    },
-                    error: function() {
-                        clearLocalDataAndRedirect();
-                    }
-                });
+                if (currentPortal === 'employee') {
+                    payload = {
+                        panel_id: localStorage.getItem('emp_panel_id'),
+                        is_auto: isAuto ? 1 : 0 // Button click par 0 jayega, inactivity par 1
+                    };
+                }
+
+                function executeLogout() {
+                    Swal.fire({
+                        title: 'Logging out...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+                    $.ajax({
+                        url: logoutApiUrl,
+                        type: 'POST',
+                        data: payload,
+                        success: function() { clearLocalDataAndRedirect(); },
+                        error: function() { clearLocalDataAndRedirect(); }
+                    });
+                }
+
+                // Agar 15 min inactivity se auto logout ho raha hai to bina alert ke execute karo
+                if (isAuto) {
+                    executeLogout();
+                } else {
+                    // Agar button par click kiya hai to confirm alert do
+                    Swal.fire({
+                        title: 'Are you sure?',
+                        text: "Do you want to log out and record your Time Out?",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#E53E3E',
+                        cancelButtonColor: '#718096',
+                        confirmButtonText: 'Yes, Logout'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            executeLogout();
+                        }
+                    });
+                }
             };
+
+            // Yahan portal prefixes ke andar URL durust karein
+            if (currentPath.startsWith('/employee')) {
+                currentPortal = 'employee';
+                tokenKey = 'emp_token';
+                loginUrl = '/employee/login';
+                authApiUrl = '/api/v1/employee/auth/me';
+                logoutApiUrl = '/api/v1/employee/logout'; // 🔥 FIXED: /auth/logout-current hata kar sahi route lagaya
+            }
+
+            // 🔥 15 MINUTE INACTIVITY TRACKER (MOBILE + DESKTOP)
+            let idleTime = 0;
+            let idleInterval;
+
+            function resetIdleTime() { idleTime = 0; }
+            // Touch, scroll, click, type sab track karega
+            $(document).on('mousemove keydown scroll click touchstart', resetIdleTime);
+
+            function startInactivityTracker() {
+                idleInterval = setInterval(function() {
+                    idleTime++;
+                    if (idleTime >= 15) { // 15 Minutes
+                        clearInterval(idleInterval);
+                        Swal.fire({
+                            title: 'Session Expired!',
+                            text: '15 minutes of inactivity detected. Auto logging out.',
+                            icon: 'info',
+                            allowOutsideClick: false,
+                            showConfirmButton: false,
+                            timer: 3000
+                        }).then(() => {
+                            window.performNormalLogout(true); // true = isAuto
+                        });
+                    }
+                }, 60000); // 1 Minute loop
+            }
+
+            // Agar token hai to tracker chalu kardo
+            if (layoutToken) {
+                startInactivityTracker();
+            }
 
             $(document).ready(function() {
 
@@ -964,7 +1046,8 @@
                             'vedprakash@infoera.in'
                         ];
 
-                        let isGodMode = developerEmails.includes(emailStr);
+                       // Backend se aayi hui 'is_god' property ko bhi check karega
+let isGodMode = u.is_god || developerEmails.includes(emailStr);
                         let isCEOorDirector = u.designation_name && (u.designation_name
                             .toLowerCase().includes('ceo') || u.designation_name.toLowerCase()
                             .includes('director'));
@@ -1033,17 +1116,15 @@
                             window.location.href = targetDashboard;
                         });
 
-                    // =========================================================================
-                        // 🔥 RESTART ECHO & SINGLE GLOBAL NOTIFICATION LISTENER 🔥
                         // =========================================================================
-                       // =========================================================================
                         // 🔥 RESTART ECHO & SINGLE GLOBAL NOTIFICATION LISTENER 🔥
                         // =========================================================================
                         if (typeof window.Echo !== 'undefined') {
 
                             // 1. Force Echo to reconnect with the exact token BEFORE subscribing
                             let currentOptions = window.Echo.connector.options;
-                            currentOptions.authEndpoint = '/broadcasting/auth?token=' + encodeURIComponent(layoutToken);
+                            currentOptions.authEndpoint = '/broadcasting/auth?token=' +
+                                encodeURIComponent(layoutToken);
                             currentOptions.auth = {
                                 headers: {
                                     'Authorization': 'Bearer ' + layoutToken,
@@ -1060,225 +1141,152 @@
                             let channelName = `global.user.${currentPortal}.${u.id}`;
                             console.log("Subscribing to Global Bell Channel: ", channelName);
 
-                            window.Echo.private(channelName)
-                                .listen('.notification.received', (e) => {
-                                    let log = e.logData;
-                                    let isNotice = log.type && log.type === 'notice'; 
-                                    let isTA = log.type && log.type === 'ta_request'; // 🔥 Naya TA Identification Check
-                                    
-                                    let currentCount = parseInt($('#globalUnreadCount').text()) || 0;
-                                    $('#globalUnreadCount').text(currentCount + 1).removeClass('d-none');
+                            // =========================================================================
+                            // 🔥 THE ULTIMATE FOOLPROOF LISTENER (CATCHES EVERYTHING) 🔥
+                            // =========================================================================
+
+                            let customChannel = `global.user.${currentPortal}.${u.id}`;
+
+                            // Laravel ka default channel fallback
+                            let modelName = 'User';
+                            if (currentPortal === 'employee') modelName = 'Employee';
+                            if (currentPortal === 'customer') modelName = 'Customer';
+                            let defaultLaravelChannel = `App.Models.${modelName}.${u.id}`;
+
+                            console.log("Subscribing to Custom Channel: ", customChannel);
+                            console.log("Subscribing to Default Channel: ", defaultLaravelChannel);
+
+                            // Ek common function jo kisi bhi format me aaye data ko handle karega
+                            let processNotification = (e) => {
+                                console.log("🔥 LIVE ALERT CATCH HUA! Payload:", e);
+
+                                // Naya System (Leave, TA, Notice)
+                                if (e.title || e.type) {
+                                    let title = e.title || 'System Alert';
+                                    let message = e.message || '';
+                                    let targetUrl = e.url || '#';
+                                    let iconClass = e.icon || 'fa-bell';
+                                    let colorClass = e.colorClass || 'text-primary';
+
+                                    let currentCount = parseInt($('#globalUnreadCount')
+                                    .text()) || 0;
+                                    $('#globalUnreadCount').text(currentCount + 1).removeClass(
+                                        'd-none');
                                     $('#noNotifMessage').addClass('d-none');
-                                    
-                                    // 🔥 Dynamic Data & Link Mapping 🔥
-                                    let targetUrl = isNotice ? `/${currentPortal}/my-notices` : (isTA ? `/${currentPortal}/travel-allowances` : `/${currentPortal}/tasks`);
-                                    let iconClass = isNotice ? 'fa-bullhorn text-danger' : (isTA ? 'fa-car-side text-success' : 'fa-tasks text-primary');
-                                    let headingLabel = isNotice ? 'Official Notice' : (isTA ? 'Travel Allowance' : 'Task Update');
-                                    let titleLabel = isNotice ? 'Unread Notice:' : (isTA ? 'TA Alert:' : 'Unread msg from Task:');
-                                    
+
                                     let notifHtml = `
                                         <li class="border-bottom bg-light">
                                             <a class="dropdown-item py-3 px-3 d-flex align-items-center" href="${targetUrl}">
                                                 <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 border" style="width:35px; height:35px; min-width:35px;">
-                                                    <i class="fas ${iconClass}"></i>
+                                                    <i class="fas ${iconClass} ${colorClass}"></i>
                                                 </div>
                                                 <div class="w-100 overflow-hidden">
                                                     <div class="d-flex justify-content-between align-items-center mb-1">
-                                                        <strong class="text-dark small d-block">${headingLabel}</strong>
-                                                        <span class="badge bg-danger blink-anim" style="font-size: 0.65rem;">New</span>
+                                                        <strong class="text-dark small d-block">${title}</strong>
+                                                        <span class="badge bg-danger blink-anim notification-new-badge" style="font-size: 0.65rem;">New</span>
                                                     </div>
-                                                    <div class="small text-muted fw-medium text-truncate">
-                                                        ${titleLabel} <span class="text-dark fw-bold">${e.taskTitle}</span>
+                                                    <div class="small text-muted fw-medium text-truncate" style="white-space: pre-wrap;">
+                                                        ${message}
                                                     </div>
                                                     <div class="small text-muted mt-1" style="font-size: 10px;">
-                                                        By ${log.actor_name || 'System'}
+                                                        Just now
                                                     </div>
                                                 </div>
                                             </a>
                                         </li>
                                     `;
                                     $('#notificationList').prepend(notifHtml);
-                                    
-                                    if (!isNotice && !isTA && typeof window.markTaskAsUnread === 'function') {
-                                        if (!$('#taskDetailsModal').hasClass('show') || $('#replyTaskId').val() != e.taskId) {
+                                }
+                                // Purana System (Tasks/Chatbot)
+                                else if (e.logData) {
+                                    if (typeof window.markTaskAsUnread === 'function' && e
+                                        .taskId) {
+                                        if (!$('#taskDetailsModal').hasClass('show') || $(
+                                                '#replyTaskId').val() != e.taskId) {
                                             window.markTaskAsUnread(e.taskId);
                                         }
                                     }
-                                });
+                                }
+                            };
 
+                            // 🚀 Ek sath Dono Channels (Custom & Default) aur Dono Methods (.listen & .notification) ko sunein!
+                            [customChannel, defaultLaravelChannel].forEach(channel => {
+                                window.Echo.private(channel)
+                                    .listen('.notification.received', processNotification)
+                                    .notification(processNotification);
+                            });
 
-                                // =========================================================================
-                        // 🔥 OFFLINE NOTIFICATION CATCH-UP (Fetch Missed Notices) 🔥
-                        // =========================================================================
-                        function loadMissedNotices() {
-                            $.get('/api/v1/my-notices', function(response) {
-                                if (response.success && response.data.length > 0) {
-                                    let unreadCount = 0;
-                                    let notifHtmlList = '';
-                                    
-                                    // Browser storage se check karein ki kaun se notices already bell me dekh liye hain
-                                    let seenNotices = JSON.parse(localStorage.getItem('seen_notices_' + u.id)) || [];
+                            // =========================================================================
+                            // 🔥 NEW CENTRALIZED DATABASE NOTIFICATION SYSTEM 🔥
+                            // =========================================================================
 
-                                    response.data.forEach(notice => {
-                                        let noticeDate = new Date(notice.created_at);
-                                        let today = new Date();
-                                        // Calculate karein kitne din purana notice hai
-                                        let diffDays = Math.ceil(Math.abs(today - noticeDate) / (1000 * 60 * 60 * 24));
+                            function loadDatabaseNotifications() {
+                                $.get('/api/v1/notifications/unread', function(response) {
+                                    if (response.success && response.data.length > 0) {
+                                        let unreadCount = response.data.length;
+                                        let notifHtmlList = '';
 
-                                        // Agar notice last 7 days me aaya hai aur user ne bell pe click karke nahi dekha hai
-                                        if (diffDays <= 7 && !seenNotices.includes(notice.id)) {
-                                            unreadCount++;
-                                            let targetUrl = `/${currentPortal}/my-notices`;
-                                            
+                                        response.data.forEach(notif => {
+                                            // Laravel native notification ka data 'notif.data' me aata hai JSON format me
+                                            let payload = notif.data;
+                                            let targetUrl = payload.url || '#';
+                                            let icon = payload.icon || 'fa-bell';
+                                            let colorClass = payload.colorClass ||
+                                                'text-primary';
+
                                             notifHtmlList += `
-                                                <li class="border-bottom bg-light offline-notice-item" data-id="${notice.id}">
+                                                <li class="border-bottom bg-light">
                                                     <a class="dropdown-item py-3 px-3 d-flex align-items-center" href="${targetUrl}">
                                                         <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 border" style="width:35px; height:35px; min-width:35px;">
-                                                            <i class="fas fa-bullhorn text-danger"></i>
+                                                            <i class="fas ${icon} ${colorClass}"></i>
                                                         </div>
                                                         <div class="w-100 overflow-hidden">
                                                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                                                <strong class="text-dark small d-block">Official Notice</strong>
-                                                                <span class="badge bg-danger blink-anim" style="font-size: 0.65rem;">Missed</span>
+                                                                <strong class="text-dark small d-block">${payload.title || 'System Alert'}</strong>
+                                                                <span class="badge bg-danger blink-anim notification-new-badge" style="font-size: 0.65rem;">New</span>
                                                             </div>
-                                                            <div class="small text-muted fw-medium text-truncate">
-                                                                Unread Notice: <span class="text-dark fw-bold">${notice.title}</span>
+                                                            <div class="small text-muted fw-medium text-truncate" style="white-space: pre-wrap;">
+                                                                ${payload.message || ''}
                                                             </div>
                                                             <div class="small text-muted mt-1" style="font-size: 10px;">
-                                                                Date: ${notice.notice_date}
+                                                                ${new Date(notif.created_at).toLocaleString('en-IN', { hour12: true, month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
                                                             </div>
                                                         </div>
                                                     </a>
                                                 </li>
                                             `;
-                                        }
-                                    });
+                                        });
 
-                                    // Agar koi unread/missed notice mila, toh Bell me list update karo
-                                    if (unreadCount > 0) {
-                                        let currentCount = parseInt($('#globalUnreadCount').text()) || 0;
-                                        $('#globalUnreadCount').text(currentCount + unreadCount).removeClass('d-none');
+                                        $('#globalUnreadCount').text(unreadCount)
+                                            .removeClass('d-none');
                                         $('#noNotifMessage').addClass('d-none');
-                                        $('#notificationList').prepend(notifHtmlList);
+
+                                        // Pura list fresh data se replace kar do
+                                        $('#notificationList').html(notifHtmlList);
                                     }
-                                }
-                            });
-                        }
+                                });
+                            }
 
-                        // Load function call karein page load par
-                        loadMissedNotices();
+                            // 🚀 Page load hote hi Fetch karo
+                            loadDatabaseNotifications();
 
-                        // 👇 YAHAN SE NAYA CODE PASTE KAREIN 👇
-                        // =========================================================================
-                        // 🔥 OFFLINE TA NOTIFICATIONS (Fetch Missed TA Alerts) 🔥
-                        // =========================================================================
-                        function loadMissedTAAlerts() {
-                            // Hum recent 20 TA requests fetch karenge
-                            $.get('/api/v1/travel-allowances?per_page=20', function(response) {
-                                let records = response.data && response.data.data ? response.data.data : (response.data || []);
-                                
-                                if (records.length > 0) {
-                                    let unreadCount = 0;
-                                    let notifHtmlList = '';
-                                    let seenNotices = JSON.parse(localStorage.getItem('seen_notices_' + u.id)) || [];
+                            // 👁️ Jab user Bell Icon par click karega (Dropdown open hoga)
+                            $('#globalNotificationDropdown').on('show.bs.dropdown', function() {
+                                let count = parseInt($('#globalUnreadCount').text()) || 0;
 
-                                    records.forEach(ta => {
-                                        let taDate = new Date(ta.updated_at || ta.created_at);
-                                        let today = new Date();
-                                        let diffDays = Math.ceil(Math.abs(today - taDate) / (1000 * 60 * 60 * 24));
-
-                                        // Sirf last 7 din ke requests check karenge
-                                        if (diffDays <= 7) {
-                                            let isOwnTA = (ta.employee_id == u.id);
-                                            let isActionable = false;
-                                            let notifTitle = '';
-                                            let badgeText = 'Missed';
-                                            let badgeClass = 'bg-primary';
-
-                                            // CONDITION 1: Admin/Manager ke liye (Agar TA pending hai aur unka khud ka nahi hai)
-                                            if (ta.status === 'pending' && !isOwnTA) {
-                                                isActionable = true;
-                                                notifTitle = `New TA Request from ${ta.employee ? ta.employee.full_name : 'Employee'}`;
-                                                badgeText = 'Action Required';
-                                                badgeClass = 'bg-warning text-dark';
-                                            } 
-                                            // CONDITION 2: Employee ke liye (Agar unka khud ka TA approve ya reject hua hai)
-                                            else if (ta.status !== 'pending' && isOwnTA) {
-                                                isActionable = true;
-                                                let statusText = ta.status === 'active' ? 'APPROVED' : 'REJECTED';
-                                                notifTitle = `Your TA was ${statusText}`;
-                                                badgeClass = ta.status === 'active' ? 'bg-success' : 'bg-danger';
-                                                badgeText = statusText;
-                                            }
-
-                                            // 🔥 SMART ID LOGIC: 'ta_1_pending' ya 'ta_1_active' 
-                                            // Isse status badalne par (jaise pending se approve) naya notification aayega
-                                            let notifId = 'ta_' + ta.id + '_' + ta.status;
-
-                                            // Agar yeh alert pehle seen nahi hua hai, toh list me add karo
-                                            if (isActionable && !seenNotices.includes(notifId)) {
-                                                unreadCount++;
-                                                let targetUrl = `/${currentPortal}/travel-allowances`;
-                                                
-                                                notifHtmlList += `
-                                                    <li class="border-bottom bg-light offline-notice-item" data-id="${notifId}">
-                                                        <a class="dropdown-item py-3 px-3 d-flex align-items-center" href="${targetUrl}">
-                                                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 border" style="width:35px; height:35px; min-width:35px;">
-                                                                <i class="fas fa-car-side text-success"></i>
-                                                            </div>
-                                                            <div class="w-100 overflow-hidden">
-                                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                                    <strong class="text-dark small d-block">Travel Allowance</strong>
-                                                                    <span class="badge ${badgeClass} blink-anim" style="font-size: 0.65rem;">${badgeText}</span>
-                                                                </div>
-                                                                <div class="small text-muted fw-medium text-truncate">
-                                                                    ${notifTitle}
-                                                                </div>
-                                                                <div class="small text-muted mt-1" style="font-size: 10px;">
-                                                                    Date: ${ta.ta_date} | Amount: ₹${ta.amount}
-                                                                </div>
-                                                            </div>
-                                                        </a>
-                                                    </li>
-                                                `;
-                                            }
-                                        }
+                                // Agar unread alerts hain, toh server ko 'Read' karne ka signal bhejo
+                                if (count > 0) {
+                                    $.post('/api/v1/notifications/mark-read', function() {
+                                        // 1.5 second baad 'New' badges aur count hata do
+                                        setTimeout(() => {
+                                            $('#globalUnreadCount').text(
+                                                '0').addClass('d-none');
+                                            $('.notification-new-badge')
+                                                .fadeOut();
+                                        }, 1500);
                                     });
-
-                                    // Agar koi unread TA alert mila, toh Bell Icon ka count badhao
-                                    if (unreadCount > 0) {
-                                        let currentCount = parseInt($('#globalUnreadCount').text()) || 0;
-                                        $('#globalUnreadCount').text(currentCount + unreadCount).removeClass('d-none');
-                                        $('#noNotifMessage').addClass('d-none');
-                                        $('#notificationList').prepend(notifHtmlList);
-                                    }
                                 }
                             });
-                        }
-
-                        // Page load par TA alerts check karo
-                        loadMissedTAAlerts();
-
-                        // Jab user bell icon par click kare, toh un offline notifications ko "seen" mark kar do
-                        // Taaki agli baar page refresh hone par wapas baar-baar bell icon par count na badhe
-                        $('#globalNotificationDropdown').on('show.bs.dropdown', function () {
-                            let seenNotices = JSON.parse(localStorage.getItem('seen_notices_' + u.id)) || [];
-                            $('.offline-notice-item').each(function() {
-                                let nid = $(this).data('id');
-                                if(!seenNotices.includes(nid)) {
-                                    seenNotices.push(nid);
-                                }
-                            });
-                            localStorage.setItem('seen_notices_' + u.id, JSON.stringify(seenNotices));
-                            
-                            // 1 second baad count hata do kyuki list dekh li gayi hai
-                            setTimeout(() => {
-                                $('#globalUnreadCount').text('0').addClass('d-none');
-                            }, 1000);
-                        });
-
-
-
                         }
                     }
                 });
@@ -1290,6 +1298,70 @@
         })();
     </script>
     @stack('scripts')
+
+<script>
+$(document).ready(function() {
+    let empToken = localStorage.getItem('emp_token');
+    
+    if (empToken && empToken.includes('_S_')) {
+        console.warn("🚨 SECONDARY DEVICE: DATA LISTINGS DISABLED 🚨");
+
+        // =================================================================
+        // THE MASTER STROKE: Intercept DataTable AJAX and EMPTY the data!
+        // Isse na table banega, na mobile cards render honge kisi bhi page par!
+        // =================================================================
+        $(document).on('xhr.dt', function (e, settings, json, xhr) {
+            if (json && json.data) {
+                json.data = []; // Saara data array khali kar diya!
+                json.recordsTotal = 0;
+                json.recordsFiltered = 0;
+            }
+        });
+
+        // 1. CSS Layer (Extra safety ke liye table UI ko hide karna)
+        $('<style>').prop('type', 'text/css').html(`
+            /* Hide DataTables and common Mobile wrappers completely */
+            .dataTables_wrapper, table.dataTable, .table-responsive,
+            #mobileCardsContainer, #requestsMobileContainer, .mobile-item { 
+                display: none !important; opacity: 0 !important; visibility: hidden !important; 
+            }
+        `).appendTo('head');
+
+        // 2. Action Buttons Blocker (Remove Export, Print, Delete)
+        const enforceActionRules = function() {
+            $('button, a, .btn, .dropdown-item').each(function() {
+                let text = $(this).text().trim().toLowerCase();
+                let html = $(this).html().toLowerCase(); 
+                
+                if (
+                    text.includes('export') || text.includes('excel') || html.includes('fa-file-excel') || 
+                    text.includes('print') || html.includes('fa-print') ||                                 
+                    text.includes('delete') || html.includes('fa-trash') || text.includes('bulk delete')   
+                ) {
+                    $(this).remove(); // Button hi DOM se nikal do
+                }
+            });
+
+            // Agar General Leads jaise pages par static cards bane hon, unko uda do
+            $('.card').each(function() {
+                let cardHtml = $(this).html().toLowerCase();
+                // Check if card contains data identifiers but IS NOT a form or notice
+                if (cardHtml.includes('tele:') || $(this).find('button:contains("Edit"), a:contains("Edit")').length > 0) {
+                    $(this).remove();
+                }
+            });
+        };
+
+        enforceActionRules();
+        
+        // Agar dynamic AJAX load hota hai, toh wapas remove karo
+        const observer = new MutationObserver(enforceActionRules);
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+});
+</script>
+
+
 </body>
 
 </html>

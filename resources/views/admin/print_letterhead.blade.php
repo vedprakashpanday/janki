@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body {
@@ -33,62 +34,6 @@
         img {
             max-width: 100%;
             height: auto;
-        }
-
-        /* ===== HEADER ===== */
-        .header-wrap {
-            display: flex;
-            align-items: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 12px;
-            margin-bottom: 15px;
-            width: 100%;
-            position: relative;
-            z-index: 1;
-            background: #fff;
-        }
-
-        .header-logo {
-            width: 15%;
-            text-align: left;
-        }
-
-        .logo-image {
-            width: 120px;
-            height: auto;
-        }
-
-        .iso {
-            font-size: 6px;
-            color: #c00000;
-            font-weight: bold;
-            margin-top: 5px;
-            text-align: start;
-            width: 140px;
-        }
-
-        .header-text {
-            width: 85%;
-            text-align: center;
-        }
-
-        .company-title {
-            font-size: 25px;
-            font-weight: 900;
-            letter-spacing: 0.5px;
-            margin-bottom: 3px;
-            color: #000;
-        }
-
-        .cin-text {
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .small-text {
-            font-size: 12px;
-            line-height: 1.2;
         }
 
         /* REF & DATE */
@@ -234,7 +179,7 @@
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 12mm 10mm 15mm 10mm !important;
+                margin: 12mm 20mm 15mm 20mm !important;
                 /* Top, Right, Bottom, Left */
             }
 
@@ -248,33 +193,6 @@
 
             .no-print {
                 display: none !important;
-            }
-
-            .logo-image {
-                width: 140px;
-                height: auto;
-            }
-
-            .iso {
-                font-size: 6px;
-                color: #c00000;
-                font-weight: bold;
-                margin-top: 5px;
-                text-align: start;
-                width: 140px;
-            }
-
-            .company-title {
-                font-size: 24px;
-                font-weight: 900;
-                letter-spacing: 0.5px;
-                margin-bottom: 3px;
-                color: #000;
-            }
-
-            .small-text {
-                font-size: 11px;
-                line-height: 1.4;
             }
 
             .voucher-box {
@@ -329,7 +247,7 @@
                 /* Fixing height to fit inside the 100px spacer */
                 background: #fff !important;
                 /* White background to overlap any stray element */
-                padding-top: 5px !important;
+                padding-top: 3px !important;
                 border-top: 1.5px solid #000 !important;
                 z-index: 9999 !important;
             }
@@ -340,32 +258,14 @@
 <body>
 
     <div class="voucher-box">
-        <div class="watermark"><img id="Img" src="{{ asset('uploads/harihomes1-logo.png') }}" class="mr-2" />
+
+        <div class="watermark">
+            <img id="Img" src="{{ asset('uploads/harihomes1-logo.png') }}" class="mr-2" />
         </div>
 
-        <div class="header-wrap">
-            <div class="header-logo">
-                <img src="{{ asset('uploads/harihomes1-logo.png') }}" class="logo-image">
-                <div class="iso">(An ISO 9001:2015 Certified Company)</div>
-            </div>
+        <x-print-header :company="$companyForHeader" :branch="$branchForHeader" />
 
-            <div class="header-text">
-                <div class="company-title">AMITABH BUILDERS AND DEVELOPERS PVT LTD</div>
-                <div class="cin-text">CIN NO. : U24299BR2024PTC072712</div>
-                <div class="small-text">
-                    <b>Office Address :</b>
-                    1st Floor, Pappu Yadav Building, South of NH-27,
-                    Kakarghati Chowk, Bhuskaul, Darbhanga-846007
-                </div>
-                <div class="small-text">
-                    Phone : <b>9060218 - 222 / 333 / 666</b> |
-                    WhatsApp : <b>9472467007</b> |
-                    Website : <b>www.jankivilla.com</b>
-                </div>
-            </div>
-        </div>
-
-        <div class="ref-date-row">
+        <div class="ref-date-row mt-3">
             <div>Ref No : {{ $records['ref_no'] }}</div>
             <div>Date : {{ date('d/m/Y', strtotime($records['letter_date'])) }}</div>
         </div>
@@ -410,7 +310,6 @@
             </table>
         @endif
 
-        <!-- 🔥 FIX: HTML table class matched with CSS (.main-print-table) 🔥 -->
         <table class="main-print-table">
             <thead>
                 <tr>
@@ -431,7 +330,6 @@
             <tfoot>
                 <tr>
                     <td>
-                        <!-- 🔥 FIX: Applied the CSS spacer class exactly as defined 🔥 -->
                         <div class="footer-spacer"></div>
                     </td>
                 </tr>

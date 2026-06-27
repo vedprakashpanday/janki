@@ -4,6 +4,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\DebitVoucherWebController;
 use App\Http\Controllers\Admin\CompanyWebController;
 
+
+
+
+
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes (User Interface / Blade Views)
@@ -14,13 +19,17 @@ use App\Http\Controllers\Admin\CompanyWebController;
 // 1. PUBLIC ROUTES & REDIRECTS
 // ==========================================
 Route::get('/', function () {
-    return view('coming_soon');
+   // return view('coming_soon');
+     return view('welcome');
 });
 
 Route::get('/adm', function () {
     return redirect('/admin/login');
 });
 
+Route::get('/ceo', function () {
+    return redirect('/ceo/login');
+});
 
 // 🔥 NAYA: ALL IN ONE SHARED ROUTES FUNCTION 🔥
 // Ab saare pages iske andar hain. Jo portal se login karega, usko ye views access honge.
@@ -95,6 +104,21 @@ Route::get('/general-leads', function () {
 Route::get('/interested-leads', function () {
     return view('admin.interested_leads');
 })->name('interested_leads');
+
+  // 🟢 CRM, Network & Associates (Inside $sharedWebRoutes)
+    Route::get('/phases', function () {
+        return view('phases.index'); 
+    })->name('phases.index');
+
+    Route::get('/phases/create', function () {
+        return view('phases.create'); 
+    })->name('phases.create');
+
+    // 👇 YEH NAYA EDIT ROUTE ADD KAREIN 👇
+    Route::get('/phases/{id}/edit', function ($id) {
+        return view('phases.edit', compact('id')); 
+    })->name('phases.edit');
+
 
 
     Route::get('/members', function () {
@@ -191,7 +215,30 @@ Route::get('/notices/print/{id}', [\App\Http\Controllers\Admin\NoticeWebControll
         return view('admin.leave_applications.index'); // Dhyan rahe ye view banani hai
     })->name('leave_applications.index');
 
-    Route::get('/leave-applications/print/{id}', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'printPreview'])->name('leave_applications.print');
+   
+   Route::get('/leave-applications/print/{id}', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'printPreview'])->name('leave.print');
+
+    Route::get('/fine-penalties', function () {
+    return view('admin.fine_penalties.index');
+})->name('fine_penalties.index');
+
+Route::get('/fine-penalties/print/{id}', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'printPreview'])->name('fine_penalties.print');
+Route::view('/attendance', 'admin.attendance.index');
+
+// Auto Task Settings UI
+    Route::get('/auto-task-settings', function () {
+        return view('admin.tasks.auto_settings');
+    })->name('auto_task_settings');
+
+    // Telecaller Calling Portal UI
+    Route::get('/my-calling-portal', function () {
+        return view('employee.calling_portal'); // Hum ye view banayenge
+    })->name('my_calling_portal');
+
+    // Attendance Time Window UI (Shared)
+    Route::get('/attendance-windows', function () {
+        return view('admin.attendance.time_windows');
+    })->name('attendance_windows');
 
 
 
@@ -255,9 +302,9 @@ Route::prefix('employee')->name('employee.')->group(function () use ($sharedWebR
 // 4. CEO & DIRECTOR PORTALS (Agar Future Me Alag Prefix Chahiye)
 // ==========================================
 Route::prefix('ceo')->name('ceo.')->group(function () use ($sharedWebRoutes) {
-    // Route::get('/login', function () { return view('admin.auth.login'); })->name('login');
-    // Route::get('/dashboard', function () { return view('admin.dashboard'); })->name('dashboard');
-    // $sharedWebRoutes();
+    Route::get('/login', function () { return view('admin.auth.superadmin'); })->name('login');
+     Route::get('/dashboard', function () { return view('admin.dashboard'); })->name('dashboard');
+    $sharedWebRoutes();
 });
 
 Route::prefix('director')->name('director.')->group(function () use ($sharedWebRoutes) {

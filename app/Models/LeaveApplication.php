@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
 
 class LeaveApplication extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes,Notifiable;
 
     protected $fillable = [
         'company_id',
@@ -22,11 +23,20 @@ class LeaveApplication extends Model
         'end_datetime',
         'duration',
         'reason',
+        'proof_attachments',
         'status',
         'approved_duration',
         'remarks',
         'approved_by',
         'rejected_by',
+        'resume_datetime',
+        'emergency_contact',
+        'applied_to',
+        'emergency_email',
+        'is_paid_leave',
+        'approved_start_datetime',
+        'approved_end_datetime',
+        'approved_resume_datetime'
     ];
 
     protected $casts = [
@@ -34,12 +44,13 @@ class LeaveApplication extends Model
         'end_datetime' => 'datetime',
         'duration' => 'decimal:2',
         'approved_duration' => 'decimal:2',
+        'proof_attachments' => 'array',
     ];
 
     // ==========================================
     // 🏢 HIERARCHY RELATIONSHIPS
     // ==========================================
-    
+
     public function company()
     {
         return $this->belongsTo(Company::class);
@@ -75,7 +86,7 @@ class LeaveApplication extends Model
         return null;
     }
 
-   // Direct relation for Employee specifically
+    // Direct relation for Employee specifically
     public function employee()
     {
         // Yahan se ->where('user_type', 'employee') HATA DIYA HAI
@@ -97,7 +108,7 @@ class LeaveApplication extends Model
     {
         // Assuming your auth users/admins are in the 'users' or 'employees' table. 
         // Update 'User::class' to 'Employee::class' or 'Admin::class' as per your auth logic.
-        return $this->belongsTo(User::class, 'approved_by'); 
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function rejecter()

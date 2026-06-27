@@ -127,6 +127,8 @@ class BranchController extends Controller
                 $request->opening_date
             );
 
+            $mapData = $this->extractLatLng($request->map_url);
+
             Branch::create([
                 'branch_id'       => $smartBranchId,
                 'branch_name'     => $request->branch_name,
@@ -137,6 +139,10 @@ class BranchController extends Controller
                 'opening_date'    => $request->opening_date,
                 'branch_location' => $request->branch_location,
                 'branch_map'      => $request->branch_map,
+                // 🔥 NAYA: Database me fields save karein
+            'map_url'       => $request->map_url,
+            'latitude'      => $mapData['latitude'],
+            'longitude'     => $mapData['longitude']
             ]);
 
             DB::commit();
@@ -182,6 +188,8 @@ class BranchController extends Controller
             }
 
             $finalCompanyId = $request->company_id ?: $context->company_id;
+            // 🔥 NAYA: Extract Location for Update
+        $mapData = $this->extractLatLng($request->map_url);
 
             $branch->update([
                 'branch_name'     => $request->branch_name,
@@ -192,6 +200,10 @@ class BranchController extends Controller
                 'branch_status'   => $hasDirect ? ($request->branch_status ?? $branch->branch_status) : 'pending',
                 'branch_location' => $request->branch_location,
                 'branch_map'      => $request->branch_map,
+                // 🔥 NAYA: Database me fields save karein
+            'map_url'       => $request->map_url,
+            'latitude'      => $mapData['latitude'],
+            'longitude'     => $mapData['longitude']
             ]);
 
             DB::commit();
@@ -259,4 +271,34 @@ class BranchController extends Controller
             'permissions' => $permissions
         ]);
     }
+
+
+    // 🔥 NAYA: Google Map Link/Iframe se Lat-Lng extract karne ka function
+    private function extractLatLng($mapString)
+    {
+        if (empty($mapString)) {
+            return ['latitude' => null, 'longitude' => null];
+        }
+
+        if (strpos($mapString, '<iframe') !== false || strpos($mapString, 'pb=') !== false) {
+            preg_match('/!3d([-0-9.]+)/', $mapString, $latMatch);
+            preg_match('/![24]d([-0-9.]+)/', $mapString, $lngMatch); 
+
+            if (isset($latMatch[1]) && isset($lngMatch[1])) {
+                return ['latitude' => $latMatch[1], 'longitude' => $lngMatch[1]];
+            }
+        }
+
+        if (preg_match('/@([-0-9.]+),([-0-9.]+)/', $mapString, $matches)) {
+            return ['latitude' => $matches[1], 'longitude' => $matches[2]];
+        }
+
+        if (preg_match('/[?&]q=([-0-9.]+),([-0-9.]+)/', $mapString, $matches)) {
+            return ['latitude' => $matches[1], 'longitude' => $matches[2]];
+        }
+
+        return ['latitude' => null, 'longitude' => null];
+    }
+
+
 }

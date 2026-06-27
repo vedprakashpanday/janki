@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class InterestedCustomerController extends Controller
 {
-    public function index(Request $request)
+   public function index(Request $request)
     {
         $context = $this->getGlobalContext();
         $user = auth()->user();
@@ -45,18 +45,18 @@ class InterestedCustomerController extends Controller
             $pendingQuery->whereRaw('LOWER(status) = ?', ['general']);
         }
 
-        // Apply Access Filters (RBAC)
+        // ====================================================================
+        // 1. MAIN DATA ACCESS FILTER (RBAC) - UPDATE KIYA GAYA HAI
+        // ====================================================================
         if (!$isAdmin) {
             $query->where('company_id', $context->company_id);
             $pendingQuery->where('company_id', $context->company_id);
 
             if (!$isDirector) {
                 $context->branch_id ? $query->where('branch_id', $context->branch_id) : $query->whereNull('branch_id');
-                $query->where(function ($q) use ($context, $user) {
-                    $q->where('assigned_telecaller', $context->profile_id)
-                        ->orWhere('assigned_telecaller', $user->member_id ?? 'xx')
-                        ->orWhereNull('assigned_telecaller');
-                });
+                
+                // 🔥 NAYA LOGIC: Employee ko sirf uska assign kiya hua data dikhega
+                $query->where('called_by', $user->member_id ?? 'xx');
 
                 if ($context->branch_id) $pendingQuery->where('branch_id', $context->branch_id);
             }
@@ -104,6 +104,8 @@ class InterestedCustomerController extends Controller
                 $badgeColor = $type === 'interested' ? 'bg-primary' : 'bg-secondary';
 
                 $formattedData[] = [
+                    // 🔥 NAYA CODE: Desktop table ke liye checkbox yahan se jayega
+                    '<input type="checkbox" class="form-check-input row-checkbox border-dark" value="' . $d->id . '" style="transform: scale(1.2);">',
                     "<b>{$compName}</b><br><small class='text-muted'>{$bName}</small>",
                     $d->cust_name,
                     $d->mobile,
@@ -130,23 +132,47 @@ class InterestedCustomerController extends Controller
         $mainData = (clone $query)->take(300)->get();
         $pendingRequests = (clone $pendingQuery)->take(500)->get();
 
-        $staffQuery = DB::table('adm_regist')->select('member_id as staff_id', 'full_name as name', 'role');
+        $staffQuery = DB::table('adm_regist')->select('member_id as staff_id', 'full_name as name', 'role','emp_status');
         if (!$isAdmin && $context->company_id) {
             $staffQuery->where('company_id', $context->company_id);
         }
         $staffList = $staffQuery->get();
 
+        // 🔥 FIX 2: Floating Counter me bhi 'entry_status' => 'active' add kar diya
+        $todayQuery = \App\Models\InterestedCustomer::where('entry_status', 'active')
+                                    ->whereDate('created_at', now()->toDateString());
+        
+        if ($type === 'interested') {
+            $todayQuery->whereRaw('LOWER(status) != ?', ['general']);
+        } else {
+            $todayQuery->whereRaw('LOWER(status) = ?', ['general']);
+        }
+
+        // ====================================================================
+        // 2. TODAY COUNT ACCESS FILTER (RBAC) - UPDATE KIYA GAYA HAI
+        // ====================================================================
+        if (!$isAdmin) {
+            $todayQuery->where('company_id', $context->company_id);
+            if (!$context->is_director) {
+                // 🔥 NAYA LOGIC: Counter me bhi sirf wahi ginega jo is employee ko assign hua hai
+                $todayQuery->where('called_by', $user->member_id ?? 'xx');
+            }
+        }
+        $todayCount = $todayQuery->count();
+
         return response()->json([
             'status'           => 'success',
-            'general'          => $mainData, // Frontend dono pages ke liye is array ko use karta hai
+            'general'          => $mainData, 
             'pending_requests' => $pendingRequests,
             'auth_role'        => $context->role_level,
             'auth_company'     => $context->company_id,
             'auth_branch'      => $context->branch_id,
             'auth_profile_id'  => $context->profile_id,
             'staff_list'       => $staffList,
+            'today_count'      => $todayCount,
         ], 200, [], JSON_INVALID_UTF8_IGNORE);
     }
+
 
     // ====================================================================
     // FULL EXCEL EXPORT (Handles both General and Interested dynamically)
@@ -257,6 +283,24 @@ class InterestedCustomerController extends Controller
         // Agar "Request Lead" (request) daba tha toh 'pending', warna 'active'
         $data['entry_status'] = ($entryType === 'request') ? 'pending' : 'active';
 
+
+   // 🔥 YAHAN NAYA CODE DAALNA HAI: Duplicate Entry Check
+    $isDuplicate = \App\Models\InterestedCustomer::where('assigned_telecaller', $request->assigned_telecaller)
+        ->where('cust_name', $request->cust_name)
+        ->where('mobile', $request->mobile)
+        ->where('status', $request->status)
+        ->exists();
+
+    if ($isDuplicate) {
+        return response()->json([
+            'success' => false,
+            'is_duplicate' => true,
+            'message' => 'Ye entry pehle se maujood hai! (Name, Mobile, Telecaller & Status same hai)'
+        ]);
+    }
+    // 🔥 DUPLICATE CHECK END
+
+
         InterestedCustomer::create($data);
         return response()->json(['status' => 'success', 'message' => 'Lead processed successfully']);
     }
@@ -284,7 +328,8 @@ class InterestedCustomerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthorized Action'], 403);
         }
 
-        $data = $request->except(['_token', 'entry_status']);
+       // Existing code me jahan data le rahe hain, wahan 'entry_type' add kar dein
+        $data = $request->except(['_token', '_method', 'entry_type']);
         if (empty($data['branch_id'])) $data['branch_id'] = null;
 
         $customer->update($data);
@@ -326,32 +371,48 @@ class InterestedCustomerController extends Controller
         return response()->json(['status' => 'success', 'message' => "Lead Request $statusMsg Successfully."]);
     }
 
-    public function assignTelecaller(Request $request)
+   public function assignTelecaller(Request $request)
     {
-        $context = $this->getGlobalContext();
-        $isAdmin = $context->is_god || in_array(strtolower($context->role_level), ['ceo', 'developer']);
+        $request->validate([
+            'id_from' => 'required|integer',
+            'id_to' => 'required|integer',
+            'telecaller_id' => 'required|string',
+        ]);
 
-        if (!$isAdmin && !$context->is_director) {
-            return response()->json(['status' => false, 'message' => 'Unauthorized Action']);
+        $id_from = $request->id_from;
+        $id_to = $request->id_to;
+        $telecaller_id = $request->telecaller_id;
+        
+        // 🔥 FIX: JS se aane wale true/false ko safely handle karne ke liye filter_var lagaya
+        $force_assign = filter_var($request->input('force_assign', false), FILTER_VALIDATE_BOOLEAN);
+
+        $alreadyAssigned = \App\Models\InterestedCustomer::whereBetween('id', [$id_from, $id_to])
+            ->whereNotNull('called_by')
+            ->where('called_by', '!=', '')
+            ->pluck('id')
+            ->toArray();
+
+        // Agar conflict hai aur user ne force_assign (overwrite) permission nahi di hai
+        if (count($alreadyAssigned) > 0 && !$force_assign) {
+            return response()->json([
+                'status' => 'conflict',
+                'message' => count($alreadyAssigned) . ' leads pehle se assign hain.',
+                'assigned_count' => count($alreadyAssigned),
+                'assigned_ids' => $alreadyAssigned
+            ]);
         }
 
-        $telecaller = $request->telecaller;
-        $status = $request->status ?? 'General';
-        $dataFrom = (int)$request->data_from;
-        $dataTo = (int)$request->data_to;
+        // Agar pehle se assign nahi hai, YA FIR SweetAlert par "Haan" click kar diya ho
+        \App\Models\InterestedCustomer::whereBetween('id', [$id_from, $id_to])
+            ->update([
+                'called_by' => $telecaller_id,
+                'assigned_telecaller' => $telecaller_id 
+            ]);
 
-        $query = InterestedCustomer::where('status', $status)->where('entry_status', 'active');
-        if ($context->is_director) $query->where('company_id', $context->company_id);
-
-        $records = $query->skip($dataFrom - 1)->take(($dataTo - $dataFrom) + 1)->get();
-
-        if ($records->isEmpty()) return response()->json(['status' => false, 'message' => "No records found in range."]);
-
-        foreach ($records as $record) {
-            $record->update(['assigned_telecaller' => $telecaller]);
-        }
-
-        return response()->json(['status' => true, 'message' => "Successfully Assigned to $telecaller"]);
+        return response()->json([
+            'status' => 'success', 
+            'message' => 'Telecaller successfully assign ho gaya hai!'
+        ]);
     }
 
     public function filterReports(Request $request)
@@ -387,71 +448,157 @@ class InterestedCustomerController extends Controller
         return response()->json(['status' => true, 'data' => $data]);
     }
 
-    public function import(Request $request)
+  public function import(Request $request)
     {
-        $leads = $request->input('leads');
+        $leads = $request->input('leads', []);
+        
+        if (empty($leads)) {
+            return response()->json(['status' => 'success', 'inserted' => 0, 'db_duplicates' => 0]);
+        }
+
+        // 1. Chunk me aaye hue saare mobile numbers ek array me nikal lein
+        $mobiles = array_column($leads, 'mobile');
+
+        // 2. Database se ek hi baar me check karein ki inme se kaun se numbers pehle se hain
+        $existingMobiles = \App\Models\InterestedCustomer::whereIn('mobile', $mobiles)
+            ->pluck('mobile')
+            ->toArray();
+
+        $existingMobiles = array_map('strval', $existingMobiles); // Comparison ke liye string me badle
+
         $inserts = [];
+        $dbDuplicatesCount = 0;
+        $now = now();
 
+        // 3. Data filter karein
         foreach ($leads as $row) {
-            // Agar naam ya mobile blank hai to skip karein
-            if (empty($row['cust_name']) || empty($row['mobile'])) continue;
+            $mobile = (string) $row['mobile'];
+            
+            // Agar database me pehle se hai, toh skip karein
+            if (in_array($mobile, $existingMobiles)) {
+                $dbDuplicatesCount++;
+                continue;
+            }
 
-            $sanitizeDate = function ($val) {
-                if (!$val || $val == '-') return null;
-                try {
-                    return date('Y-m-d', strtotime($val));
-                } catch (\Exception $e) {
-                    return null;
-                }
-            };
+            // Agar galti se isi array me double number aa gaya ho, usko bhi rokein
+            if (isset($inserts[$mobile])) {
+                continue;
+            }
 
-            $formattedDate = $sanitizeDate($row['date']);
-            $formattedFollowupDate = $sanitizeDate($row['followup_date']);
-
-            // Ek array banayenge jisme wo saare exact columns honge jo match karne hain
-            $leadData = [
+            $inserts[$mobile] = [
                 'company_id'          => 1,
                 'branch_id'           => null,
                 'entry_status'        => 'active',
-                'cust_name'           => $row['cust_name'],
-                'mobile'              => $row['mobile'],
+                'cust_name'           => $row['cust_name'] ?? 'Unknown',
+                'mobile'              => $mobile,
                 'email'               => $row['email'] ?? null,
-                'budget'              => $row['budget'] ?? null,
+                'address'             => $row['address'] ?? null,
+                'remark'              => $row['remark'] ?? 'RAW DATA',
+                'status'              => $row['status'] ?? 'General',
                 'assigned_telecaller' => $row['assigned_telecaller'] ?? null,
                 'reference'           => $row['reference'] ?? null,
                 'refer_by'            => $row['refer_by'] ?? null,
-                'alternate_no'        => $row['alternate_no'] ?? null,
-                'address'             => $row['address'] ?? null,
-                'date'                => $formattedDate,
-                'interested_for'      => $row['interested_for'] ?? null,
-                'required_for'        => $row['required_for'] ?? null,
-                'status'              => $row['status'] ?? 'General',
-                'followup_date'       => $formattedFollowupDate,
-                'followup_month'      => $row['followup_month'] ?? null,
-                'remark'              => $row['remark'] ?? null,
+                'created_at'          => $now,
+                'updated_at'          => $now,
             ];
-
-            // DB me check karein ki kya ye exact data already exist karta hai
-            $exists = \App\Models\InterestedCustomer::where($leadData)->exists();
-
-            // Agar DB me record NAHI hai, tabhi inserts array me daalein
-            if (!$exists) {
-                // Timestamps manually add kar rahe hain insert() ke liye
-                $leadData['created_at'] = now();
-                $leadData['updated_at'] = now();
-                
-                $inserts[] = $leadData;
-            }
         }
 
-        // Agar array me fresh data aaya hai, tabhi DB me bulk insert chalayein
-        if (!empty($inserts)) {
-            \App\Models\InterestedCustomer::insert($inserts);
+        $insertedCount = count($inserts);
+
+        // 4. Bacha hua fresh data ek hi baar me database me daal dein
+        if ($insertedCount > 0) {
+            \App\Models\InterestedCustomer::insert(array_values($inserts));
         }
 
         return response()->json([
-            'status' => 'success', 
-            'message' => count($inserts) . ' new leads imported successfully. Duplicates ignored.'
+            'status' => 'success',
+            'inserted' => $insertedCount,
+            'db_duplicates' => $dbDuplicatesCount
         ]);
     }
+
+    public function bulkDelete(Request $request)
+{
+    if (!$request->has('ids') || empty($request->ids)) {
+        return response()->json(['success' => false, 'message' => 'No records selected!']);
+    }
+    
+    // Yahan soft-delete ya permanent delete jo bhi model me set hai, wo ho jayega
+    \App\Models\InterestedCustomer::whereIn('id', $request->ids)->delete();
+    
+    return response()->json(['success' => true, 'message' => 'Selected records deleted successfully.']);
+}
+
+public function checkMobile(Request $request)
+{
+    $query = \App\Models\InterestedCustomer::where('mobile', $request->mobile);
+    
+    // Agar hum edit kar rahe hain, toh same record ko duplicate na mane isliye exclude karenge
+    if ($request->has('exclude_id') && !empty($request->exclude_id)) {
+        $query->where('id', '!=', $request->exclude_id);
+    }
+    
+    $exists = $query->exists();
+    
+    return response()->json(['exists' => $exists]);
+}
+
+// 🔥 UPDATED: adm_regist se data uthana
+    public function getReportEmployees(Request $request)
+    {
+        $branches = $request->branches ?? [];
+        $depts = $request->depts ?? [];
+        
+        // Seedha adm_regist table se query
+        $query = \Illuminate\Support\Facades\DB::table('adm_regist');
+        
+        if (!empty($branches)) {
+            // Agar Head Office (empty string) selected hai
+            if (in_array("", $branches)) {
+                $query->where(function($q) use ($branches) {
+                    $q->whereIn('branch_id', array_filter($branches))
+                      ->orWhereNull('branch_id')
+                      ->orWhere('branch_id', ''); // Safe check
+                });
+            } else {
+                $query->whereIn('branch_id', $branches);
+            }
+        }
+        
+        if (!empty($depts)) {
+            $query->whereIn('department_id', $depts);
+        }
+        
+        // Sirf wahi 3 columns uthayenge jo aapko chahiye
+        $emps = $query->select('id', 'member_id', 'full_name')->get();
+        
+        return response()->json(['success' => true, 'data' => $emps,'departments'=>$depts]);
+    }
+
+    // 🔥 NAYA CODE: Report Data Count Generate Karna
+    public function generatePerformanceReport(Request $request)
+    {
+        $emps = $request->employees ?? []; // Ye 'ABDPL-A/0022' jaisa array hoga
+        $from = $request->from_date;
+        $to = $request->to_date;
+
+        $query = \App\Models\InterestedCustomer::query();
+
+        // Date Range Filter
+        if ($from) $query->whereDate('created_at', '>=', $from);
+        if ($to) $query->whereDate('created_at', '<=', $to);
+        
+        // Employee Filter
+        if (!empty($emps)) {
+            $query->whereIn('assigned_telecaller', $emps);
+        }
+
+        // Grouping karke Entries Count nikalna
+        $report = $query->select('assigned_telecaller', DB::raw('count(*) as total'))
+                        ->groupBy('assigned_telecaller')
+                        ->get();
+
+        return response()->json(['success' => true, 'data' => $report]);
+    }
+
 }

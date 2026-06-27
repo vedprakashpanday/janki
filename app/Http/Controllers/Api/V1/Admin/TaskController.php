@@ -8,12 +8,20 @@ use App\Models\TaskAttachment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\TaskProgressLog;
+use App\Services\MediaConverterService;
+use App\Notifications\SystemAlertNotification;
+use Illuminate\Support\Facades\Notification;
 
 class TaskController extends Controller
 {
-    /**
-     * 🔥 FETCH TASKS (With Auto-Sync Magic, Eager Loading & Crash Protection)
-     */
+
+    protected $mediaConverter;
+
+    public function __construct(MediaConverterService $mediaConverter)
+    {
+        $this->mediaConverter = $mediaConverter;
+    }
+
     public function index(Request $request)
     {
         $context = $this->getGlobalContext();
@@ -23,10 +31,12 @@ class TaskController extends Controller
             $this->autoSyncDynamicTasks($user);
         }
 
+        // 🔥 NAYA: 'phase' relation load kiya gaya hai
         $query = Task::with([
             'assigner',
             'assignee',
             'trackingModule',
+            'phase',
             'progressLogs' => function ($q) {
                 $q->with('actor')->orderBy('created_at', 'desc');
             }
@@ -54,7 +64,6 @@ class TaskController extends Controller
 
         $tasks = $query->orderBy('created_at', 'desc')->get();
 
-        // 🔥 FIX: Catching \Throwable intercepts all PHP 8 fatal errors preventing 500 crashes
         $tasks->map(function ($task) {
             try {
                 $task->syncLiveProgress();
@@ -83,37 +92,65 @@ class TaskController extends Controller
             $matchValue = ($module->join_column === 'member_id') ? ($user->member_id ?? null) : $user->id;
             if (!$matchValue) continue;
 
-            $taskDate = \Carbon\Carbon::parse($task->created_at)->toDateString();
+            $taskCreatedAt = $task->created_at;
 
             try {
                 $count = DB::table($module->target_table)
                     ->where($module->user_id_column, $matchValue)
-                    ->whereDate($module->date_column, $taskDate)
+                    ->where($module->date_column, '>=', $taskCreatedAt)
+                    ->when($task->due_datetime, function ($query) use ($task, $module) {
+                        return $query->where($module->date_column, '<=', $task->due_datetime);
+                    })
                     ->count();
 
-                $task->achieved_count = $count;
+                if ($count != $task->achieved_count) {
+                    $difference = $count - $task->achieved_count;
+                    $diffText = $difference > 0 ? "+{$difference}" : "{$difference}";
 
-                if ($task->target_count > 0 && $count >= $task->target_count) {
-                    $task->status = 'Completed';
-                } elseif ($count > 0 && $task->status === 'Pending') {
-                    $task->status = 'In-Progress';
+                    \App\Models\TaskProgressLog::create([
+                        'task_id' => $task->id,
+                        'actor_type' => $task->assignee_type,
+                        'actor_id' => $task->assignee_id,
+                        'log_type' => 'progress_update',
+                        'message_or_remark' => "System Note: Detected {$diffText} new entries. (Total Achieved: {$count})",
+                        'entries_completed' => $difference
+                    ]);
+
+                    $task->achieved_count = $count;
+
+                    if ($task->target_count > 0 && $count >= $task->target_count && $task->status !== 'Completed') {
+                        $task->status = 'Completed';
+
+                        \App\Models\TaskProgressLog::create([
+                            'task_id' => $task->id,
+                            'actor_type' => $task->assignee_type,
+                            'actor_id' => $task->assignee_id,
+                            'log_type' => 'progress_update',
+                            'message_or_remark' => "System Note: Target of {$task->target_count} achieved! Task Auto-Completed.",
+                            'entries_completed' => 0
+                        ]);
+                    } elseif ($count > 0 && $task->status === 'Pending') {
+                        $task->status = 'In-Progress';
+                    }
+
+                    $task->save();
                 }
-
-                $task->save();
-            } catch (\Throwable $e) { // 🔥 FIX: Catching \Throwable
+            } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error("Dynamic Task Sync Error for Task ID {$task->id}: " . $e->getMessage());
             }
         }
     }
 
-    public function store(Request $request)
+    public function store(Request $request, \App\Services\TelecallerAllocationService $allocationService)
     {
+        // 🔥 NAYA: phase_id ko validation me allow kiya
         $request->validate([
             'assignee_type' => 'required|string',
             'assignee_ids' => 'required|array|min:1',
             'tasks' => 'required|array|min:1',
             'tasks.*.title' => 'required|string|max:255',
             'tasks.*.tracking_module_id' => 'nullable|exists:task_tracking_modules,id',
+            'tasks.*.phase_id' => 'nullable|exists:phases,id',
             'tasks.*.target_count' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
             'priority' => 'required|in:Low,Medium,High,Urgent',
@@ -125,26 +162,37 @@ class TaskController extends Controller
         if (!$context) return response()->json(['status' => 'error', 'message' => 'User context not found.'], 401);
 
         $user = auth()->user();
+        $assignerName = $user->name ?? $user->full_name ?? $user->member_name ?? 'System';
 
         DB::beginTransaction();
         try {
             $uploadedFiles = [];
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
-                    $originalName = $file->getClientOriginalName();
-                    $ext = $file->getClientOriginalExtension();
-                    $filename = time() . '_' . uniqid() . '.' . $ext;
-                    $file->move(public_path('uploads/task_attachments'), $filename);
+                    $mediaRecord = $this->mediaConverter->uploadAndConvert($file);
+                    if ($mediaRecord) {
+                        $uploadedFiles[] = [
+                            'file_name' => $mediaRecord->original_name,
+                            'file_path' => $mediaRecord->file_path,
+                            'file_type' => $mediaRecord->extension,
+                        ];
+                    } else {
+                        $originalName = $file->getClientOriginalName();
+                        $ext = $file->getClientOriginalExtension();
+                        $filename = time() . '_' . uniqid() . '.' . $ext;
+                        $file->move(public_path('uploads/task_attachments'), $filename);
 
-                    $uploadedFiles[] = [
-                        'file_name' => $originalName,
-                        'file_path' => 'uploads/task_attachments/' . $filename,
-                        'file_type' => $ext,
-                    ];
+                        $uploadedFiles[] = [
+                            'file_name' => $originalName,
+                            'file_path' => 'uploads/task_attachments/' . $filename,
+                            'file_type' => $ext,
+                        ];
+                    }
                 }
             }
 
             $totalTasksCreated = 0;
+            $usersToNotify = [];
 
             foreach ($request->assignee_ids as $assigneeId) {
                 $assigneeClass = $request->assignee_type;
@@ -155,6 +203,8 @@ class TaskController extends Controller
                 $empCompanyId = $assigneeRecord->company_id ?? $context->company_id;
                 $empBranchId = $assigneeRecord->branch_id ?? $context->branch_id;
                 $empDeptId = $assigneeRecord->department_id ?? $context->department_id;
+
+                $tasksCountForUser = 0;
 
                 foreach ($request->tasks as $taskItem) {
                     $task = Task::create([
@@ -167,6 +217,7 @@ class TaskController extends Controller
                         'assignee_id' => $assigneeId,
                         'title' => $taskItem['title'],
                         'tracking_module_id' => $taskItem['tracking_module_id'] ?? null,
+                        'phase_id' => $taskItem['phase_id'] ?? null,
                         'target_count' => $taskItem['target_count'] ?? 0,
                         'description' => $request->description,
                         'priority' => $request->priority,
@@ -174,7 +225,16 @@ class TaskController extends Controller
                         'status' => 'Pending',
                     ]);
 
+                    // ==========================================
+                    // 🔥 YEH NAYA LOGIC YAHAN ADD KARNA HAI 🔥
+                    // ==========================================
+                    if ($task->phase_id && $task->target_count > 0) {
+                        $allocationService->allocateFreshCustomers($task, $task->target_count);
+                    }
+                    // ==========================================
+
                     $totalTasksCreated++;
+                    $tasksCountForUser++;
 
                     foreach ($uploadedFiles as $fileData) {
                         TaskAttachment::create(array_merge($fileData, [
@@ -185,9 +245,37 @@ class TaskController extends Controller
                         ]));
                     }
                 }
+
+                if ($tasksCountForUser > 0) {
+                    $usersToNotify[] = [
+                        'record' => $assigneeRecord,
+                        'count' => $tasksCountForUser
+                    ];
+                }
             }
 
             DB::commit();
+
+            foreach ($usersToNotify as $target) {
+                $assigneeRecord = $target['record'];
+                $count = $target['count'];
+
+                $portal = 'admin';
+                if (str_contains(get_class($assigneeRecord), 'Employee') || str_contains(get_class($assigneeRecord), 'adm_regist')) {
+                    $portal = 'employee';
+                } elseif (str_contains(get_class($assigneeRecord), 'Member')) {
+                    $portal = 'customer';
+                }
+
+                $assigneeRecord->notify(new SystemAlertNotification(
+                    "New Task Assigned",
+                    "You have been assigned {$count} new task(s) by {$assignerName}.",
+                    "/{$portal}/tasks",
+                    "fa-tasks",
+                    "text-success"
+                ));
+            }
+
             return response()->json([
                 'status' => 'success',
                 'message' => $totalTasksCreated . ' Tasks assigned successfully across ' . count($request->assignee_ids) . ' employees!'
@@ -208,6 +296,7 @@ class TaskController extends Controller
                 'assigner',
                 'assignee',
                 'trackingModule',
+                'phase', // 🔥 NAYA: Single view me bhi phase detail fetch ho
                 'attachments' => function ($q) {
                     $q->orderBy('created_at', 'desc');
                 },
@@ -245,6 +334,7 @@ class TaskController extends Controller
         ]);
 
         $user = auth()->user();
+        $senderName = $user->name ?? $user->full_name ?? $user->member_name ?? 'System';
 
         DB::beginTransaction();
         try {
@@ -262,20 +352,33 @@ class TaskController extends Controller
             $uploadedFilesForEvent = [];
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
-                    $originalName = $file->getClientOriginalName();
-                    $ext = $file->getClientOriginalExtension();
-                    $filename = time() . '_' . uniqid() . '.' . $ext;
-                    $file->move(public_path('uploads/task_attachments'), $filename);
+                    $mediaRecord = $this->mediaConverter->uploadAndConvert($file);
+                    if ($mediaRecord) {
+                        $attachment = TaskAttachment::create([
+                            'task_id' => $task->id,
+                            'task_progress_log_id' => $log->id,
+                            'uploader_type' => get_class($user),
+                            'uploader_id' => $user->id,
+                            'file_name' => $mediaRecord->original_name,
+                            'file_path' => $mediaRecord->file_path,
+                            'file_type' => $mediaRecord->extension,
+                        ]);
+                    } else {
+                        $originalName = $file->getClientOriginalName();
+                        $ext = $file->getClientOriginalExtension();
+                        $filename = time() . '_' . uniqid() . '.' . $ext;
+                        $file->move(public_path('uploads/task_attachments'), $filename);
 
-                    $attachment = TaskAttachment::create([
-                        'task_id' => $task->id,
-                        'task_progress_log_id' => $log->id,
-                        'uploader_type' => get_class($user),
-                        'uploader_id' => $user->id,
-                        'file_name' => $originalName,
-                        'file_path' => 'uploads/task_attachments/' . $filename,
-                        'file_type' => $ext,
-                    ]);
+                        $attachment = TaskAttachment::create([
+                            'task_id' => $task->id,
+                            'task_progress_log_id' => $log->id,
+                            'uploader_type' => get_class($user),
+                            'uploader_id' => $user->id,
+                            'file_name' => $originalName,
+                            'file_path' => 'uploads/task_attachments/' . $filename,
+                            'file_type' => $ext,
+                        ]);
+                    }
 
                     $uploadedFilesForEvent[] = [
                         'file_name' => $attachment->file_name,
@@ -299,7 +402,7 @@ class TaskController extends Controller
 
             $logData = [
                 'id' => $log->id,
-                'actor_name' => $user->name ?? $user->full_name ?? $user->member_name ?? 'System',
+                'actor_name' => $senderName,
                 'date' => $log->created_at->format('d M Y, h:i A'),
                 'message' => $log->message_or_remark,
                 'log_type' => $log->log_type,
@@ -312,16 +415,27 @@ class TaskController extends Controller
             $receiverType = $isAssignee ? $task->assigner_type : $task->assignee_type;
             $receiverId = $isAssignee ? $task->assigner_id : $task->assignee_id;
 
-            $portal = 'admin';
-            if (str_contains($receiverType, 'Employee')) {
-                $portal = 'employee';
-            } elseif (str_contains($receiverType, 'Member')) {
-                $portal = 'customer';
+            $receiverRecord = $receiverType::find($receiverId);
+
+            if ($receiverRecord) {
+                $portal = 'admin';
+                if (str_contains($receiverType, 'Employee') || str_contains($receiverType, 'adm_regist')) {
+                    $portal = 'employee';
+                } elseif (str_contains($receiverType, 'Member')) {
+                    $portal = 'customer';
+                }
+
+                $truncatedTitle = \Illuminate\Support\Str::limit($task->title, 25);
+                $truncatedMsg = \Illuminate\Support\Str::limit($request->message_or_remark, 40);
+
+                $receiverRecord->notify(new SystemAlertNotification(
+                    "Task Update: {$truncatedTitle}",
+                    "New msg from {$senderName}: {$truncatedMsg}",
+                    "/{$portal}/tasks",
+                    "fa-comments",
+                    "text-info"
+                ));
             }
-
-            $globalChannelName = "global.user.{$portal}.{$receiverId}";
-
-            broadcast(new \App\Events\GlobalUserNotification($globalChannelName, $task->id, $task->title, $logData))->toOthers();
 
             return response()->json([
                 'status' => 'success',
@@ -361,11 +475,13 @@ class TaskController extends Controller
 
     public function update(Request $request, $id)
     {
+        // 🔥 NAYA: phase_id add kiya update ke time bhi
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'priority' => 'required|in:Low,Medium,High,Urgent',
             'tracking_module_id' => 'nullable|exists:task_tracking_modules,id',
+            'phase_id' => 'nullable|exists:phases,id',
             'target_count' => 'nullable|integer|min:0',
             'due_datetime' => 'nullable|date',
         ]);
@@ -385,6 +501,7 @@ class TaskController extends Controller
                 'description' => $request->description,
                 'priority' => $request->priority,
                 'tracking_module_id' => $request->tracking_module_id,
+                'phase_id' => $request->phase_id,
                 'target_count' => $request->target_count ?? 0,
                 'due_datetime' => $request->due_datetime,
             ]);
@@ -394,7 +511,7 @@ class TaskController extends Controller
                 'actor_type' => get_class(auth()->user()),
                 'actor_id' => auth()->user()->id,
                 'log_type' => 'progress_update',
-                'message_or_remark' => 'System Note: Task details (Priority/Target/Date) were modified by Admin.',
+                'message_or_remark' => 'System Note: Task details (Priority/Target/Phase/Date) were modified by Admin.',
                 'entries_completed' => 0
             ]);
 
@@ -411,91 +528,71 @@ class TaskController extends Controller
     {
         try {
             $context = $this->getGlobalContext();
-            $query = Task::query();
 
-            $hasDateFilter = $request->filled('start_date') && $request->filled('end_date');
-            $startDate = $hasDateFilter ? $request->start_date . ' 00:00:00' : null;
-            $endDate = $hasDateFilter ? $request->end_date . ' 23:59:59' : null;
-
-            $query->with(['assignee', 'trackingModule', 'progressLogs' => function ($q) use ($hasDateFilter, $startDate, $endDate) {
-                $q->with('actor')->orderBy('created_at', 'desc');
-                if ($hasDateFilter) {
-                    $q->whereBetween('created_at', [$startDate, $endDate]);
+            $query = Task::with([
+                'assignee',
+                'progressLogs' => function ($q) {
+                    $q->with('actor')->orderBy('created_at', 'asc');
                 }
-            }]);
+            ]);
+
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $query->whereBetween('created_at', [
+                    $request->start_date . ' 00:00:00',
+                    $request->end_date . ' 23:59:59'
+                ]);
+            }
+
+            if ($request->filled('employee_id')) {
+                $query->where('assignee_id', $request->employee_id)
+                    ->where('assignee_type', 'App\Models\Employee');
+            } elseif ($request->filled('member_id')) {
+                $query->where('assignee_id', $request->member_id)
+                    ->where('assignee_type', 'App\Models\Member');
+            }
+
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
 
             if (!$context->is_god) {
-                $query->where('company_id', $context->company_id);
-                if ($context->is_employee) {
-                    $query->where('assignee_id', $context->user_id)
+                if ($context->is_director) {
+                    $query->where('company_id', $context->company_id);
+                } else {
+                    $query->where('assignee_id', auth()->user()->id)
                         ->where('assignee_type', get_class(auth()->user()));
                 }
             }
 
-            if ($hasDateFilter) {
-                $query->where(function ($q) use ($startDate, $endDate) {
-                    $q->whereBetween('created_at', [$startDate, $endDate])
-                        ->orWhereBetween('due_datetime', [$startDate, $endDate])
-                        ->orWhereHas('progressLogs', function ($logQuery) use ($startDate, $endDate) {
-                            $logQuery->whereBetween('created_at', [$startDate, $endDate]);
-                        });
-                });
-            }
-
-            if ($request->filled('company_ids')) {
-                $query->whereIn('company_id', explode(',', $request->company_ids));
-            }
-
-            if ($request->filled('branch_ids')) {
-                $b_ids = explode(',', $request->branch_ids);
-                $query->where(function ($q) use ($b_ids) {
-                    $normal_branches = [];
-                    foreach ($b_ids as $bid) {
-                        if (str_starts_with($bid, 'HO_')) {
-                            $compId = str_replace('HO_', '', $bid);
-                            $q->orWhere(function ($sq) use ($compId) {
-                                $sq->where('company_id', $compId)->whereNull('branch_id');
-                            });
-                        } else {
-                            $normal_branches[] = $bid;
-                        }
-                    }
-                    if (count($normal_branches) > 0) {
-                        $q->orWhereIn('branch_id', $normal_branches);
-                    }
-                });
-            }
-
-            if ($request->filled('department_ids')) {
-                $query->whereIn('department_id', explode(',', $request->department_ids));
-            }
-
-            if ($request->filled('assignee_ids')) {
-                $query->whereIn('assignee_id', explode(',', $request->assignee_ids));
-            }
-
-            $tasks = $query->orderBy('created_at', 'desc')->get();
+            $tasks = $query->get();
 
             $report = [];
+
             foreach ($tasks as $task) {
-                $task->syncLiveProgress();
-                $empId = ($task->assignee_type ?? 'Unassigned') . '_' . ($task->assignee_id ?? '0');
-                $empName = $task->assignee ? ($task->assignee->full_name ?? $task->assignee->member_name) : 'Unknown User';
+                $empId = $task->assignee_type . '_' . $task->assignee_id;
 
                 if (!isset($report[$empId])) {
+                    $assigneeName = $task->assignee ? ($task->assignee->full_name ?? $task->assignee->member_name ?? $task->assignee->name) : 'Unknown';
                     $report[$empId] = [
-                        'employee_name' => $empName,
+                        'employee_name' => $assigneeName,
                         'total_tasks' => 0,
+                        'completed_tasks' => 0,
+                        'pending_tasks' => 0,
                         'tasks' => []
                     ];
                 }
 
-                $report[$empId]['total_tasks'] += 1;
+                $report[$empId]['total_tasks']++;
+                if ($task->status === 'Completed') {
+                    $report[$empId]['completed_tasks']++;
+                } else {
+                    $report[$empId]['pending_tasks']++;
+                }
 
                 $logs = [];
                 foreach ($task->progressLogs as $log) {
                     $logs[] = [
-                        'date' => $log->created_at->format('d M Y, h:i A'),
+                        'date' => $log->created_at->format('d M, h:i A'),
                         'actor' => $log->actor ? ($log->actor->full_name ?? $log->actor->member_name ?? $log->actor->name) : 'System',
                         'message' => $log->message_or_remark,
                         'type' => $log->log_type
@@ -524,7 +621,7 @@ class TaskController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Line: ' . $e->getLine() . ' | Error: ' . $e->getMessage()
+                'message' => 'Line: ' . $e->getLine() . ' | ' . $e->getMessage()
             ], 500);
         }
     }

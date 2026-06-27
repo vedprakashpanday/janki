@@ -1,6 +1,9 @@
 @extends('layout.app')
 
 @section('content')
+
+
+
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
 
@@ -80,21 +83,30 @@
 
     <div class="container-fluid p-0">
      
-       <!-- Header Section -->
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
-            <div>
-                <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);"><i class="fas fa-key me-2 text-primary"></i> Workspace Access</h4>
-            </div>
-            <!-- Responsive Wrapper: Stretches full width on mobile, auto width on desktop -->
-            <div class="d-flex gap-2 align-self-stretch align-self-md-auto">
-                <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item flex-grow-1 flex-md-grow-0 text-nowrap" data-permission="panel_access_edit" style="background-color: #f59e0b;" id="btnOpenBulkShiftModal">
-                    <i class="fas fa-users-cog me-1"></i> Bulk Shift
-                </button>
-                <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item flex-grow-1 flex-md-grow-0 text-nowrap" data-permission="panel_access_add" style="background-color: var(--brand-primary);" id="btnOpenGenerateModal">
-                    <i class="fas fa-plus me-1"></i> Generate ID
-                </button>
-            </div>
-        </div>
+      <!-- Header Section -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div>
+        <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);"><i class="fas fa-key me-2 text-primary"></i> Workspace Access</h4>
+    </div>
+    
+    <div class="d-flex gap-2 align-self-stretch align-self-md-auto">
+       <button type="button" class="btn btn-danger px-3 py-2 shadow-sm d-none" id="btnBulkDelete">
+            <i class="fas fa-trash-alt me-1"></i> Delete Selected
+        </button>
+
+        <button type="button" class="btn text-white px-3 py-2 shadow-sm flex-grow-1 flex-md-grow-0 text-nowrap d-none" style="background-color: #f59e0b;" id="btnOpenBulkShiftModal">
+            <i class="fas fa-users-cog me-1"></i> Bulk Shift
+        </button>
+
+        <button type="button" class="btn text-white px-3 py-2 shadow-sm flex-grow-1 flex-md-grow-0 text-nowrap d-none" style="background-color: var(--brand-primary);" id="btnOpenGenerateModal">
+            <i class="fas fa-plus me-1"></i> Generate ID
+        </button>
+
+        <button type="button" class="btn btn-info text-white px-3 py-2 shadow-sm flex-grow-1 flex-md-grow-0 text-nowrap d-none" id="btnOpenRequestModal">
+            <i class="fas fa-paper-plane me-1"></i> Generate Request
+        </button>
+    </div>
+</div>
 
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body p-3 d-flex align-items-center gap-3">
@@ -118,19 +130,20 @@
             <div class="card-body p-4">
                 <div class="table-responsive">
                     <table id="accessTable" class="table table-hover table-custom w-100">
-                        <thead>
-                            <tr>
-                                <th>User Profile</th>
-                                <th>Panel Scope</th>
-                                <th>Actions</th>
-                                <th>Shift Timings</th>
-                                <th>Hardware Binding</th>
-                                <th>Intrusion Alerts</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+    <thead>
+        <tr>
+            <th style="width: 40px;" class="text-center"><input type="checkbox" id="selectAllCheckbox" class="form-check-input shadow-sm"></th>
+            <th>User Profile</th>
+            <th>Panel Scope</th>
+            <th>Actions</th>
+            <th>Shift Timings</th>
+            <th>Hardware Binding</th>
+            <th>Intrusion Alerts</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
                 </div>
             </div>
         </div>
@@ -442,6 +455,63 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
     <script>
+// 1. Token identify karein (Admin login hai ya Employee)
+    let adminToken = localStorage.getItem('admin_token');
+    let empToken = localStorage.getItem('emp_token');
+    let activeToken = adminToken || empToken;
+    let apiUrl = adminToken ? '/api/v1/admin/auth/me' : '/api/v1/employee/auth/me';
+
+    // Mobile Excel Button Permission Check
+            if (!CAN_EXPORT) {
+                $('#mobileExcelBtn').addClass('d-none');
+            }
+
+    // Global variables jo poore page pe use honge
+    var IS_ADMIN = false;
+    var CAN_DELETE = false;
+    var CAN_ADD_DIRECT = false;
+    var CAN_ADD_REQUEST = false;
+    var CAN_EXPORT = false;
+    // 2. Token dekar Backend se current user ka data aur permissions mangwayein
+    if (activeToken) {
+        $.ajax({
+            url: apiUrl,
+            type: 'GET',
+            async: false, // Taaki data aane tak Datatable wait kare
+            headers: {
+                'Authorization': 'Bearer ' + activeToken,
+                'Accept': 'application/json'
+            },
+            success: function(res) {
+                if(res.data) {
+                    let userEmail = res.data.email ? res.data.email.toLowerCase().trim() : '';
+                    let userRole = res.data.designation_name || '';
+                    let perms = res.data.permissions || [];
+
+                    // Admin Verify Check
+                    IS_ADMIN = (userEmail === 'admin@jankivilla.com') || 
+                               userRole === 'super_admin' || 
+                               userRole === 'director' || 
+                               userRole === 'Admin';
+
+                    // 🔥 EXACT MATCH WITH DATABASE NAMES 🔥
+                    CAN_DELETE = IS_ADMIN || perms.includes('device_access_delete');
+                    CAN_ADD_DIRECT = IS_ADMIN || perms.includes('device_access_add_direct');
+                    CAN_ADD_REQUEST = IS_ADMIN || perms.includes('device_access_add_request');
+                    // AJAX ke success function ke andar jahan baaki permissions hain, wahan ye line add karein:
+    CAN_EXPORT = IS_ADMIN || perms.includes('device_access_print') || perms.includes('device_access_export');
+                }
+            },
+            error: function(err) {
+                console.warn("Permissions fetch nahi ho payin, check your token status.", err);
+            }
+        });
+    }
+
+    // Debugging ke liye (Browser ke console tab me check kar sakte hain)
+    console.log("Logged In Admin Status:", IS_ADMIN);
+    console.log("Can Add Direct?", CAN_ADD_DIRECT);
+
         $(document).ready(function() {
             let gCompanyMap = {},
                 gBranchMap = {},
@@ -449,6 +519,16 @@
                 gEmpMap = {};
             let branchFilterMap = {};
             let currentGatewayRowData = null;
+
+            // --- NAYA CODE YAHAN ADD KAREIN ---
+            if (CAN_ADD_DIRECT || CAN_ADD_REQUEST) {
+                $('#btnOpenBulkShiftModal').removeClass('d-none');
+            }
+            if (CAN_ADD_DIRECT) {
+                $('#btnOpenGenerateModal').removeClass('d-none');
+            } else if (CAN_ADD_REQUEST) {
+                $('#btnOpenRequestModal').removeClass('d-none');
+            }
 
             // ==========================================
             // INITIAL DATA LOADING (INCLUDING HEAD OFFICE)
@@ -694,67 +774,160 @@
                     }
                 },
                 dom: '<"row mb-3 d-none d-md-flex"<"col-md-6 d-flex align-items-center gap-3"lB><"col-md-6"f>>rt<"row mt-3 d-none d-md-flex"<"col-md-6"i><"col-md-6"p>>',
-                buttons: [{
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export Data',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-2 fw-bold'
-                }],
-                columns: [{
-                        data: 'full_name',
-                        render: (d, t, r) =>
-                            `<div><span class="fw-bold text-dark d-block">${d}</span><small class="text-secondary">${r.user_id}</small></div>`
-                    },
-                    {
-                        data: 'panel_assign',
-                        render: (d, t, r) =>
-                            `<span class="badge bg-secondary small">${d}</span><code class="d-block mt-1 bg-light px-1 py-0 border rounded text-center fw-bold">${r.panel_id}</code>`
-                    },
-                    {
-                        data: 'panel_id',
-                        orderable: false,
-                        className: 'text-end',
-                        render: (d, t, r) => `
-                            <div class="d-flex justify-content-start gap-1">
-                                <button type="button" class="btn btn-sm btn-outline-info session-history-btn shadow-sm" data-userid="${r.user_id}"><i class="fas fa-history"></i> Sessions</button>
-                                <button type="button" class="btn btn-sm btn-light text-warning fw-bold emergency-btn shadow-sm secured-item" data-permission="panel_access_edit" data-id="${d}"><i class="fas fa-unlock-alt"></i> Override</button>
-                                <button type="button" class="btn btn-sm btn-danger fw-bold hard-reset-btn shadow-sm secured-item" data-permission="panel_access_edit" data-id="${d}"><i class="fas fa-sync-alt"></i> Reset</button>
-                            </div>`
-                    },
-                    {
-                        data: 'p_time_from',
-                        render: (d, t, r) => `<div class="d-flex align-items-center gap-2">
-                                <span class="small fw-medium"><i class="far fa-clock text-warning me-1"></i> ${d.substring(0,5)} to ${r.p_time_to.substring(0,5)}</span>
-                                <button class="btn btn-xs btn-light border py-0 px-1 text-primary edit-shift-btn shadow-sm" data-id="${r.panel_id}" data-from="${d.substring(0,5)}" data-to="${r.p_time_to.substring(0,5)}" title="Edit Shift Time"><i class="fas fa-pencil-alt"></i></button>
-                            </div>`
-                    },
-                    {
-                        data: 'primary_device',
-                        render: (d, t, r) => d ?
-                            `<div class="d-flex align-items-center gap-2">
-                                <span class="text-success small fw-bold"><i class="fas fa-desktop me-1"></i> Bound</span>
-                                <button class="btn p-0 border-0 bg-transparent text-danger dynamic-unbind-trigger unbind-icon-btn shadow-none" data-id="${r.panel_id}" data-current="${d}" title="Manage Primary Binding"><i class="fas fa-unlink fs-6"></i></button>
-                             </div>` : `<span class="text-warning small fw-bold"><i class="fas fa-exclamation-circle"></i> Unbound</span>`
-                    },
-                    {
-                        data: 'other_devices',
-                        render: (d, t, r) => {
-                            let attempts = d ? d.length : 0;
-                            let blocked = r.blocked_devices ? r.blocked_devices.length : 0;
-                            return `<div>
-                                <button type="button" class="btn btn-sm btn-outline-danger view-requests-btn py-0 px-2 small position-relative mb-1" data-id="${r.panel_id}">
-                                    <i class="fas fa-radar me-1"></i> Logs <span class="badge bg-danger ms-1">${attempts}</span>
-                                </button>
-                                <span class="d-block small text-muted"><i class="fas fa-ban text-secondary me-1"></i> Blocked: <b>${blocked}</b></span>
-                            </div>`;
-                        }
-                    },
-                    {
-                        data: 'p_status',
-                        render: d => d === 'allow' ?
-                            `<span class="status-badge-allow">Permitted</span>` :
-                            `<span class="status-badge-deny">Revoked</span>`
-                    }
-                ],
+             buttons: [{
+    extend: 'excelHtml5',
+    text: '<i class="fas fa-file-excel me-1"></i> Export Data',
+    className: 'btn btn-success btn-sm shadow-sm rounded-2 fw-bold',
+    title: 'panel_device_excel',
+    filename: 'panel_device_excel',
+    exportOptions: {
+        orthogonal: 'export',
+        columns: [1, 2, 4, 5, 6, 7,8,9] 
+    },
+    // 🔥 100% WORKING SILENT EXPORT TRICK 🔥
+    action: function (e, dt, button, config) {
+        var self = this; // Button ka reference yahan save kiya (Scope fix)
+        var oldStart = dt.settings()[0]._iDisplayStart; // Current page yaad rakha
+
+        // Table ko intercept karke API se saara data mangwane ki command di
+        dt.one('preXhr', function (e, s, data) {
+            data.start = 0;
+            data.length = -1; // -1 matlab ALL rows
+
+            // Jab data API se aa jaye, par screen par dikhne se THEEK PEHLE...
+            dt.one('preDraw', function (e, settings) {
+                
+                // Original Excel download function chalao (is baar 'self' pass kiya hai)
+                $.fn.dataTable.ext.buttons.excelHtml5.action.call(self, e, dt, button, config);
+
+                // Wapas purani page settings (10 rows) chupke se restore karo
+                dt.one('preXhr', function (e, s, data) {
+                    settings._iDisplayStart = oldStart;
+                    data.start = oldStart;
+                });
+
+                // Table ko original state mein refresh kar do (0 seconds delay ke sath)
+                setTimeout(dt.ajax.reload, 0);
+
+                // Saara data screen par render hone se block kar do (taaki UI na hile)
+                return false; 
+            });
+        });
+
+        // Backend se data nikalne ka process trigger karo
+        dt.ajax.reload();
+    }
+}],
+            initComplete: function() {
+                // Agar export ki permission nahi hai, toh Datatables ka Export button hide kar do
+                if (!CAN_EXPORT) {
+                    $('.dt-buttons').addClass('d-none');
+                }
+            },
+              columns: [
+    {
+        data: 'panel_id',
+        orderable: false,
+        searchable: false,
+        visible: CAN_DELETE, // Agar permission nahi hai to ye column hide ho jayega
+        className: 'text-center align-middle',
+        render: (d) => `<input type="checkbox" class="row-checkbox form-check-input shadow-sm cursor-pointer" value="${d}">`
+    },
+    {
+        data: 'full_name',
+        render: (d, t, r) => `<div><span class="fw-bold text-dark d-block">${d}</span><small class="text-secondary">${r.user_id}</small></div>`
+    },
+    {
+        data: 'panel_assign',
+        render: (d, t, r) => `<span class="badge bg-secondary small">${d}</span><code class="d-block mt-1 bg-light px-1 py-0 border rounded text-center fw-bold">${r.panel_id}</code> <code class="d-block mt-1 bg-light px-1 py-0 border rounded text-center fw-bold">${r.panel_password}</code>`
+    },
+    {
+        data: 'panel_id',
+        orderable: false,
+        className: 'text-end',
+        render: (d, t, r) => {
+            let sessionBtn = `<button type="button" class="btn btn-sm btn-outline-info session-history-btn shadow-sm" data-userid="${r.user_id}"><i class="fas fa-history"></i> Sessions</button>`;
+            
+            // Agar Admin nahi hai to sirf Session button dikhao
+            if (!IS_ADMIN) return sessionBtn;
+
+            return `
+            <div class="d-flex justify-content-start gap-1">
+                ${sessionBtn}
+                <button type="button" class="btn btn-sm btn-light text-warning fw-bold emergency-btn shadow-sm secured-item" data-id="${d}"><i class="fas fa-unlock-alt"></i> Override</button>
+                <button type="button" class="btn btn-sm btn-danger fw-bold hard-reset-btn shadow-sm secured-item" data-id="${d}"><i class="fas fa-sync-alt"></i> Reset</button>
+            </div>`;
+        }
+    },
+    {
+        data: 'p_time_from',
+        visible: IS_ADMIN, // Admin restriction
+        render: (d, t, r) => `<div class="d-flex align-items-center gap-2">
+                <span class="small fw-medium"><i class="far fa-clock text-warning me-1"></i> ${d.substring(0,5)} to ${r.p_time_to.substring(0,5)}</span>
+                <button class="btn btn-xs btn-light border py-0 px-1 text-primary edit-shift-btn shadow-sm" data-id="${r.panel_id}" data-from="${d.substring(0,5)}" data-to="${r.p_time_to.substring(0,5)}" title="Edit Shift Time"><i class="fas fa-pencil-alt"></i></button>
+            </div>`
+    },
+    {
+        data: 'primary_device',
+        visible: IS_ADMIN, // Admin restriction
+        render: (d, t, r) => d ?
+            `<div class="d-flex align-items-center gap-2">
+                <span class="text-success small fw-bold"><i class="fas fa-desktop me-1"></i> Bound</span>
+                <button class="btn p-0 border-0 bg-transparent text-danger dynamic-unbind-trigger unbind-icon-btn shadow-none" data-id="${r.panel_id}" data-current="${d}" title="Manage Primary Binding"><i class="fas fa-unlink fs-6"></i></button>
+             </div>` : `<span class="text-warning small fw-bold"><i class="fas fa-exclamation-circle"></i> Unbound</span>`
+    },
+    {
+        data: 'other_devices',
+        visible: IS_ADMIN,
+        render: (d, t, r) => {
+            // 🔥 EXCEL EXPORT FORMATTING 🔥
+            if (t === 'export') {
+                if (!d || d.length === 0) return 'No Intrusions';
+                let expText = '';
+                d.forEach((a, index) => {
+                    // Sahi Google Maps URL
+                    let mapLink = (a.latitude && a.latitude !== 'Location Denied') 
+                        ? `https://maps.google.com/?q=${a.latitude},${a.longitude}` 
+                        : 'No GPS';
+                    expText += `Attempt ${index + 1}: ${a.time} | Device: ${a.device_token} | Map: ${mapLink} \n`;
+                });
+                return expText.trim();
+            }
+
+            // 👇 Screen (UI) Render
+            let attempts = d ? d.length : 0;
+            let blocked = r.blocked_devices ? r.blocked_devices.length : 0;
+            return `<div>
+                <button type="button" class="btn btn-sm btn-outline-danger view-requests-btn py-0 px-2 small position-relative mb-1" data-id="${r.panel_id}">
+                    <i class="fas fa-radar me-1"></i> Logs <span class="badge bg-danger ms-1">${attempts}</span>
+                </button>
+                <span class="d-block small text-muted"><i class="fas fa-ban text-secondary me-1"></i> Blocked: <b>${blocked}</b></span>
+            </div>`;
+        }
+    },
+    {
+        data: 'p_status',
+        render: d => d === 'allow' ?
+            `<span class="status-badge-allow">Permitted</span>` :
+            `<span class="status-badge-deny">Revoked</span>`
+    },
+    
+    {
+        data: 'panel_id',
+        title: 'Login ID', // Excel me ye Header banega
+        visible: false     // UI (Screen) par hide rahega
+    },
+    {
+        data: 'panel_password',
+        title: 'Password', // Excel me ye Header banega
+        visible: false,    // UI (Screen) par hide rahega
+        render: function(d) {
+            // Agar backend se password nahi aa raha hoga to N/A dikhayega
+            return d ? d : 'N/A'; 
+        }
+    }
+
+],
                 drawCallback: function(settings) {
                     renderMobileCards(settings.json.data);
                     renderMobilePagination(settings.json);
@@ -770,56 +943,74 @@
                 $('.buttons-excel').click();
             });
 
-            function renderMobileCards(data) {
-                let html = '';
-                if (!data || data.length === 0) {
-                    html =
-                        '<div class="text-center p-4 text-muted border bg-white rounded-3">No matching profiles indexed.</div>';
-                } else {
-                    data.forEach(r => {
-                        let hardwareStatus = r.primary_device ?
-                            `<div class="d-flex align-items-center justify-content-end gap-2">
-                                <span class="text-success fw-bold small"><i class="fas fa-check-circle"></i> Bound</span>
-                                <button class="btn p-0 border-0 bg-transparent text-danger dynamic-unbind-trigger unbind-icon-btn shadow-none" data-id="${r.panel_id}" data-current="${r.primary_device}" title="Manage Primary Binding">
-                                    <i class="fas fa-unlink fs-6"></i>
-                                </button>
-                             </div>` :
-                            `<span class="text-warning fw-bold small"><i class="fas fa-exclamation-circle"></i> Unbound</span>`;
+        function renderMobileCards(data) {
+    let html = '';
+    if (!data || data.length === 0) {
+        html = '<div class="text-center p-4 text-muted border bg-white rounded-3">No matching profiles indexed.</div>';
+    } else {
+        data.forEach(r => {
+            // Checkbox sirf tab dikhega jab delete ka permission ho
+            let checkboxHtml = CAN_DELETE ? `<input type="checkbox" class="row-checkbox form-check-input me-3 mt-1 shadow-sm" style="transform: scale(1.2);" value="${r.panel_id}">` : '';
 
-                        let reqCount = r.other_devices ? r.other_devices.length : 0;
-                        let blockCount = r.blocked_devices ? r.blocked_devices.length : 0;
+            let cardBody = `
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="d-flex align-items-start">
+                        ${checkboxHtml}
+                        <div><h6 class="fw-bold mb-0 text-dark">${r.full_name}</h6><small class="text-muted">${r.user_id} | Scope: <b>${r.panel_assign}</b></small></div>
+                    </div>
+                    <span class="${r.p_status === 'allow' ? 'status-badge-allow' : 'status-badge-deny'}">${r.p_status === 'allow' ? 'Active' : 'Revoked'}</span>
+                </div>
+            `;
 
-                        html += `<div class="mobile-item">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div><h6 class="fw-bold mb-0 text-dark">${r.full_name}</h6><small class="text-muted">${r.user_id} | Scope: <b>${r.panel_assign}</b></small></div>
-                                <span class="${r.p_status === 'allow' ? 'status-badge-allow' : 'status-badge-deny'}">${r.p_status === 'allow' ? 'Active' : 'Revoked'}</span>
-                            </div>
-                            <div class="row g-2 border-top border-bottom py-2 my-2 small bg-light px-1 rounded align-items-center">
-                                <div class="col-6">Login ID: <code class="fw-bold">${r.panel_id}</code></div>
-                                <div class="col-6 text-end">${hardwareStatus}</div>
-                                <div class="col-12 d-flex justify-content-between align-items-center">
-                                    <span><i class="far fa-clock text-warning me-1"></i> ${r.p_time_from.substring(0,5)} - ${r.p_time_to.substring(0,5)}</span>
-                                    <button class="btn btn-sm btn-light border text-primary py-0 px-2 edit-shift-btn shadow-sm" data-id="${r.panel_id}" data-from="${r.p_time_from.substring(0,5)}" data-to="${r.p_time_to.substring(0,5)}"><i class="fas fa-pencil-alt me-1"></i> Edit</button>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <span class="small text-muted"><i class="fas fa-fingerprint text-danger me-1"></i> Blocked: <b>${blockCount}</b></span>
-                                <button type="button" class="btn btn-sm btn-danger view-requests-btn py-1" data-id="${r.panel_id}">
-                                    <i class="fas fa-shield-alt me-1"></i> Control Room (${reqCount})
-                                </button>
-                            </div>
-                            <div class="d-flex gap-2 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-info flex-fill fw-bold session-history-btn" data-userid="${r.user_id}"><i class="fas fa-history"></i> Sessions</button>
-                                <button type="button" class="btn btn-sm btn-outline-warning flex-fill fw-bold emergency-btn secured-item" data-permission="panel_access_edit" data-id="${r.panel_id}"><i class="fas fa-unlock-alt"></i> Override</button>
-                                <button type="button" class="btn btn-sm btn-danger flex-fill fw-bold hard-reset-btn secured-item" data-permission="panel_access_edit" data-id="${r.panel_id}"><i class="fas fa-sync-alt"></i> Reset</button>
-                            </div>
-                        </div>`;
-                    });
-                }
-                $('#mobileCardsContainer').html(html);
-                if (typeof window.applyPermissions === 'function') window.applyPermissions();
+            // Agar user Admin hai, to hi detail aur action buttons dikhao
+            if (IS_ADMIN) {
+                let hardwareStatus = r.primary_device ?
+                    `<div class="d-flex align-items-center justify-content-end gap-2">
+                        <span class="text-success fw-bold small"><i class="fas fa-check-circle"></i> Bound</span>
+                        <button class="btn p-0 border-0 bg-transparent text-danger dynamic-unbind-trigger unbind-icon-btn shadow-none" data-id="${r.panel_id}" data-current="${r.primary_device}">
+                            <i class="fas fa-unlink fs-6"></i>
+                        </button>
+                     </div>` : `<span class="text-warning fw-bold small"><i class="fas fa-exclamation-circle"></i> Unbound</span>`;
+
+                let reqCount = r.other_devices ? r.other_devices.length : 0;
+                let blockCount = r.blocked_devices ? r.blocked_devices.length : 0;
+
+                cardBody += `
+                    <div class="row g-2 border-top border-bottom py-2 my-2 small bg-light px-1 rounded align-items-center">
+                        <div class="col-6">Login ID: <code class="fw-bold">${r.panel_id}</code></div>
+                        <div class="col-6 text-end">${hardwareStatus}</div>
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <span><i class="far fa-clock text-warning me-1"></i> ${r.p_time_from.substring(0,5)} - ${r.p_time_to.substring(0,5)}</span>
+                            <button class="btn btn-sm btn-light border text-primary py-0 px-2 edit-shift-btn shadow-sm" data-id="${r.panel_id}" data-from="${r.p_time_from.substring(0,5)}" data-to="${r.p_time_to.substring(0,5)}"><i class="fas fa-pencil-alt me-1"></i> Edit</button>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="small text-muted"><i class="fas fa-fingerprint text-danger me-1"></i> Blocked: <b>${blockCount}</b></span>
+                        <button type="button" class="btn btn-sm btn-danger view-requests-btn py-1" data-id="${r.panel_id}">
+                            <i class="fas fa-shield-alt me-1"></i> Control Room (${reqCount})
+                        </button>
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-info flex-fill fw-bold session-history-btn" data-userid="${r.user_id}"><i class="fas fa-history"></i> Sessions</button>
+                        <button type="button" class="btn btn-sm btn-outline-warning flex-fill fw-bold emergency-btn" data-id="${r.panel_id}"><i class="fas fa-unlock-alt"></i> Override</button>
+                        <button type="button" class="btn btn-sm btn-danger flex-fill fw-bold hard-reset-btn" data-id="${r.panel_id}"><i class="fas fa-sync-alt"></i> Reset</button>
+                    </div>
+                `;
+            } else {
+                // Agar Admin NAHI hai, to sirf Session button dikhao
+                cardBody += `
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-info flex-fill fw-bold session-history-btn" data-userid="${r.user_id}"><i class="fas fa-history"></i> Sessions</button>
+                    </div>
+                `;
             }
 
+            html += `<div class="mobile-item">${cardBody}</div>`;
+        });
+    }
+    $('#mobileCardsContainer').html(html);
+    if (typeof window.applyPermissions === 'function') window.applyPermissions();
+}
             function renderMobilePagination(json) {
                 if (!json) return;
                 let info = table.page.info();
@@ -1171,8 +1362,8 @@
                     }
 
                     let mapBtn = (a.latitude && a.latitude !== 'Location Denied') ?
-                        `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" class="btn btn-xs btn-outline-primary py-0 small"><i class="fas fa-map-marker-alt text-danger"></i> View GPS Map</a>` :
-                        '<span class="text-muted small">No GPS Coordinates</span>';
+    `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" class="btn btn-xs btn-outline-primary py-0 small"><i class="fas fa-map-marker-alt text-danger"></i> View GPS Map</a>` :
+    '<span class="text-muted small">No GPS Coordinates</span>';
 
                     let actionHtmlDesktop = '',
                         actionHtmlMobile = '';
@@ -1362,21 +1553,59 @@
                                 '<div class="alert alert-secondary text-center small fw-bold">No login sessions found for this date.</div>';
                         } else {
                             html += '<ul class="list-group shadow-sm">';
-                            logs.forEach((log, index) => {
-                                let outTime = log.out ?
-                                    `<span class="text-danger fw-bold">${log.out}</span>` :
-                                    `<span class="badge bg-warning text-dark"><i class="fas fa-circle-notch fa-spin"></i> Running / Missed</span>`;
-                                html += `<li class="list-group-item d-flex justify-content-between align-items-center bg-white">
-                                    <div><span class="badge bg-secondary me-2">Session ${index + 1}</span> <b class="text-muted small">IN:</b> <span class="text-success fw-bold ms-1">${log.in}</span></div>
-                                    <div class="text-end"><b class="text-muted small">OUT:</b> <span class="ms-1">${outTime}</span></div>
-                                </li>`;
-                            });
+                          logs.forEach((log, index) => {
+    let outTime = log.out ? `<span class="text-danger fw-bold">${log.out}</span>` : `<span class="badge bg-warning text-dark"><i class="fas fa-circle-notch fa-spin"></i> Running / Missed</span>`;
+    
+    // View Map Button Logic
+ let mapBtn = (log.lat && log.lng && log.lat !== 'Location Denied') 
+    ? `<a href="https://www.google.com/maps?q=${log.lat},${log.lng}" target="_blank" class="btn btn-xs btn-outline-primary ms-2"><i class="fas fa-map-marker-alt text-danger"></i> Map</a>` 
+    : '<span class="badge bg-light text-muted ms-2 border"><i class="fas fa-satellite-dish text-secondary"></i> No GPS</span>';
+
+    html += `<li class="list-group-item d-flex justify-content-between align-items-center bg-white">
+        <div><span class="badge bg-secondary me-2">Session ${index + 1}</span> <b class="text-muted small">IN:</b> <span class="text-success fw-bold ms-1">${log.in}</span> ${mapBtn}</div>
+        <div class="text-end"><b class="text-muted small">OUT:</b> <span class="ms-1">${outTime}</span></div>
+    </li>`;
+});
                             html += '</ul>';
                         }
                         $('#sessionLogsContainer').html(html);
                     }
                 });
             }
+
+            // Select All Checkbox Logic
+$('#selectAllCheckbox').on('change', function() {
+    $('.row-checkbox').prop('checked', $(this).prop('checked'));
+    toggleDeleteButton();
+});
+
+$(document).on('change', '.row-checkbox', function() {
+    toggleDeleteButton();
+});
+
+function toggleDeleteButton() {
+    if (CAN_DELETE && $('.row-checkbox:checked').length > 0) {
+        $('#btnBulkDelete').removeClass('d-none');
+    } else {
+        $('#btnBulkDelete').addClass('d-none');
+    }
+}
+
+// Bulk Delete Action
+$('#btnBulkDelete').on('click', function() {
+    let selectedIds = [];
+    $('.row-checkbox:checked').each(function() {
+        selectedIds.push($(this).val());
+    });
+
+    if (confirm(`Are you sure you want to delete ${selectedIds.length} selected records?`)) {
+        // Yahan aap apni Bulk Delete API call karenge
+        console.log("Ids to delete:", selectedIds);
+        // $.ajax({ ... });
+    }
+});
+
+
         });
     </script>
 @endpush

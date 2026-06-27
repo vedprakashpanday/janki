@@ -1,133 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+   
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Print Application - {{ $application->id }}</title>
+    @php
+        $uName = $application->user_type === 'employee' ? ($application->employee->full_name ?? 'User') : ($application->member->full_name ?? 'User');
+        $uCode = $application->user_type === 'employee' ? ($application->employee->member_id ?? '') : ($application->member->member_id ?? '');
+        
+        // Remove spaces and make it safe for file name
+        $safeName = str_replace(' ', '_', strtoupper($uName));
+        $appType = str_replace(' ', '_', strtoupper($application->application_type));
+        $appDate = \Carbon\Carbon::parse($application->created_at)->format('d_m_Y');
+        
+        $docTitle = "{$safeName}_{$uCode}_{$appType}_{$appDate}";
+    @endphp
+    <title>{{ $docTitle }}</title>
+   
+    <link rel="shortcut icon" href="{{ asset('uploads/harihomes1-fevicon.png') }}" type="image/x-icon" id="dynamicFavicon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #fff; color: #000; font-family: 'Inter', sans-serif; }
-        .print-container { position: relative; max-width: 800px; margin: 0 auto; padding: 20px; }
-        
-        /* 🔥 DYNAMIC WATERMARK LOGIC 🔥 */
-        .watermark {
-            position: absolute;
-            top: 40%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            opacity: 0.1;
-            z-index: 0;
-            pointer-events: none;
-        }
-        
         @media print {
-            .watermark-rejected { color: red !important; opacity: 0.3 !important; font-size: 80px !important; font-weight: bold; border: 5px solid red; padding: 10px; }
-            .watermark-logo { width: 300px; opacity: 0.08 !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+            @page { size: A4 portrait; margin: 0; }
+            body { background-color: #fff !important; margin: 0; padding: 10mm 15mm; }
             .no-print { display: none !important; }
+            .print-container { width: 100%; max-width: 100%; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
         }
-
-        .watermark-rejected { color: red; opacity: 0.3; font-size: 80px; font-weight: bold; border: 5px solid red; padding: 10px; }
-        .watermark-logo { width: 300px; opacity: 0.08; }
-
-        .content-box { position: relative; z-index: 1; margin-top: 20px; }
-        .table-custom th { width: 30%; background-color: #f8f9fa !important; }
+        body { font-family: 'Arial', sans-serif; background-color: #f4f4f4; margin: 0; padding: 10px; color: #000; }
+        .print-container { max-width: 900px; margin: 0 auto; background: #fff; padding: 15px; border: 1px solid #ddd; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
-<body onload="window.print()">
 
-<div class="no-print text-center mt-3 mb-3">
-    <button onclick="window.print()" class="btn btn-primary"><i class="fas fa-print"></i> Print Now</button>
-</div>
+<body>
+    @php
+        // Strict check to see if valid files exist
+        $hasAttachments = !empty($application->proof_attachments) && is_array($application->proof_attachments) && count(array_filter($application->proof_attachments)) > 0;
+    @endphp
 
-<div class="print-container">
-
-    <div class="watermark text-center">
-        @if($application->status === 'rejected')
-            <div class="watermark-rejected">REJECTED</div>
-        @else
-            <img src="{{ $application->company->company_logo ?? asset('uploads/harihomes1-logo.png') }}" class="watermark-logo">
-        @endif
-    </div>
-
-    <div class="content-box">
-        <x-print-header :company="$application->company" :branch="$application->branch" />
-
-        <h4 class="text-center text-uppercase mt-4 mb-3" style="font-weight: 800; text-decoration: underline;">
-            {{ $application->application_type }} APPLICATION
-        </h4>
-
-        <table class="table table-bordered table-custom border-dark align-middle">
-            <tbody>
-                <tr>
-                    <th>Application ID</th>
-                    <td>#APP-{{ str_pad($application->id, 5, '0', STR_PAD_LEFT) }}</td>
-                </tr>
-                <tr>
-                    <th>Applicant Name</th>
-                    <td>
-                        {{ $application->user_type === 'employee' ? ($application->employee->full_name ?? 'N/A') : ($application->member->full_name ?? 'N/A') }}
-                        <small class="text-muted">({{ ucfirst($application->user_type) }})</small>
-                    </td>
-                </tr>
-                <tr>
-                    <th>Department & Designation</th>
-                    <td>{{ $application->department->department_name ?? 'N/A' }} / {{ $application->designation->designation_name ?? 'N/A' }}</td>
-                </tr>
-                <tr>
-                    <th>Date / Time Range</th>
-                    <td>
-                        <strong>From:</strong> {{ \Carbon\Carbon::parse($application->start_datetime)->format('d M Y, h:i A') }} <br>
-                        <strong>To:</strong> {{ \Carbon\Carbon::parse($application->end_datetime)->format('d M Y, h:i A') }}
-                    </td>
-                </tr>
-                <tr>
-                    <th>Requested Duration</th>
-                    <td>{{ $application->duration }} {{ $application->application_type === 'Short Leave' ? 'Hours' : 'Days' }}</td>
-                </tr>
-                <tr>
-                    <th>Reason</th>
-                    <td style="white-space: pre-wrap;">{{ $application->reason }}</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <h5 class="mt-4 mb-2 fw-bold bg-light p-2 border border-dark">OFFICE USE ONLY</h5>
-        <table class="table table-bordered table-custom border-dark">
-            <tbody>
-                <tr>
-                    <th>Status</th>
-                    <td class="text-uppercase fw-bold {{ $application->status === 'approved' ? 'text-success' : ($application->status === 'rejected' ? 'text-danger' : 'text-warning') }}">
-                        {{ $application->status }}
-                    </td>
-                </tr>
-                <tr>
-                    <th>Approved Duration</th>
-                    <td>{{ $application->approved_duration ?? 'N/A' }} {{ $application->application_type === 'Short Leave' ? 'Hours' : 'Days' }}</td>
-                </tr>
-                <tr>
-                    <th>Approver / Reviewer Remarks</th>
-                    <td>{{ $application->remarks ?? 'No remarks provided.' }}</td>
-                </tr>
-                <tr>
-                    <th>Processed By</th>
-                    <td>{{ $application->approver->name ?? ($application->rejecter->name ?? 'System/Pending') }}</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <div class="row mt-5 pt-4">
-            <div class="col-6 text-center">
-                <hr style="width: 70%; border: 1px solid #000; margin: 0 auto 5px;">
-                <strong>Applicant Signature</strong>
-            </div>
-            <div class="col-6 text-center">
-                <hr style="width: 70%; border: 1px solid #000; margin: 0 auto 5px;">
-                <strong>Authorized Signatory</strong>
+    <div class="no-print d-flex justify-content-end align-items-center gap-3 mb-4" style="max-width: 900px; margin: 0 auto;">
+        
+        @if($hasAttachments)
+        <div class="border rounded px-3 py-2 bg-white d-flex align-items-center shadow-sm">
+            <span class="fw-bold me-3" style="color: #1A365D; font-size: 14px;">Include Proofs in Print</span>
+            <div class="form-check form-switch mb-0 fs-5">
+                <input class="form-check-input" type="checkbox" id="printAttachmentsToggle" style="cursor: pointer;">
             </div>
         </div>
+        @endif
 
+        <button onclick="window.print()" class="btn" style="background-color: #1A365D; color: #fff; padding: 8px 20px; font-weight: 500;">
+            <i class="fas fa-print me-1"></i> Print Document
+        </button>
     </div>
-</div>
 
+    <div class="print-container">
+        @include('admin.leave_applications.view_partial', ['app' => $application, 'company' => $application->company, 'branch' => $application->branch])
+    </div>
+
+    <script>
+        let toggleBtn = document.getElementById('printAttachmentsToggle');
+        if(toggleBtn) {
+            toggleBtn.addEventListener('change', function() {
+                let attachDiv = document.getElementById('print-attachments-section');
+                let labelBox = document.getElementById('attachment-label-box'); // Chhota label
+
+                if(attachDiv) {
+                    if(this.checked) {
+                        attachDiv.classList.remove('no-print');
+                        // Agar actual files print ho rahi hain, to chhote label ka kya kaam? Use chhupa do
+                        if(labelBox) labelBox.classList.add('no-print');
+                    } else {
+                        attachDiv.classList.add('no-print');
+                        // Wapas un-check kare toh chhota label dikha do
+                        if(labelBox) labelBox.classList.remove('no-print');
+                    }
+                }
+            });
+        }
+    </script>
 </body>
+
 </html>

@@ -29,7 +29,7 @@ class WelcomeLetterApiController extends Controller
         $companyName = $company ? strtoupper($company->company_name) : 'AMITABH BUILDERS & DEVELOPERS PVT. LTD.';
         $branchName = $branch ? strtoupper($branch->branch_location ?? $branch->branch_name) : 'HEAD OFFICE';
 
-        // 2. CHECK PORTAL TYPE AND PREPARE DATA
+      // 2. CHECK PORTAL TYPE AND PREPARE DATA
         if ($context->is_employee) {
             $entityId = $user->member_id ?? $user->id;
             $template = WelcomeLetterTemplate::where('letter_type', 'other')->where('entity_type', 'employee')->where('entity_id', $entityId)->first()
@@ -37,14 +37,23 @@ class WelcomeLetterApiController extends Controller
 
             $letterContent = $template ? $template->content : '';
 
+            // 🔥 FIX: Column aur Relation ke naam ke conflict ko bypass karne ka exact logic 🔥
+            $designationObj = $user->designation()->first();
+            $exactDesignationName = $designationObj ? $designationObj->designation_name : 'STAFF';
+
             $replacements = [
                 '[EMPLOYEE_NAME]' => strtoupper($user->full_name ?? $user->employee_name ?? 'Team Member'),
                 '[EMP_ID]'        => $entityId,
                 '[COMPANY_NAME]'  => $companyName,
                 '[BRANCH_NAME]'   => $branchName,
                 '[DEPARTMENT]'    => $user->department ? strtoupper($user->department->department_name) : 'N/A',
-                '[DESIGNATION]'   => $user->designation ? strtoupper($user->designation->designation_name) : 'STAFF',
-                '[ADDRESS]'       => strtoupper($user->address ?? $user->present_address ?? 'N/A'),
+                
+                // Yahan ab exact designation_name aayega
+                '[DESIGNATION]'   => strtoupper($exactDesignationName),
+                
+                // Yahan communication_address aayega
+                '[ADDRESS]'       => strtoupper($user->communication_address ?? $user->address ?? $user->present_address ?? 'N/A'),
+                
                 '[DATE]'          => $currentDate
             ];
         } elseif ($context->is_member) {

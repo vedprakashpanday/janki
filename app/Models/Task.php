@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Notifiable;
 
 class Task extends Model
 {
-    use HasFactory;
+    use HasFactory,Notifiable;
 
     protected $guarded = [];
 
@@ -45,6 +46,10 @@ class Task extends Model
      * 🔥 AUTO-SYNC LIVE PROGRESS 🔥
      * Ye function live database check karega aur count update karega
      */
+ /**
+     * 🔥 AUTO-SYNC LIVE PROGRESS 🔥
+     * Ye function live database check karega aur count update karega
+     */
     public function syncLiveProgress()
     {
         if (!$this->tracking_module_id || $this->target_count <= 0) {
@@ -56,7 +61,6 @@ class Task extends Model
         if ($this->trackingModule && $this->trackingModule->task_category_name == 'Interested Customer Tracking') {
             $memberId = null;
             
-            // 🔥 FIX: Agar user delete ho gaya hai toh null check lagana zaruri hai
             if ($this->assignee) { 
                 $memberId = $this->assignee->member_id;
             }
@@ -72,15 +76,47 @@ class Task extends Model
             }
         }
 
+        // 🔥 NAYA: Agar count me farq aaya hai toh Progress Log table me entry daalein
         if ($newCount != $this->achieved_count) {
+            $difference = $newCount - $this->achieved_count;
+            $diffText = $difference > 0 ? "+{$difference}" : "{$difference}";
+
+            \App\Models\TaskProgressLog::create([
+                'task_id' => $this->id,
+                'actor_type' => $this->assignee_type,
+                'actor_id' => $this->assignee_id,
+                'log_type' => 'progress_update',
+                'message_or_remark' => "System Note: Live Tracking detected {$diffText} new entries. (Total Achieved: {$newCount})",
+                'entries_completed' => $difference
+            ]);
+
             $this->update(['achieved_count' => $newCount]);
             
             if ($newCount >= $this->target_count && $this->status !== 'Completed') {
                 $this->update(['status' => 'Completed']);
+                
+                \App\Models\TaskProgressLog::create([
+                    'task_id' => $this->id,
+                    'actor_type' => $this->assignee_type,
+                    'actor_id' => $this->assignee_id,
+                    'log_type' => 'progress_update',
+                    'message_or_remark' => "System Note: Target of {$this->target_count} achieved! Task Auto-Completed.",
+                    'entries_completed' => 0
+                ]);
+            } elseif ($newCount > 0 && $this->status === 'Pending') {
+                $this->update(['status' => 'In-Progress']);
             }
         }
 
         return $newCount;
     }
-        
+    
+    // Task kis Phase se juda hai
+    public function phase()
+    {
+        return $this->belongsTo(Phase::class, 'phase_id');
+    }
+
+
+
 }

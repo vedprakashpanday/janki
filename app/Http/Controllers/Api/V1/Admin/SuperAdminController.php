@@ -63,8 +63,8 @@ class SuperAdminController extends Controller
 
         $data = $request->except(['_method', 'password']);
 
-        // Generate Unique CEO ID (Format: CEO-XXXXXX)
-        $data['ceo_id'] = 'CEO-' . mt_rand(100000, 999999);
+        // NEW CODE:
+        $data['ceo_id'] = $this->generateNextCeoId();
 
         // Auto-hash hoga model event (boot) ke through jo humne model me likha tha
         $data['password'] = $request->password;
@@ -205,4 +205,37 @@ class SuperAdminController extends Controller
     {
         return ['aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'residential_proof_pdf', 'landmark_doc_pdf', 'other_doc_pdf', 'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_residential_proof_pdf', 'nom_landmark_doc_pdf', 'nom_other_doc_pdf'];
     }
+
+
+    // ==========================================
+    // HELPER METHODS FOR CEO ID GENERATION
+    // ==========================================
+    public function getNextId()
+    {
+        return response()->json([
+            'status' => 'success', 
+            'next_id' => $this->generateNextCeoId()
+        ]);
+    }
+
+    private function generateNextCeoId()
+    {
+        // Database se last record nikalna
+        $lastAdmin = SuperAdmin::orderBy('id', 'desc')->first();
+
+        if (!$lastAdmin || empty($lastAdmin->ceo_id)) {
+            return 'CEO-01'; // Agar table blank hai
+        }
+
+        // Last ID se number extract karna (e.g. 'CEO-05' -> '05' -> 5)
+        $lastId = $lastAdmin->ceo_id;
+        $numberPart = preg_replace('/[^0-9]/', '', $lastId); 
+        $nextNumber = (int)$numberPart + 1;
+
+        // 2-digit format maintain karna (01, 02... 10, 11)
+        return 'CEO-' . str_pad($nextNumber, 2, '0', STR_PAD_LEFT);
+    }
+
+
+
 }

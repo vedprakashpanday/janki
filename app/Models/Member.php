@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Notifications\Notifiable;
 
 class Member extends Model
 {
-    use HasFactory,HasRoles;
+    use HasFactory,HasRoles,Notifiable;
     protected $guarded = []; 
 
 // Company Relation

@@ -5,28 +5,35 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\TravelAllowance;
-use App\Models\Employee; // Added for notifications
+use App\Models\Employee;
 use Illuminate\Support\Facades\Auth;
-use App\Events\GlobalUserNotification; // Realtime Event
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\SystemAlertNotification;
+use App\Helpers\NotificationHelper;
+use App\Services\MediaConverterService;
 
 class TravelAllowanceApiController extends Controller
 {
-    /**
-     * 1. Fetch Records (Server-side Pagination, Search & Company Isolation)
-     */
+    protected $mediaConverter;
+
+    public function __construct(MediaConverterService $mediaConverter)
+    {
+        $this->mediaConverter = $mediaConverter;
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = TravelAllowance::with(['company', 'branch', 'employee', 'approver'])
-            ->orderBy('id', 'desc');
+        $query = TravelAllowance::with(['company', 'branch', 'employee', 'approver'])->orderBy('id', 'desc');
 
-        // 🔥 SERVER-SIDE SEARCH LOGIC
         if ($request->filled('search')) {
             $searchTerm = $request->search;
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('purpose', 'LIKE', "%{$searchTerm}%")
                     ->orWhere('destination', 'LIKE', "%{$searchTerm}%")
                     ->orWhere('vehicle_no', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('person_name', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('person_number', 'LIKE', "%{$searchTerm}%")
                     ->orWhereHas('employee', function ($q2) use ($searchTerm) {
                         $q2->where('full_name', 'LIKE', "%{$searchTerm}%")
                             ->orWhere('member_id', 'LIKE', "%{$searchTerm}%");
@@ -34,55 +41,24 @@ class TravelAllowanceApiController extends Controller
             });
         }
 
-        // 🔥 ROLE & COMPANY ISOLATION LOGIC
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
         $emailStr = strtolower($user->email ?? '');
         $isGodMode = in_array($emailStr, $developerEmails);
 
-        $isExecutive = false;
-        if (!empty($user->designation_name)) {
-            $desig = strtolower($user->designation_name);
-            $isExecutive = (str_contains($desig, 'ceo') || str_contains($desig, 'director'));
-        }
-
+        $isExecutive = !empty($user->designation_name) && (str_contains(strtolower($user->designation_name), 'ceo') || str_contains(strtolower($user->designation_name), 'director'));
         $canApproveReject = $user->hasPermissionTo('ta_appr') || $user->hasPermissionTo('ta_rej');
 
         if (!$isGodMode) {
             if ($isExecutive || $canApproveReject) {
-                // Manager/Executive: Sirf APNI COMPANY ke logo ka TA dekh sakte hain
                 $query->where('company_id', $user->company_id);
             } else {
-                // Normal Employee: Sirf apna TA dekh sakta hai
                 $query->where('employee_id', $user->id);
             }
         }
 
-        // 🔥 SERVER-SIDE PAGINATION (10 per page)
-        $perPage = $request->input('per_page', 10);
-        return response()->json($query->paginate($perPage));
+        return response()->json($query->paginate($request->input('per_page', 10)));
     }
 
-    /**
-     * Helper Function for Real-time Notifications
-     */
-    private function sendTANotification($userIds, $taId, $title, $actorName)
-    {
-        $userIds = array_unique(array_filter($userIds)); // Remove duplicates & nulls
-        foreach ($userIds as $uid) {
-            $logData = [
-                'type' => 'ta_request',
-                'actor_name' => $actorName,
-                'message' => $title
-            ];
-            // Send to both possible portals to ensure delivery
-            event(new GlobalUserNotification('global.user.admin.' . $uid, $taId, $title, $logData));
-            event(new GlobalUserNotification('global.user.employee.' . $uid, $taId, $title, $logData));
-        }
-    }
-
-    /**
-     * 2. Store TA Request & Notify Approvers
-     */
     public function store(Request $request)
     {
         $user = Auth::user();
@@ -90,7 +66,26 @@ class TravelAllowanceApiController extends Controller
             'ta_date' => 'required|date',
             'employee_id' => 'required|exists:adm_regist,id',
             'company_id' => 'required|exists:companies,id',
+            'amount' => 'required|numeric',
+            'number_of_persons' => 'required|integer|min:1',
+            // Files check will be handled in loop
         ]);
+
+        // 🔥 MULTIPLE FILES UPLOAD LOGIC 🔥
+        $proofFilesPaths = [];
+        if ($request->hasFile('proof_files')) {
+            foreach ($request->file('proof_files') as $file) {
+                $mediaRecord = $this->mediaConverter->uploadAndConvert($file);
+                if ($mediaRecord) {
+                    $proofFilesPaths[] = $mediaRecord->file_path;
+                } else {
+                    $ext = strtolower($file->getClientOriginalExtension());
+                    $filename = time() . '_' . uniqid() . '.' . $ext;
+                    $file->move(public_path('uploads/ta_proofs'), $filename);
+                    $proofFilesPaths[] = 'uploads/ta_proofs/' . $filename;
+                }
+            }
+        }
 
         $branchId = ($request->branch_id === 'HO') ? null : $request->branch_id;
 
@@ -109,160 +104,190 @@ class TravelAllowanceApiController extends Controller
             'out_time' => $request->out_time,
             'fuel_litre' => $request->fuel_litre,
             'amount' => $request->amount,
+            'person_name' => $request->person_name,
+            'person_number' => $request->person_number,
+            'number_of_persons' => $request->number_of_persons ?? 1,
+            'purpose' => 'required|string|min:200',
+            'proof_file' => count($proofFilesPaths) > 0 ? json_encode($proofFilesPaths) : null,
             'status' => 'pending'
         ]);
 
-       // 🔥 NOTIFY DIRECTORS & APPROVERS OF THE SAME COMPANY
-        $approvers = Employee::permission(['ta_appr', 'ta_rej'])
-                            ->where('company_id', $request->company_id)
-                            ->where('emp_status', 'active')
-                            ->pluck('id')->toArray();
-                            
-        $directors = Employee::where('company_id', $request->company_id)
-                            ->where('role', 'director')
-                            ->pluck('id')->toArray();
+        $targets = NotificationHelper::getTargets($request->company_id, $branchId, 'ta_appr');
+        $targets = $targets->reject(function ($target) use ($user) {
+            return $target->id === $user->id;
+        });
 
-        // 🔥 NAYA FIX: DEVELOPER / GOD MODE KO BHI NOTIFY KARO 🔥
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        $godModeIds = Employee::whereIn('email', $developerEmails)->pluck('id')->toArray();
-
-        // Sabko merge karo aur duplicate hatao, khud ka id hatao
-        $notifyIds = array_diff(array_unique(array_merge($approvers, $directors, $godModeIds)), [$user->id]); 
-        
-        $this->sendTANotification($notifyIds, $ta->id, "New TA Request from " . ($user->full_name ?? 'Employee'), $user->full_name ?? 'System');
+        if ($targets->count() > 0) {
+            Notification::send($targets, new SystemAlertNotification(
+                "New TA Request",
+                "TA Request of ₹{$ta->amount} submitted by " . ($user->full_name ?? 'Employee'),
+                "/admin/travel-allowances",
+                "fa-car-side",
+                "text-primary"
+            ));
+        }
 
         return response()->json(['message' => 'TA request submitted successfully.', 'data' => $ta], 201);
     }
 
-    /**
-     * 3. Update Existing TA Request
-     */
     public function update(Request $request, $id)
     {
         $ta = TravelAllowance::findOrFail($id);
+        if ($ta->status !== 'pending') return response()->json(['message' => 'Cannot edit processed request.'], 403);
 
-        if ($ta->status !== 'pending') {
-            return response()->json(['message' => 'Cannot edit a processed request.'], 403);
+        // 🔥 NAYA: Edit me bhi 200 char limit
+        $request->validate([
+            'purpose' => 'required|string|min:200',
+        ]);
+
+        $data = $request->except(['proof_files', 'existing_proofs']);
+
+        // 🔥 EDIT MODE: EXISTING + NEW FILES MERGE LOGIC 🔥
+        $proofFilesPaths = [];
+        if ($request->filled('existing_proofs')) {
+            $existing = json_decode($request->existing_proofs, true);
+            if (is_array($existing)) {
+                $proofFilesPaths = $existing; // Purani files rakh li
+            }
         }
 
-        $branchId = ($request->branch_id === 'HO') ? null : $request->branch_id;
-        $data = $request->all();
-        $data['branch_id'] = $branchId; // Apply HO fix
+        if ($request->hasFile('proof_files')) {
+            foreach ($request->file('proof_files') as $file) {
+                $mediaRecord = $this->mediaConverter->uploadAndConvert($file);
+                if ($mediaRecord) {
+                    $proofFilesPaths[] = $mediaRecord->file_path;
+                } else {
+                    $ext = strtolower($file->getClientOriginalExtension());
+                    $filename = time() . '_' . uniqid() . '.' . $ext;
+                    $file->move(public_path('uploads/ta_proofs'), $filename);
+                    $proofFilesPaths[] = 'uploads/ta_proofs/' . $filename;
+                }
+            }
+        }
+
+        $data['proof_file'] = count($proofFilesPaths) > 0 ? json_encode($proofFilesPaths) : null;
+        $data['branch_id'] = ($request->branch_id === 'HO') ? null : $request->branch_id;
 
         $ta->update($data);
-
-        return response()->json(['message' => 'TA request updated successfully.']);
+        return response()->json(['message' => 'TA request updated.']);
     }
 
-    /**
-     * 4. Bulk Delete
-     */
+    public function approve(Request $request, $id)
+    {
+        $context = $this->getGlobalContext();
+        $user = Auth::user();
+
+        if (!$context->is_god && !$context->is_director && !$user->hasPermissionTo('ta_appr')) {
+            return response()->json(['message' => 'Unauthorized action.'], 403);
+        }
+
+        $ta = TravelAllowance::findOrFail($id);
+        $approvedAmount = $request->input('approved_amount', $ta->amount);
+        $remarks = $request->input('remarks', $ta->remarks);
+
+        // 🔥 EXACT APPROVER ROLE LOGIC 🔥
+        $roleName = 'HR Management';
+        if ($context->role_level === 'ceo') {
+            $roleName = 'Super Admin';
+        } elseif ($context->is_director) {
+            $roleName = 'Director Management';
+        } elseif ($context->is_god) {
+            $roleName = 'HR Management'; // admin@jankivilla.com ke liye
+        }
+
+        $ta->update([
+            'status' => 'active',
+            'approver_id' => $context->is_god ? null : $user->id,
+            'approver_role' => $roleName,
+            'approved_amount' => $approvedAmount,
+            'remarks' => $remarks
+        ]);
+
+        if ($ta->employee) {
+            $ta->employee->notify(new SystemAlertNotification(
+                "TA Request Approved / Updated",
+                "Your TA was approved/updated for ₹{$approvedAmount}.",
+                "/employee/travel-allowances",
+                "fa-check-circle",
+                "text-success"
+            ));
+        }
+
+        return response()->json(['message' => 'TA request approved/updated successfully.']);
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $context = $this->getGlobalContext();
+        $user = Auth::user();
+
+        if (!$context->is_god && !$context->is_director && !$user->hasPermissionTo('ta_rej')) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $ta = TravelAllowance::findOrFail($id);
+        $remarks = $request->input('remarks', $ta->remarks);
+
+        // 🔥 EXACT REJECTER ROLE LOGIC 🔥
+        $roleName = 'HR Management';
+        if ($context->role_level === 'ceo') {
+            $roleName = 'Super Admin';
+        } elseif ($context->is_director) {
+            $roleName = 'Director Management';
+        } elseif ($context->is_god) {
+            $roleName = 'HR Management'; // admin@jankivilla.com ke liye
+        }
+
+        $ta->update([
+            'status' => 'rejected',
+            'approver_id' => $context->is_god ? null : $user->id,
+            'approver_role' => $roleName,
+            'remarks' => $remarks
+        ]);
+
+        if ($ta->employee) {
+            $ta->employee->notify(new SystemAlertNotification(
+                "TA Request Rejected",
+                "Your TA request was rejected.",
+                "/employee/travel-allowances",
+                "fa-times-circle",
+                "text-danger"
+            ));
+        }
+
+        return response()->json(['message' => 'TA request rejected successfully.']);
+    }
+
     public function bulkDelete(Request $request)
     {
-        $request->validate(['ids' => 'required|array', 'ids.*' => 'exists:travel_allowances,id']);
+        $request->validate(['ids' => 'required|array']);
         TravelAllowance::whereIn('id', $request->ids)->delete();
-        return response()->json(['message' => 'Selected records deleted successfully.']);
+        return response()->json(['message' => 'Records deleted.']);
     }
 
     public function destroy($id)
     {
         TravelAllowance::findOrFail($id)->delete();
-        return response()->json(['message' => 'Record deleted successfully.']);
-    }
-
-    // ==========================================
-    // 5. WORKFLOW ACTIONS (Approve / Reject / Remarks)
-    // ==========================================
-
-    public function approve($id)
-    {
-        $user = Auth::user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        $isGodMode = in_array(strtolower($user->email ?? ''), $developerEmails);
-        $isExecutive = !empty($user->designation_name) && (str_contains(strtolower($user->designation_name), 'ceo') || str_contains(strtolower($user->designation_name), 'director'));
-
-        if (!$isGodMode && !$isExecutive && !$user->hasPermissionTo('ta_appr')) {
-            return response()->json(['message' => 'Unauthorized action.'], 403);
-        }
-
-        $ta = TravelAllowance::findOrFail($id);
-        $ta->update([
-            'status' => 'active',
-            'approver_id' => $isGodMode ? null : $user->id
-        ]);
-
-        // 🔥 NOTIFY EMPLOYEE
-        $this->sendTANotification([$ta->employee_id], $ta->id, "Your TA Request was Approved", $isGodMode ? 'Super Admin' : $user->full_name);
-
-        return response()->json(['message' => 'TA request approved successfully.']);
-    }
-
-    public function reject($id)
-    {
-        $user = Auth::user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        $isGodMode = in_array(strtolower($user->email ?? ''), $developerEmails);
-        $isExecutive = !empty($user->designation_name) && (str_contains(strtolower($user->designation_name), 'ceo') || str_contains(strtolower($user->designation_name), 'director'));
-
-        if (!$isGodMode && !$isExecutive && !$user->hasPermissionTo('ta_rej')) {
-            return response()->json(['message' => 'Unauthorized action.'], 403);
-        }
-
-        $ta = TravelAllowance::findOrFail($id);
-        $ta->update([
-            'status' => 'rejected',
-            'approver_id' => $isGodMode ? null : $user->id
-        ]);
-
-        // 🔥 NOTIFY EMPLOYEE
-        $this->sendTANotification([$ta->employee_id], $ta->id, "Your TA Request was Rejected", $isGodMode ? 'Super Admin' : $user->full_name);
-
-        return response()->json(['message' => 'TA request rejected.']);
+        return response()->json(['message' => 'Record deleted.']);
     }
 
     public function updateRemarks(Request $request, $id)
     {
-        $user = Auth::user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        $isGodMode = in_array(strtolower($user->email ?? ''), $developerEmails);
-        $isExecutive = !empty($user->designation_name) && (str_contains(strtolower($user->designation_name), 'ceo') || str_contains(strtolower($user->designation_name), 'director'));
-
-        if (!$isGodMode && !$isExecutive && !$user->hasPermissionTo('ta_remark')) {
-            return response()->json(['message' => 'Unauthorized action.'], 403);
-        }
-
         $ta = TravelAllowance::findOrFail($id);
         $ta->update(['remarks' => $request->remarks]);
-
-        return response()->json(['message' => 'Remarks saved successfully.', 'remarks' => $ta->remarks]);
+        return response()->json(['message' => 'Remarks saved.', 'remarks' => $ta->remarks]);
     }
 
-    // ==========================================
-    // 6. PRINT PREVIEW BLADE
-    // ==========================================
     public function printPreview($id)
     {
         $ta = TravelAllowance::with(['company', 'branch', 'employee', 'approver'])->findOrFail($id);
         return view('admin.travel_allowances.print', ['ta' => $ta, 'company' => $ta->company, 'branch' => $ta->branch]);
     }
 
-
-    /**
-     * 7. Fetch Single TA for View Modal (Returns HTML)
-     */
     public function show($id)
     {
         $ta = TravelAllowance::with(['company', 'branch', 'employee', 'approver'])->findOrFail($id);
-        
-        $html = view('admin.travel_allowances.view_partial', [
-            'ta' => $ta,
-            'company' => $ta->company,
-            'branch' => $ta->branch
-        ])->render();
-
+        $html = view('admin.travel_allowances.view_partial', ['ta' => $ta, 'company' => $ta->company, 'branch' => $ta->branch])->render();
         return response()->json(['html' => $html]);
     }
-
-
-
 }
