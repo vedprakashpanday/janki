@@ -10,13 +10,13 @@
     }
 
     .header-logo {
-        width: 15%;
+        width: 20%;
         text-align: center;
     }
 
     .logo-image {
-        width: 130px;
-        max-width: 130px;
+        width: 195px;
+        max-width: 200px;
         height: 70px;
         display: block;
         margin: 0 auto;
@@ -29,7 +29,7 @@
     }
 
     .header-text {
-        width: 85%;
+        width: 80%;
         text-align: center;
     }
 
@@ -75,6 +75,7 @@
             margin-top: 0;
             margin-bottom: 5px;
             display: none !important;
+            text-align: center;
             /* Mobile me hide kiya hai */
         }
 
@@ -127,13 +128,15 @@
         }
 
         .header-logo {
-            width: 18% !important;
+            width: 20% !important;
             display: block !important;
+            /* border: 1px solid #000 !important; */
         }
 
         .logo-image {
             display: block !important;
-            margin: 0 auto !important;
+            margin: 0 0 0 -10px !important;
+            /* z-index: -1 !important; */
         }
 
         /* 🔥 FIX: Force ISO to display and reset its styling in Print 🔥 */
@@ -141,10 +144,13 @@
             font-size: 8px !important;
             display: block !important;
             margin-top: 5px !important;
+            text-align: center !important;
+            /* border: 1px solid #dc3545 !important; */
+            margin-left: 25px !important;
         }
 
         .header-text {
-            width: 82% !important;
+            width: 80% !important;
             text-align: center !important;
         }
 

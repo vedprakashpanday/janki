@@ -197,4 +197,31 @@ class PhaseApiController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Phase updated successfully.']);
     }
+
+
+    public function searchDynamicList(Request $request)
+    {
+        $search = $request->query('q');
+        if (strlen($search) < 3) {
+            return response()->json([]);
+        }
+
+        $phases = Phase::with('company:id,company_name')
+            ->where('phase_name', 'LIKE', "%{$search}%")
+            ->limit(10)
+            ->get(['id', 'phase_name', 'company_id']);
+
+        $result = $phases->map(function ($phase) {
+            return [
+                'id' => $phase->id,
+                'name' => $phase->phase_name,
+                'company_id' => $phase->company_id,
+                'company_name' => $phase->company ? $phase->company->company_name : 'N/A'
+            ];
+        });
+
+        return response()->json($result);
+    }
+
+
 }

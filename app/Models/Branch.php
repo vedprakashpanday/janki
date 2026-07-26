@@ -26,4 +26,9 @@ class Branch extends Model
     {
         return $this->belongsTo(Company::class, 'company_id');
     }
+
+    public function siteAllocations()
+{
+    return $this->hasMany(SiteAllocation::class, 'branch_id');
+}
 }

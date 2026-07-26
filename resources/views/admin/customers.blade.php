@@ -28,16 +28,19 @@
             box-shadow: 0 4px 6px var(--shadow-color);
         }
 
+        /* 🔥 MOBILE TABS SWIPEABLE FIX 🔥 */
         .nav-tabs {
-            flex-wrap: nowrap;
+            flex-wrap: nowrap !important;
             overflow-x: auto;
             overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
             border-bottom: 1px solid #dee2e6;
+            padding-bottom: 2px;
         }
 
         .nav-tabs::-webkit-scrollbar {
             display: none;
+            /* Scrollbar hide but content swipeable */
         }
 
         .nav-tabs .nav-link {
@@ -46,6 +49,7 @@
             border: none;
             border-bottom: 3px solid transparent;
             white-space: nowrap;
+            /* Taki text break na ho */
         }
 
         .nav-tabs .nav-link.active {
@@ -95,6 +99,17 @@
             font-weight: bold;
             border: 1px solid #c3dafe;
         }
+
+        /* Navbar Hover Bug Fix */
+        .dataTables_wrapper {
+            position: relative;
+            z-index: 1040;
+        }
+
+        .dataTables_filter input {
+            position: relative;
+            z-index: 1045;
+        }
     </style>
 
     @php
@@ -119,7 +134,13 @@
             <div>
                 <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Customer Details</h4>
             </div>
-            <div>
+            <div class="d-flex align-items-center gap-2">
+                <span id="bulkActions" style="display: none;">
+                    <button class="btn btn-dark px-3 py-2 shadow-sm" id="btnSelectAll">Select All</button>
+                    <button class="btn btn-danger px-3 py-2 shadow-sm secured-item" data-permission="customer_delete"
+                        onclick="bulkDelete()">Delete Selected</button>
+                </span>
+
                 <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item" id="addCustomerBtn"
                     data-permission="customer_add" style="background-color: var(--brand-primary);"
                     onclick="openModal('add')">
@@ -138,6 +159,7 @@
                     <table id="customerTable" class="table table-hover table-custom w-100">
                         <thead>
                             <tr>
+                                <th style="width: 40px;">#</th>
                                 <th>CUST ID</th>
                                 <th>Branch</th>
                                 <th>Name</th>
@@ -154,9 +176,16 @@
         </div>
 
         <div id="mobileCardsContainer" class="d-block d-md-none"></div>
+
+        <!-- 🔥 LOAD MORE BUTTON FOR MOBILE 🔥 -->
+        <div class="text-center mt-2 mb-4 d-block d-md-none">
+            <button type="button" id="btnLoadMore" class="btn btn-primary rounded-pill px-4 shadow-sm"
+                style="display: none; background-color: var(--brand-primary);">
+                <i class="fas fa-chevron-down me-1"></i> Load More
+            </button>
+        </div>
     </div>
 
-    <!-- MODAL STARTS HERE -->
     <div class="modal fade" id="customerModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
@@ -189,10 +218,32 @@
                         </ul>
 
                         <div class="tab-content p-4">
-
-                            <!-- TAB 1: PERSONAL INFO -->
                             <div class="tab-pane fade show active" id="tab-personal">
                                 <div class="row g-3">
+                                    <div class="col-12 mb-3 pb-3 border-bottom bg-light p-3 rounded"
+                                        id="old_customer_block">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="is_old_customer"
+                                                name="is_old_customer" value="true">
+                                            <label class="form-check-label fw-bold text-primary" for="is_old_customer">Is
+                                                it
+                                                an Old Customer?</label>
+                                        </div>
+                                        <div id="old_customer_sec" style="display:none;" class="row g-2">
+                                            <div class="col-md-5">
+                                                <select class="form-select fw-bold" id="old_search_company">
+                                                    <option value="">-- All Companies --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-7 position-relative">
+                                                <input type="text" class="form-control" id="old_search_input"
+                                                    list="oldCustomerList" placeholder="Search by Name/ID/Code..."
+                                                    autocomplete="off">
+                                                <datalist id="oldCustomerList"></datalist>
+                                                <input type="hidden" name="old_customer_code" id="old_customer_code">
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     <div class="col-md-4" id="wrap_company">
                                         <label class="form-label text-secondary small">Select Company <span
@@ -210,16 +261,8 @@
                                             placeholder="Search Branch..." autocomplete="nope">
                                         <input type="hidden" name="branch_id" id="branch_id_hidden">
                                         <datalist id="branchList"></datalist>
-                                        <!-- Error Message Box -->
                                         <small id="branch_error" class="text-danger fw-bold mt-1"
                                             style="display: none;"></small>
-                                    </div>
-
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Name in Full <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" name="customer_name" class="form-control" id="f_name"
-                                            required autocomplete="off">
                                     </div>
 
                                     <div class="col-md-4">
@@ -228,13 +271,6 @@
                                             list="memberListOptions" placeholder="Search Member..." autocomplete="nope">
                                         <input type="hidden" name="member_id" id="f_member_id">
                                         <datalist id="memberListOptions"></datalist>
-                                    </div>
-
-                                    <div class="col-md-4 password-div" style="display: none;">
-                                        <label class="form-label text-secondary small">Login Password <span
-                                                class="text-info">(Editable)</span></label>
-                                        <input type="text" name="password" class="form-control"
-                                            placeholder="Enter new password to change" autocomplete="new-password">
                                     </div>
 
                                     <div class="col-md-4 status-div" style="display: none;">
@@ -248,25 +284,48 @@
                                     </div>
 
                                     <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Booking Date <span
+                                        <label class="form-label text-secondary small">Customer ID <span
                                                 class="text-danger">*</span></label>
-                                        <input type="date" name="booking_date" class="form-control" id="f_booking"
-                                            required>
+                                        <input type="text" name="customer_id"
+                                            class="form-control fw-bold text-primary bg-light" id="f_cust_id" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Login Password <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" name="password"
+                                            class="form-control fw-bold text-danger bg-light" id="f_password" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <!-- 🔥 REGISTRATION DATE UPDATE 🔥 -->
+                                        <label class="form-label text-secondary small">Registration Date <span
+                                                class="text-danger">*</span></label>
+                                        <input type="date" name="registration_date" class="form-control"
+                                            id="f_joining" required>
                                     </div>
 
                                     <div class="col-md-4">
-                                        <label class="form-label text-secondary small">S/o, D/o, W/o</label>
-                                        <input type="text" name="so_do_wo" class="form-control" id="f_sodowo">
+                                        <label class="form-label text-secondary small">Name in Full <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" name="customer_name" class="form-control" id="f_name"
+                                            required autocomplete="off">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Father's Name</label>
+                                        <input type="text" name="father_name" class="form-control" id="f_father">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Spouse's Name</label>
+                                        <input type="text" name="spouse_name" class="form-control" id="f_spouse">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Mother's Name</label>
                                         <input type="text" name="mothers_name" class="form-control" id="f_mother">
                                     </div>
+
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Occupation</label>
                                         <input type="text" name="occupation" class="form-control" id="f_occupation">
                                     </div>
-
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Date of Birth</label>
                                         <input type="date" name="dob" class="form-control" id="f_dob">
@@ -308,7 +367,6 @@
                                         <input type="date" name="date_of_anniversary" class="form-control"
                                             id="f_anniversary">
                                     </div>
-
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Nationality</label>
                                         <input type="text" name="nationality" class="form-control" value="Indian"
@@ -325,7 +383,6 @@
                                         <input type="text" name="alternate_mobile" class="form-control"
                                             id="f_alt_mobile" maxlength="10">
                                     </div>
-
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Email ID</label>
                                         <input type="email" name="customer_email" class="form-control" id="f_email">
@@ -341,7 +398,6 @@
                                         <input type="text" name="pan_number" class="form-control text-uppercase"
                                             id="f_pan" maxlength="10">
                                     </div>
-
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Native Place</label>
                                         <input type="text" name="native_place" class="form-control" id="f_native">
@@ -350,7 +406,6 @@
                                         <label class="form-label text-secondary small">Communication Address</label>
                                         <input type="text" name="address" class="form-control" id="f_address">
                                     </div>
-
                                     <div class="col-md-3">
                                         <label class="form-label text-secondary small">City/Town/Village</label>
                                         <input type="text" name="city_town_village" class="form-control"
@@ -372,7 +427,6 @@
                                 </div>
                             </div>
 
-                            <!-- TAB 2: BANK DETAILS -->
                             <div class="tab-pane fade" id="tab-bank">
                                 <div class="row g-3">
                                     <div class="col-md-4">
@@ -413,7 +467,6 @@
                                 </div>
                             </div>
 
-                            <!-- TAB 3: NOMINEE DETAILS -->
                             <div class="tab-pane fade" id="tab-nominee">
                                 <div class="row g-3">
                                     <div class="col-md-3">
@@ -485,137 +538,86 @@
                                 </div>
                             </div>
 
-                            <!-- TAB 4: DOCUMENTS -->
                             <div class="tab-pane fade" id="tab-docs">
-
                                 <h6 class="text-primary fw-bold border-bottom pb-2 mb-3"><i
                                         class="fas fa-user-circle me-1"></i> Customer Documents</h6>
                                 <div class="row g-3 mb-4">
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Upload Aadhar Card (.pdf)</label>
-                                        <input type="file" name="aadharcard" class="form-control form-control-sm"
-                                            accept=".pdf">
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Upload Aadhar
+                                            Card (.pdf)</label><input type="file" name="aadharcard"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Upload PAN Card
+                                            (.pdf)</label><input type="file" name="pancard"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Upload Bank
+                                            Passbook (.pdf)</label><input type="file" name="bank_passbook_pdf"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Upload Driving
+                                            License (.pdf)</label><input type="file" name="drivinglicense"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Upload Passport
+                                            (.pdf)</label><input type="file" name="passport"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Passport Size
+                                            Photo (Image)</label><input type="file" name="passport_photo"
+                                            class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp">
                                     </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Upload PAN Card (.pdf)</label>
-                                        <input type="file" name="pancard" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Upload Bank Passbook (.pdf)</label>
-                                        <input type="file" name="bank_passbook_pdf"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Upload Driving License
-                                            (.pdf)</label>
-                                        <input type="file" name="drivinglicense" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Upload Passport (.pdf)</label>
-                                        <input type="file" name="passport" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Passport Size Photo (Image)</label>
-                                        <input type="file" name="passport_photo" class="form-control form-control-sm"
-                                            accept="image/jpeg,image/png,image/webp">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">10th Marksheet (.pdf)</label>
-                                        <input type="file" name="tenthmarksheet" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">12th Marksheet (.pdf)</label>
-                                        <input type="file" name="twelvethmarksheet"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Graduation Certificate
-                                            (.pdf)</label>
-                                        <input type="file" name="graduationcertificate"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">PG Certificate (.pdf)</label>
-                                        <input type="file" name="pgcertificate" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Other Documents (.pdf)</label>
-                                        <input type="file" name="otherdoc" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">10th Marksheet
+                                            (.pdf)</label><input type="file" name="tenthmarksheet"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">12th Marksheet
+                                            (.pdf)</label><input type="file" name="twelvethmarksheet"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Graduation
+                                            Certificate (.pdf)</label><input type="file" name="graduationcertificate"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">PG Certificate
+                                            (.pdf)</label><input type="file" name="pgcertificate"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Other Documents
+                                            (.pdf)</label><input type="file" name="otherdoc"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
                                 </div>
 
                                 <h6 class="text-primary fw-bold border-bottom pb-2 mb-3"><i
                                         class="fas fa-user-shield me-1"></i> Nominee Documents</h6>
                                 <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee Aadhar Card (.pdf)</label>
-                                        <input type="file" name="nom_aadharcard" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee PAN Card (.pdf)</label>
-                                        <input type="file" name="nom_pancard" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee Bank Passbook (.pdf)</label>
-                                        <input type="file" name="nom_bankpassbook"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee Driving License
-                                            (.pdf)</label>
-                                        <input type="file" name="nom_drivinglicense"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee Passport (.pdf)</label>
-                                        <input type="file" name="nom_passport" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee Passport Photo (Img)</label>
-                                        <input type="file" name="nom_passport_photo"
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Aadhar
+                                            Card (.pdf)</label><input type="file" name="nom_aadharcard"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee PAN Card
+                                            (.pdf)</label><input type="file" name="nom_pancard"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Bank
+                                            Passbook (.pdf)</label><input type="file" name="nom_bankpassbook"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Driving
+                                            License (.pdf)</label><input type="file" name="nom_drivinglicense"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Passport
+                                            (.pdf)</label><input type="file" name="nom_passport"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Passport
+                                            Photo (Img)</label><input type="file" name="nom_passport_photo"
                                             class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp">
                                     </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee 10th Marksheet
-                                            (.pdf)</label>
-                                        <input type="file" name="nom_tenthmarksheet"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee 12th Marksheet
-                                            (.pdf)</label>
-                                        <input type="file" name="nom_twelvethmarksheet"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee Graduation Cert
-                                            (.pdf)</label>
-                                        <input type="file" name="nom_graduationcertificate"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee PG Certificate
-                                            (.pdf)</label>
-                                        <input type="file" name="nom_pgcertificate"
-                                            class="form-control form-control-sm" accept=".pdf">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Nominee Other Docs (.pdf)</label>
-                                        <input type="file" name="nom_otherdoc" class="form-control form-control-sm"
-                                            accept=".pdf">
-                                    </div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee 10th
+                                            Marksheet (.pdf)</label><input type="file" name="nom_tenthmarksheet"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee 12th
+                                            Marksheet (.pdf)</label><input type="file" name="nom_twelvethmarksheet"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee
+                                            Graduation Cert (.pdf)</label><input type="file"
+                                            name="nom_graduationcertificate" class="form-control form-control-sm"
+                                            accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee PG
+                                            Certificate (.pdf)</label><input type="file" name="nom_pgcertificate"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
+                                    <div class="col-md-4"><label class="form-label text-secondary small">Nominee Other
+                                            Docs (.pdf)</label><input type="file" name="nom_otherdoc"
+                                            class="form-control form-control-sm" accept=".pdf"></div>
                                 </div>
                             </div>
-
                         </div>
 
                         <div class="modal-footer bg-light border-top-0">
@@ -630,7 +632,6 @@
         </div>
     </div>
 
-    <!-- VIEW MODAL -->
     <div class="modal fade" id="viewModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -641,7 +642,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-6 secure-view-element">
                             <div class="p-3 border rounded bg-light">
                                 <h6 class="fw-bold text-primary mb-3">Login Credentials</h6>
                                 <p class="mb-1"><strong>Customer ID:</strong> <span id="v_cust_id"
@@ -650,7 +651,7 @@
                                         class="text-danger fw-bold"></span></p>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 secure-view-element">
                             <div class="p-3 border rounded bg-light h-100">
                                 <h6 class="fw-bold text-primary mb-3">Branch Info</h6>
                                 <p class="mb-0"><strong>Branch:</strong> <span id="v_branch" class="text-dark"></span>
@@ -665,11 +666,11 @@
                             <p class="small text-muted mb-0">Full Name</p>
                             <h6 class="fw-bold" id="v_name"></h6>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 secure-view-element">
                             <p class="small text-muted mb-0">Mobile Number</p>
                             <h6 class="fw-bold" id="v_mobile"></h6>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 secure-view-element">
                             <p class="small text-muted mb-0">Email ID</p>
                             <h6 class="fw-bold" id="v_email"></h6>
                         </div>
@@ -682,8 +683,17 @@
                             <h6 class="fw-bold text-uppercase" id="v_pan"></h6>
                         </div>
                         <div class="col-md-4">
-                            <p class="small text-muted mb-0">Booking Date</p>
-                            <h6 class="fw-bold" id="v_booking"></h6>
+                            <!-- 🔥 REGISTRATION DATE UPDATE 🔥 -->
+                            <p class="small text-muted mb-0">Registration Date</p>
+                            <h6 class="fw-bold" id="v_joining"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Father's Name</p>
+                            <h6 class="fw-bold" id="v_father"></h6>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="small text-muted mb-0">Spouse's Name</p>
+                            <h6 class="fw-bold" id="v_spouse"></h6>
                         </div>
                         <div class="col-md-4">
                             <p class="small text-muted mb-0">Marital Status</p>
@@ -694,18 +704,18 @@
                             <h6 class="fw-bold" id="v_anniversary"></h6>
                         </div>
 
-                        <div class="col-12 mt-3">
+                        <div class="col-12 mt-3 secure-view-element">
                             <h6 class="fw-bold text-secondary border-bottom pb-2">Nominee Basic Info</h6>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 secure-view-element">
                             <p class="small text-muted mb-0">Nominee Name</p>
                             <h6 class="fw-bold" id="v_nom_name"></h6>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 secure-view-element">
                             <p class="small text-muted mb-0">Relation</p>
                             <h6 class="fw-bold" id="v_nom_relation"></h6>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-4 secure-view-element">
                             <p class="small text-muted mb-0">Nominee Mobile</p>
                             <h6 class="fw-bold" id="v_nom_mobile"></h6>
                         </div>
@@ -718,7 +728,6 @@
         </div>
     </div>
 
-    <!-- RESPONSE MODAL -->
     <div class="modal fade" id="responseModal" tabindex="-1" style="z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -742,7 +751,6 @@
 
 @push('scripts')
     <script>
-        // Server variables initialization
         window.userPerms = {!! json_encode($perms) !!};
         window.userGodMode = {{ $isGod ? 'true' : 'false' }};
         window.userContext = {!! json_encode($globalContext) !!};
@@ -757,76 +765,139 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
     <script>
-       $(document).ready(function() {
-            const apiToken = localStorage.getItem('admin_token') || localStorage.getItem('emp_token');
+        $(document).ready(function() {
+            const apiToken = localStorage.getItem('admin_token') || localStorage.getItem('emp_token') ||
+                localStorage.getItem('member_token');
             let mode = 'add';
             let branchMap = {};
             let companyMap = {};
             let memberMap = {};
 
-            // 👇 NAYA CODE: Check Request vs Direct Access 👇
+            // 🔥 LOAD MORE MOBILE STATE 🔥
+            let currentMobileLimit = 20;
+
             let permsArray = window.userPerms || [];
             let isGod = window.userGodMode || false;
-            let hasDirectAdd = isGod || permsArray.includes('customer_add_direct') || permsArray.includes('customer_add'); 
+            let hasDirectAdd = isGod || permsArray.includes('customer_add_direct') || permsArray.includes(
+                'customer_add');
             let hasRequestAdd = permsArray.includes('customer_add_request');
 
-            // Top Add Button ka Text Change
             if (!hasDirectAdd && hasRequestAdd) {
                 $('#addCustomerBtn').html('<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
             }
-
             if (window.userGodMode) {
                 $('.secured-item').css('visibility', 'visible');
             }
 
-           $(document).ajaxSuccess(function(event, xhr, settings) {
+            $(document).ajaxSuccess(function(event, xhr, settings) {
                 if (settings.url.indexOf('/auth/me') !== -1) {
-                    if (typeof window.applyPermissions === 'function') {
-                        window.applyPermissions();
-                    }
+                    if (typeof window.applyPermissions === 'function') window.applyPermissions();
                     if (typeof table !== 'undefined') table.draw(false);
 
-                    // 🔥 Dynamic Add Button Text Logic (After API load) 🔥
+                    let user = xhr.responseJSON?.data || xhr.responseJSON?.user || xhr.responseJSON;
+                    if (user) {
+                        window.userContext = {
+                            company_id: user.company_id,
+                            branch_id: user.branch_id,
+                            profile_id: user.member_id || user.id,
+                            name: user.member_name || user.full_name || user.name,
+                            is_member: user.member_id ? true : false,
+                            role_level: user.role_level || (user.member_id ? 'member' : 'employee')
+                        };
+                        applyAutoLockUI();
+                    }
+
                     let p = window.userPerms || [];
                     let isG = window.userGodMode || false;
                     let hasDirect = isG || p.includes('customer_add_direct') || p.includes('customer_add');
                     let hasReq = p.includes('customer_add_request');
-
-                    if (!hasDirect && hasReq) {
-                        $('#addCustomerBtn').html('<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
-                    }
+                    if (!hasDirect && hasReq) $('#addCustomerBtn').html(
+                        '<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
                 }
             });
 
             $(document).on('change', '.marital-radio', function() {
-                if ($(this).val() === 'Married') {
-                    $('#wrap_anniversary').slideDown();
-                } else {
+                if ($(this).val() === 'Married') $('#wrap_anniversary').slideDown();
+                else {
                     $('#wrap_anniversary').slideUp();
                     $('#f_anniversary').val('');
                 }
             });
 
-            function applyScopeUI() {
-                let isGod = window.userGodMode || false;
-                let isDir = false;
+            // 🛡️ SECURITY & SCOPING
+            let isDir = window.userContext && (window.userContext.is_director || window.userContext.role_level ===
+                'director');
+            let showSecureData = isGod || isDir;
 
-                if (window.userContext) {
-                    isGod = isGod || window.userContext.is_god || window.userContext.role_level === 'developer';
-                    isDir = window.userContext.is_director || window.userContext.role_level === 'director';
-                } else {
-                    let roleText = $('.user-role-display').text().toLowerCase();
-                    if (roleText.includes('director')) isDir = true;
+            function applyScopeUI() {
+                $('#wrap_company, #wrap_branch').show();
+                let isDir = window.userContext && (window.userContext.is_director || window.userContext
+                    .role_level === 'director');
+                let isGodMode = window.userGodMode === true || window.userGodMode === 'true';
+                let showSecureData = isGodMode || isDir;
+
+                if (!showSecureData) {
+                    $('.secure-view-element').hide(); // View modal me private elements hide
+                }
+            }
+
+            function applyAutoLockUI() {
+                let isGodMode = window.userGodMode === true || window.userGodMode === 'true';
+                let ctx = window.userContext || {};
+                let isMember = ctx.is_member === true || ctx.role_level === 'member';
+
+                $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'auto').removeClass(
+                    'bg-light').prop('readonly', false);
+
+                if (!isMember) {
+                    $('#member_search_input').val('');
+                    $('#f_member_id').val('');
                 }
 
-                if (isGod) {
-                    $('#wrap_company, #wrap_branch').show();
-                    $('#f_company').prop('required', true);
-                } else if (isDir) {
-                    $('#wrap_company').hide();
-                    $('#wrap_branch').show();
-                } else {
-                    $('#wrap_company, #wrap_branch').hide();
+                if (isGodMode) return;
+
+                let compId = ctx.company_id ? parseInt(ctx.company_id) : null;
+                let branchId = ctx.branch_id ? parseInt(ctx.branch_id) : null;
+
+                if (isMember) {
+                    $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'none').addClass(
+                        'bg-light').prop('readonly', true);
+
+                    if (compId) {
+                        let cName = Object.keys(companyMap).find(key => companyMap[key] == compId) || 'My Company';
+                        $('#f_company').val(cName);
+                        $('#hidden_company_id').val(compId);
+                    }
+                    if (branchId) {
+                        $('#f_branch').val('My Branch');
+                        $('#branch_id_hidden').val(branchId);
+                    }
+
+                    let memberName = ctx.name ? `${ctx.name} (${ctx.profile_id})` : ctx.profile_id;
+                    $('#member_search_input').val(memberName);
+                    $('#f_member_id').val(ctx.profile_id);
+                    return;
+                }
+
+                if (compId === 1 && !branchId) {} else if (compId === 1 && branchId) {
+                    $('#f_company, #f_branch').css('pointer-events', 'none').addClass('bg-light').prop('readonly',
+                        true);
+                } else if (compId !== 1 && !branchId) {
+                    $('#f_company').css('pointer-events', 'none').addClass('bg-light').prop('readonly', true);
+                } else if (compId !== 1 && branchId) {
+                    $('#f_company, #f_branch').css('pointer-events', 'none').addClass('bg-light').prop('readonly',
+                        true);
+                }
+
+                if (compId) {
+                    let cName = Object.keys(companyMap).find(key => companyMap[key] == compId) || 'My Company';
+                    $('#f_company').val(cName);
+                    $('#hidden_company_id').val(compId);
+                }
+
+                if (branchId) {
+                    $('#f_branch').val('My Branch');
+                    $('#branch_id_hidden').val(branchId);
                 }
             }
 
@@ -873,57 +944,26 @@
                             companyMap[c.company_name] = c.id;
                         });
                         $('#companyList').html(opts);
+                        applyAutoLockUI();
                     }
                 });
             }
             loadCompanies();
 
-            function loadMembersForDatalist(cId = '', bId = '') {
-                let url = '/api/v1/members?';
-                if (cId) url += 'company_id=' + cId + '&';
-                if (bId) url += 'branch_id=' + bId;
-
-                $.ajax({
-                    url: url,
-                    type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + apiToken
-                    },
-                    success: function(res) {
-                        let options = '';
-                        memberMap = {};
-                        res.data.forEach(m => {
-                            let disp = `${m.member_name} (${m.member_id})`;
-                            options += `<option value="${disp}">`;
-                            memberMap[disp] = m.member_id;
-                        });
-                        $('#memberListOptions').html(options);
-                    }
-                });
-            }
-            loadMembersForDatalist();
-
-            // 🔥 SMART BRANCH VALIDATION (BLUR / CHANGE ONLY) 🔥
             function validateBranchField() {
                 let val = $('#f_branch').val().trim();
                 let errorSpan = $('#branch_error');
                 let hiddenId = $('#branch_id_hidden');
-                let companyId = $('#hidden_company_id').val();
 
                 if (val === '') {
-                    // Blank = Head Office
                     hiddenId.val('');
                     errorSpan.hide().text('');
                     document.getElementById('f_branch').setCustomValidity('');
-                    loadMembersForDatalist(companyId, '');
                 } else if (branchMap[val]) {
-                    // Exact Match (Perfect)
                     hiddenId.val(branchMap[val]);
                     errorSpan.hide().text('');
                     document.getElementById('f_branch').setCustomValidity('');
-                    loadMembersForDatalist(companyId, branchMap[val]);
                 } else {
-                    // Check if user is currently typing a valid substring
                     let isTyping = false;
                     for (let key in branchMap) {
                         if (key.toLowerCase().includes(val.toLowerCase())) {
@@ -931,18 +971,14 @@
                             break;
                         }
                     }
-
                     if (isTyping) {
-                        // Matching partially (Don't show error yet)
                         hiddenId.val('');
                         errorSpan.hide().text('');
                         document.getElementById('f_branch').setCustomValidity('Incomplete branch name');
                     } else {
-                        // Completely wrong or Wrong Autofill Selection
                         hiddenId.val('');
                         errorSpan.text('❌ This branch does not belong to the selected company!').show();
                         document.getElementById('f_branch').setCustomValidity('Invalid branch');
-                        loadMembersForDatalist(companyId, '');
                     }
                 }
             }
@@ -951,14 +987,19 @@
                 let val = $(this).val();
                 if (companyMap[val]) {
                     $('#hidden_company_id').val(companyMap[val]);
-                    loadMembersForDatalist(companyMap[val], $('#branch_id_hidden').val());
+                    $('#member_search_input').val('');
+                    $('#f_member_id').val('');
+                    $('#memberListOptions').empty();
 
                     $.ajax({
                         url: '/api/v1/branches?company_id=' + companyMap[val],
                         type: 'GET',
                         success: function(res) {
-                            let bOpts = '';
-                            branchMap = {};
+                            let bOpts = '<option value="Head Office">';
+                            branchMap = {
+                                "Head Office": ""
+                            };
+
                             res.data.forEach(b => {
                                 bOpts += `<option value="${b.branch_name}">`;
                                 branchMap[b.branch_name] = b.id;
@@ -969,34 +1010,19 @@
                     });
                 }
             });
-
-            // Trigger on input, change, and blur to catch Autofill instantly
             $('#f_branch').on('input change blur', function() {
                 validateBranchField();
             });
 
-            // 🔥 NATIVE DATATABLES EXCEL BUTTON 🔥
-           // 🔥 PHP ka dependency khatam kiya. Button humesha push hoga, par 'secured-item' usko hide/show karega 🔥
-            let dtButtons = [{
-                extend: 'excelHtml5',
-                className: 'btn btn-success btn-sm shadow-sm rounded-3 mt-1 secured-item', // secured-item class zaroori hai
-                attr: {
-                    'data-permission': 'customer_export' // Action Slug yahan aayega
-                },
-                text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
-                action: function(e, dt, button, config) {
-                    let oldLength = dt.page.len();
-                    dt.page.len(-1).draw();
-                    dt.one('draw', function() {
-                        $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt, button, config);
-                        dt.page.len(oldLength).draw();
-                    });
-                }
-            }];
+            let dtButtons = [];
+
             if (window.canExport) {
                 dtButtons.push({
                     extend: 'excelHtml5',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-3 mt-1',
+                    className: 'btn btn-success btn-sm shadow-sm rounded-3 mt-1 secured-item',
+                    attr: {
+                        'data-permission': 'customer_export'
+                    },
                     text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
                     action: function(e, dt, button, config) {
                         let oldLength = dt.page.len();
@@ -1010,115 +1036,114 @@
                 });
             }
 
+            // 🔥 DATATABLES INITIALIZATION 🔥
             let table = $('#customerTable').DataTable({
                 processing: true,
                 serverSide: true,
+                pageLength: currentMobileLimit, // Start with 20
+                lengthMenu: [
+                    [20, 50, 100, -1],
+                    [20, 50, 100, "All"]
+                ],
                 ajax: {
                     url: '/api/v1/customers',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
                     }
                 },
-                // 🔥 DOM layout fixed: Excel on left (col-sm-6), Search on right (col-sm-6) 🔥
                 dom: '<"row mb-3 align-items-center"<"col-sm-6"B><"col-sm-6 text-md-end"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
                 buttons: dtButtons,
                 columns: [{
+                        data: 'id',
+                        orderable: false,
+                        render: d =>
+                            `<input type="checkbox" class="form-check-input row-checkbox" value="${d}">`
+                    },
+                    {
                         data: 'customer_id',
-                        render: d => `<span class="fw-bold text-primary">${d}</span>`
+                        render: (d, t, r) =>
+                            `<span class="fw-bold text-primary">${d}</span><br><small class="text-muted">Code: ${r.customer_code||''}</small>`
                     },
                     {
                         data: 'branch_id',
-                        render: (d, t, row) => {
-                            let compName = 'N/A';
-                            let branchName = 'Head Office';
-
-                            if (row.branch && row.branch.company) {
-                                compName = row.branch.company.company_name;
-                                branchName = row.branch.branch_name;
-                            } else if (row.company_id) {
-                                compName = 'HQ - Primary Company';
-                            }
-                            return `<div class="small fw-bold text-primary"><i class="fas fa-building me-1"></i> ${compName}</div>
-                                    <div class="small text-muted"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${branchName}</div>`;
+                        visible: showSecureData,
+                        render: function(d, t, r) {
+                            let branchName = r.branch ? r.branch.branch_name : 'Head Office';
+                            let compName = (r.branch && r.branch.company) ? r.branch.company
+                                .company_name : 'Master Company';
+                            return `<span class="fw-bold text-dark">${branchName}</span><br><small class="text-muted">${compName}</small>`;
                         }
                     },
                     {
                         data: 'customer_name'
                     },
                     {
-                        data: 'customer_mobile'
+                        data: 'customer_mobile',
+                        visible: showSecureData
                     },
                     {
                         data: 'status',
-                        render: function(d) {
-                            let badgeClass = 'bg-secondary';
-                            if (d === 'active') badgeClass = 'bg-success';
-                            else if (d === 'pending') badgeClass = 'bg-warning text-dark';
-                            else if (d === 'inactive') badgeClass = 'bg-danger';
-                            return `<span class="badge ${badgeClass}">${d ? d.toUpperCase() : 'N/A'}</span>`;
+                        render: function(d, t, r) {
+                            if (r.deleted_at)
+                                return `<span class="badge bg-danger"><i class="fas fa-trash"></i> Deleted</span>`;
+                            let badgeClass = d === 'active' ? 'bg-success' : (d === 'pending' ?
+                                'bg-warning text-dark' : 'bg-danger');
+                            return `<span class="badge ${badgeClass}">${d.toUpperCase()}</span>`;
                         }
                     },
                     {
                         data: 'created_by',
-                        render: function(d) {
-                            if (!d) return '<span class="text-muted">N/A</span>';
-                            
-                            // Check if format is "Name (ID)"
-                            let match = d.match(/(.*)\s*\((.*?)\)/);
-                            if (match) {
-                                return `
-                                <div class="text-start">
-                                    <span class="d-block fw-bold text-dark" style="font-size:12px;"><i class="fas fa-user-tie text-secondary me-1"></i> ${match[1]}</span>
-                                    <span class="badge bg-primary-subtle text-primary border mt-1" style="font-size:10.5px;">ID: ${match[2]}</span>
-                                </div>`;
-                            }
-                            // Fallback
-                            return `<span class="created-badge"><i class="fas fa-user-edit me-1"></i>${d}</span>`;
-                        }
+                        visible: showSecureData,
+                        render: d => d || '-'
                     },
                     {
                         data: 'id',
                         orderable: false,
                         className: 'text-end text-nowrap',
-                        render: function(d) {
-                            let isGod = window.userGodMode || false;
-                            let p = window.userPerms || [];
-
-                            let hasView = isGod || p.includes(window.moduleBase + '_view');
-                            let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
-                            let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
-                            let hasRestore = isGod || p.includes(window.moduleBase + '_restore');
-
+                        render: function(d, t, r) {
                             let btns = '';
-                            if (hasView) btns +=
-                                `<button type="button" class="btn btn-sm btn-light text-info view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>`;
-                            if (hasEdit) btns +=
-                                `<button type="button" class="btn btn-sm btn-light text-primary edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>`;
-                            if (hasDelete) btns +=
-                                `<button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>`;
-                            if (hasRestore) btns +=
-                                `<button type="button" class="btn btn-sm btn-light text-success restore-btn" data-id="${d}" title="Restore"><i class="fas fa-trash-restore"></i></button>`;
+                            let p = window.userPerms || [];
+                            let godMode = window.userGodMode === true || window.userGodMode ===
+                                'true';
 
-                            if (!btns)
-                            return `<span class="text-muted small"><i class="fas fa-lock"></i> Locked</span>`;
+                            let hasView = godMode || p.includes('customer_view');
+                            let hasEdit = godMode || p.includes('customer_edit');
+                            let hasDelete = godMode || p.includes('customer_delete');
+                            let hasRestore = godMode || p.includes('customer_restore');
+                            let hasAppr = godMode || p.includes('customer_appr');
+                            let hasRej = godMode || p.includes('customer_rej');
+
+                            if (r.deleted_at) {
+                                if (hasRestore) {
+                                    btns +=
+                                        `<button type="button" class="btn btn-sm btn-light text-success restore-btn" data-id="${d}" title="Restore"><i class="fas fa-trash-restore"></i></button>`;
+                                }
+                            } else {
+                                if (hasView) btns +=
+                                    `<button type="button" class="btn btn-sm btn-light text-info view-btn" data-id="${d}" title="View"><i class="fas fa-eye"></i></button>`;
+                                if (hasAppr) btns +=
+                                    `<button type="button" class="btn btn-sm btn-light text-success" onclick="updateStatus(${d}, 'approve')" title="Approve"><i class="fas fa-check-circle"></i></button>`;
+                                if (hasRej) btns +=
+                                    `<button type="button" class="btn btn-sm btn-light text-warning" onclick="updateStatus(${d}, 'reject')" title="Reject"><i class="fas fa-times-circle"></i></button>`;
+                                if (hasEdit) btns +=
+                                    `<button type="button" class="btn btn-sm btn-light text-primary edit-btn" data-id="${d}" title="Edit"><i class="fas fa-edit"></i></button>`;
+                                if (hasDelete) btns +=
+                                    `<button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}" title="Delete"><i class="fas fa-trash-alt"></i></button>`;
+                            }
                             return `<div class="d-flex justify-content-end gap-1">${btns}</div>`;
                         }
                     }
-                ],
-                drawCallback: function(settings) {
-                    renderMobileCards(settings.json.data);
-                }
+                ]
             });
 
+            // 🔥 MOBILE CARDS 🔥
             function renderMobileCards(data) {
                 let html = '';
                 if (!data || data.length === 0) {
                     html =
                         '<div class="text-center p-3 text-muted border rounded bg-light">No customers found.</div>';
                 } else {
-                    let isGod = window.userGodMode || false;
                     let p = window.userPerms || [];
-
                     let hasView = isGod || p.includes(window.moduleBase + '_view');
                     let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
                     let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
@@ -1128,12 +1153,14 @@
                         let compName = d.branch && d.branch.company ? d.branch.company.company_name :
                             'HQ - Primary Company';
                         let branchName = d.branch ? d.branch.branch_name : 'Head Office';
-                        let creator = d.created_by ?
+                        let creator = d.created_by && showSecureData ?
                             `<span class="created-badge float-end"><i class="fas fa-user-edit me-1"></i>${d.created_by}</span>` :
                             '';
 
                         let statusBadge = '';
-                        if (d.status === 'active') statusBadge =
+                        if (d.deleted_at) statusBadge =
+                            `<span class="badge bg-danger float-end mt-1"><i class="fas fa-trash"></i> Deleted</span>`;
+                        else if (d.status === 'active') statusBadge =
                             `<span class="badge bg-success float-end mt-1">Active</span>`;
                         else if (d.status === 'pending') statusBadge =
                             `<span class="badge bg-warning text-dark float-end mt-1">Pending</span>`;
@@ -1141,44 +1168,78 @@
                             `<span class="badge bg-danger float-end mt-1">Inactive</span>`;
 
                         let actionBtns = '';
-                        if (hasView) actionBtns +=
-                            `<button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>`;
-                        if (hasEdit) actionBtns +=
-                            `<button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>`;
-                        if (hasDelete) actionBtns +=
-                            `<button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>`;
-                        if (hasRestore) actionBtns +=
-                            `<button type="button" class="btn btn-sm btn-light text-success flex-fill restore-btn" data-id="${d.id}">Restore</button>`;
-
+                        if (d.deleted_at) {
+                            if (hasRestore) actionBtns +=
+                                `<button type="button" class="btn btn-sm btn-light text-success flex-fill restore-btn" data-id="${d.id}"><i class="fas fa-trash-restore"></i> Restore</button>`;
+                        } else {
+                            if (hasView) actionBtns +=
+                                `<button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>`;
+                            if (hasEdit) actionBtns +=
+                                `<button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>`;
+                            if (hasDelete) actionBtns +=
+                                `<button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>`;
+                        }
                         if (!actionBtns) actionBtns =
                             `<span class="small fw-bold text-muted w-100 text-center"><i class="fas fa-lock"></i> Locked</span>`;
 
-                        html += `<div class="mobile-item">
-                            <h6 class="fw-bold text-dark">${d.customer_name} ${creator}</h6>
-                            <div class="small fw-bold text-primary mt-2">${d.customer_id} ${statusBadge}</div>
-                            <div class="small text-muted mb-1"><i class="fas fa-building text-info me-1"></i> ${compName} - ${branchName}</div>
-                            <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.customer_mobile}</div>
-                           <div class="mt-2 pt-2 border-top d-flex gap-2">${actionBtns}</div>
+                        let checkHtml =
+                            `<input type="checkbox" class="form-check-input row-checkbox me-2" value="${d.id}">`;
+                        let mobHtml = showSecureData ?
+                            `<div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.customer_mobile}</div>` :
+                            '';
+                        let branchHtml = showSecureData ?
+                            `<div class="small text-muted mb-1"><i class="fas fa-building text-info me-1"></i> ${branchName} <br><span style="font-size:10px;">${compName}</span></div>` :
+                            '';
+
+                        html += `<div class="mobile-item ledger-card">
+                            <div class="d-flex align-items-start mb-2">
+                                ${checkHtml}
+                                <div class="w-100">
+                                    <h6 class="fw-bold text-dark mb-0">${d.customer_name} ${creator}</h6>
+                                    <div class="small fw-bold text-primary mt-1">${d.customer_id} ${statusBadge}</div>
+                                    ${branchHtml}
+                                    ${mobHtml}
+                                </div>
+                            </div>
+                           <div class="mt-2 pt-2 border-top d-flex gap-2 flex-wrap">${actionBtns}</div>
                         </div>`;
                     });
                 }
                 $('#mobileCardsContainer').html(html);
             }
 
+            // 🔥 LOAD MORE LOGIC FOR DRAW EVENT 🔥
+            table.on('draw', function() {
+                let json = table.ajax.json();
+                if (json && json.data) {
+                    renderMobileCards(json.data);
+                }
+
+                // Show/Hide Load More Button based on available records
+                let info = table.page.info();
+                if (info.length < info.recordsDisplay) {
+                    $('#btnLoadMore').show();
+                } else {
+                    $('#btnLoadMore').hide();
+                }
+            });
+
+            // On Load More Button Click -> Increase limit by 20 and redraw
+            $('#btnLoadMore').click(function() {
+                currentMobileLimit += 20;
+                table.page.len(currentMobileLimit).draw(false);
+            });
+
+            // On Mobile Search Keyup -> Reset back to 20 to preserve layout
             $('#mobileSearch').on('keyup', function() {
-                let v = $(this).val().toLowerCase();
-                $('.mobile-item').filter(function() {
-                    $(this).toggle($(this).text().toLowerCase().indexOf(v) > -1)
-                });
+                let v = $(this).val();
+                table.search(v).draw();
             });
 
             $('#member_search_input').on('input change', function() {
                 let val = $(this).val();
-                if (memberMap[val]) {
-                    $('#f_member_id').val(memberMap[val]);
-                } else {
-                    $('#f_member_id').val('');
-                }
+                if (memberMap[val]) $('#f_member_id').val(memberMap[val]);
+                else $('#f_member_id').val('');
             });
 
             $('input[type="file"]').each(function() {
@@ -1189,6 +1250,43 @@
                     </div>
                 `);
             });
+
+            // 🔥 BULK DELETE LOGIC 🔥
+            $(document).on('change', '.row-checkbox', toggleBulkActions);
+            $('#btnSelectAll').click(function() {
+                let allChecked = $('.row-checkbox').length === $('.row-checkbox:checked').length;
+                $('.row-checkbox').prop('checked', !allChecked);
+                toggleBulkActions();
+            });
+
+            function toggleBulkActions() {
+                $('#bulkActions').toggle($('.row-checkbox:checked').length > 0);
+            }
+
+            window.bulkDelete = function() {
+                let ids = [];
+                $('.row-checkbox:checked').each(function() {
+                    ids.push($(this).val());
+                });
+                if (ids.length === 0) return;
+                if (confirm(`Are you sure you want to soft-delete ${ids.length} selected customers?`)) {
+                    $.ajax({
+                        url: '/api/v1/customers/bulk-delete',
+                        type: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        data: {
+                            ids: ids
+                        },
+                        success: function(res) {
+                            table.ajax.reload(null, false);
+                            $('#bulkActions').hide();
+                            showMessage(res.message, 'success');
+                        }
+                    });
+                }
+            };
 
             $(document).on('change', 'input[type="file"]', function(e) {
                 let file = this.files[0];
@@ -1201,7 +1299,7 @@
                         reader.onload = function(event) {
                             content.html(
                                 `<img src="${event.target.result}" style="max-height:90px; border-radius:6px; object-fit:contain;">`
-                                );
+                            );
                             wrapper.slideDown();
                         }
                         reader.readAsDataURL(file);
@@ -1210,7 +1308,7 @@
                             'fa-file-alt text-primary';
                         content.html(
                             `<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas ${icon} fs-3"></i><span style="font-size:12px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</span></div>`
-                            );
+                        );
                         wrapper.slideDown();
                     }
                 } else {
@@ -1225,7 +1323,51 @@
                 wrapper.slideUp();
             });
 
-           window.openModal = function(type, id = null) {
+            let memberDataMap = {};
+
+            $('#member_search_input').on('input', function() {
+                let val = $(this).val();
+                let compId = $('#hidden_company_id').val();
+
+                if (memberDataMap[val]) {
+                    $('#f_member_id').val(memberDataMap[val]);
+                    return;
+                }
+
+                $('#f_member_id').val('');
+
+                if (val.length >= 3) {
+                    let url = `/api/v1/members/search-dynamic?q=${val}`;
+                    if (compId) url += `&company_id=${compId}`;
+
+                    $.ajax({
+                        url: url,
+                        type: 'GET',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        success: function(res) {
+                            let options = '';
+                            memberDataMap = {};
+
+                            res.data.forEach(m => {
+                                let compName = m.company ? m.company.company_name :
+                                    'N/A';
+                                let disp =
+                                    `${m.member_name} (${m.member_id}) - ${compName}`;
+                                options += `<option value="${disp}">`;
+                                memberDataMap[disp] = m.member_id;
+                            });
+
+                            $('#memberListOptions').html(options);
+                        }
+                    });
+                } else {
+                    $('#memberListOptions').empty();
+                }
+            });
+
+            window.openModal = function(type, id = null) {
                 mode = type;
                 $('#customerForm')[0].reset();
                 $('#branch_id_hidden, #hidden_company_id, #f_member_id').val('');
@@ -1233,42 +1375,93 @@
                 $('#branch_error').hide();
                 document.getElementById('f_branch').setCustomValidity('');
 
-                // 🔥 NAYA FOOLPROOF TEXT LOGIC 🔥
-                // Seedha bahar wale button ka text padho, agar usme Request likha hai to modal bhi Request mode me jayega
                 let isReq = $('#addCustomerBtn').text().toLowerCase().includes('request');
 
                 if (type === 'add') {
                     if (isReq) {
-                        $('#modalTitle').html('<i class="fas fa-paper-plane me-2 text-warning"></i> Request Customer Registration');
+                        $('#modalTitle').html(
+                            '<i class="fas fa-paper-plane me-2 text-warning"></i> Request Customer Registration'
+                            );
                         $('#saveBtn').text('Submit Customer Request');
                     } else {
-                        $('#modalTitle').html('<i class="fas fa-user-plus me-2 text-primary"></i> Register Customer');
+                        $('#modalTitle').html(
+                            '<i class="fas fa-user-plus me-2 text-primary"></i> Register Customer');
                         $('#saveBtn').text('Save Customer Details');
                     }
+                    $('#old_customer_block').show();
                     $('.password-div').hide();
                     $('.status-div').hide();
+                    fetchNewID();
                 } else {
-                    $('#modalTitle').html('<i class="fas fa-edit me-2 text-primary"></i> Edit Customer Details');
+                    $('#modalTitle').html(
+                    '<i class="fas fa-edit me-2 text-primary"></i> Edit Customer Details');
                     $('#saveBtn').text('Update Customer Details');
+                    $('#old_customer_block').hide();
                     $('.password-div').show();
                     $('.status-div').show();
                 }
 
-                applyScopeUI();
-
-
-                $('#modalTitle').text(type === 'add' ? 'Register Customer' : 'Edit Customer');
                 $('.nav-tabs button:first').tab('show');
                 $('.file-preview-wrapper').hide().find('.preview-content').empty();
 
+                let isGodMode = window.userGodMode === true || window.userGodMode === 'true';
+                let ctx = window.userContext || {};
+                let isMember = ctx.is_member || ctx.role_level === 'member' || localStorage.getItem(
+                    'member_session_id');
+
                 applyScopeUI();
 
-                if (type === 'add') {
-                    $('.password-div').hide();
-                    $('.status-div').hide();
-                } else {
-                    $('.password-div').show();
-                    $('.status-div').show();
+                if (type === 'add' && !isGodMode) {
+                    if (ctx.company_id) {
+                        let compName = Object.keys(companyMap).find(key => companyMap[key] == ctx.company_id);
+                        if (compName) {
+                            $('#f_company').val(compName);
+                            $('#hidden_company_id').val(ctx.company_id);
+
+                            $.ajax({
+                                url: '/api/v1/branches?company_id=' + ctx.company_id,
+                                headers: {
+                                    'Authorization': 'Bearer ' + apiToken
+                                },
+                                success: function(res) {
+                                    let options = '';
+                                    branchMap = {};
+                                    res.data.forEach(b => {
+                                        let cName = b.company ? b.company.company_name :
+                                            'Master Company';
+                                        let disp =
+                                            `${cName} - ${b.branch_name} (${b.branch_id})`;
+                                        options += `<option value="${disp}">`;
+                                        branchMap[disp] = b.id;
+                                    });
+                                    $('#branchList').html(options);
+
+                                    if (ctx.branch_id) {
+                                        let branchDisp = Object.keys(branchMap).find(key =>
+                                            branchMap[key] == ctx.branch_id);
+                                        if (branchDisp) {
+                                            $('#f_branch').val(branchDisp);
+                                            $('#branch_id_hidden').val(ctx.branch_id);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+
+                    if (isMember && ctx.profile_id) {
+                        let memberDisplayName = window.userContext.name ?
+                            `${window.userContext.name} (${ctx.profile_id})` : ctx.profile_id;
+                        $('#member_search_input').val(memberDisplayName);
+                        $('#f_member_id').val(ctx.profile_id);
+                    }
+                }
+
+                applyAutoLockUI();
+
+                if (type === 'edit') {
+                    $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'auto').removeClass(
+                        'bg-light').prop('readonly', false);
                 }
 
                 if (window.userGodMode) {
@@ -1308,22 +1501,25 @@
 
                             if (cust.status) $('#f_status').val(cust.status);
 
-                            if (cust.branch) {
-                                let compName = cust.branch.company ? cust.branch.company
-                                    .company_name : 'Master Company';
-                                let disp =
-                                    `${compName} - ${cust.branch.branch_name} (${cust.branch.branch_id})`;
-                                $('#f_branch').val(disp);
+                            if (cust.company_id) {
+                                let cName = Object.keys(companyMap).find(key => companyMap[key] ==
+                                    cust.company_id);
+                                if (!cName && cust.company) cName = cust.company.company_name;
+                                $('#f_company').val(cName || 'Master Company');
+                                $('#hidden_company_id').val(cust.company_id);
+                            }
+
+                            if (cust.branch_id && cust.branch) {
+                                $('#f_branch').val(cust.branch.branch_name);
                                 $('#branch_id_hidden').val(cust.branch_id);
+                            } else {
+                                $('#f_branch').val('Head Office');
+                                $('#branch_id_hidden').val('');
                             }
 
                             if (cust.member_id) {
-                                let memberDisp = Object.keys(memberMap).find(key => memberMap[
-                                    key] === cust.member_id);
-                                if (memberDisp) {
-                                    $('#member_search_input').val(memberDisp);
-                                    $('#f_member_id').val(cust.member_id);
-                                }
+                                $('#member_search_input').val(cust.member_id);
+                                $('#f_member_id').val(cust.member_id);
                             }
 
                             Object.keys(cust).forEach(key => {
@@ -1341,7 +1537,6 @@
 
                             if (cust.gender) $(`input[name="gender"][value="${cust.gender}"]`).prop(
                                 'checked', true);
-
                             if (cust.marital_status) {
                                 $(`input[name="marital_status"][value="${cust.marital_status}"]`)
                                     .prop('checked', true);
@@ -1392,17 +1587,12 @@
                         }
                     });
                 }
-
                 $('#customerModal').modal('show');
             };
 
             $('#customerForm').submit(function(e) {
                 e.preventDefault();
-
-                if (!this.checkValidity()) {
-                    return;
-                }
-
+                if (!this.checkValidity()) return;
                 let formData = new FormData(this);
                 let id = $('#edit_id').val();
                 let url = mode === 'add' ? '/api/v1/customers' : `/api/v1/customers/${id}`;
@@ -1410,7 +1600,6 @@
 
                 let btn = $('#saveBtn');
                 btn.prop('disabled', true).text('Saving...');
-
                 $.ajax({
                     url: url,
                     type: 'POST',
@@ -1464,15 +1653,18 @@
                         $('#v_email').text(d.customer_email || 'N/A');
                         $('#v_aadhar').text(d.aadhar_number || 'N/A');
                         $('#v_pan').text(d.pan_number || 'N/A');
-                        $('#v_booking').text(d.booking_date || 'N/A');
+
+                        // 🔥 REGISTRATION DATE IN VIEW MODAL 🔥
+                        $('#v_joining').text(d.registration_date || 'N/A');
+
+                        $('#v_father').text(d.father_name || 'N/A');
+                        $('#v_spouse').text(d.spouse_name || 'N/A');
                         $('#v_marital').text(d.marital_status || 'N/A');
 
                         if (d.marital_status === 'Married' && d.date_of_anniversary) {
                             $('#view_anniversary_wrap').show();
                             $('#v_anniversary').text(d.date_of_anniversary);
-                        } else {
-                            $('#view_anniversary_wrap').hide();
-                        }
+                        } else $('#view_anniversary_wrap').hide();
 
                         $('#v_nom_name').text(d.nominee_name || 'N/A');
                         $('#v_nom_relation').text(d.nominee_relation || 'N/A');
@@ -1483,12 +1675,9 @@
                 });
             });
 
-            // 🔥 YAHAN EDIT BUTTON KA LISTENER ADD KIYA GAYA HAI 🔥
             $(document).on('click', '.edit-btn', function() {
-                let id = $(this).data('id');
-                window.openModal('edit', id);
+                window.openModal('edit', $(this).data('id'));
             });
-
 
             $(document).on('click', '.delete-btn', function() {
                 if (confirm("Delete Customer?")) {
@@ -1498,9 +1687,9 @@
                         headers: {
                             'Authorization': 'Bearer ' + apiToken
                         },
-                        success: function() {
+                        success: function(res) {
                             table.ajax.reload(null, false);
-                            showMessage('Deleted successfully!', 'success');
+                            showMessage(res.message || 'Deleted successfully!', 'success');
                         },
                         error: function(err) {
                             showMessage(err.responseJSON?.message || 'Unauthorized Action',
@@ -1518,9 +1707,9 @@
                         headers: {
                             'Authorization': 'Bearer ' + apiToken
                         },
-                        success: function() {
+                        success: function(res) {
                             table.ajax.reload(null, false);
-                            showMessage('Restored successfully!', 'success');
+                            showMessage(res.message || 'Restored successfully!', 'success');
                         },
                         error: function(err) {
                             showMessage(err.responseJSON?.message || 'Unauthorized Action',
@@ -1530,6 +1719,125 @@
                 }
             });
 
+            let oldCustomerDataMap = {};
+
+            $(document).on('change', '#is_old_customer', function() {
+                if ($(this).is(':checked')) {
+                    $('#old_customer_sec').slideDown();
+                    let compOpts = '<option value="">-- All Companies --</option>';
+                    if (typeof companyMap !== 'undefined' && Object.keys(companyMap).length > 0) {
+                        Object.keys(companyMap).forEach(compName => {
+                            compOpts +=
+                                `<option value="${companyMap[compName]}">${compName}</option>`;
+                        });
+                    }
+                    $('#old_search_company').html(compOpts);
+                } else {
+                    $('#old_customer_sec').slideUp();
+                    $('#old_search_input').val('');
+                    $('#old_customer_code').val('');
+                    $('#customerForm')[0].reset();
+                    $(this).prop('checked', false);
+                    fetchNewID();
+                }
+            });
+
+            $(document).on('change', '#old_search_company', function() {
+                let compId = $(this).val();
+                $('#old_search_input').val('');
+
+                if (!compId) {
+                    $('#oldCustomerList').empty();
+                    return;
+                }
+
+                $.get(`/api/v1/customers/search-old?company_id=${compId}`, function(res) {
+                    let options = '';
+                    oldCustomerDataMap = {};
+                    res.data.forEach(c => {
+                        options += `<option value="${c.display_text}">`;
+                        oldCustomerDataMap[c.display_text] = c;
+                    });
+                    $('#oldCustomerList').html(options);
+                });
+            });
+
+            $('#old_search_input').on('input', function() {
+                let q = $(this).val();
+                let compId = $('#old_search_company').val();
+                if (oldCustomerDataMap[q]) {
+                    autofillOldCustomer(oldCustomerDataMap[q]);
+                    return;
+                }
+                if (q.length >= 3) {
+                    $.get(`/api/v1/customers/search-old?q=${q}&company_id=${compId}`, function(res) {
+                        let options = '';
+                        oldCustomerDataMap = {};
+                        res.data.forEach(c => {
+                            options += `<option value="${c.display_text}">`;
+                            oldCustomerDataMap[c.display_text] = c;
+                        });
+                        $('#oldCustomerList').html(options);
+                    });
+                }
+            });
+
+            window.updateStatus = function(id, action) {
+                if (confirm(`Are you sure you want to ${action} this customer?`)) {
+                    $.ajax({
+                        url: `/api/v1/customers/${id}/status`,
+                        type: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        data: {
+                            action: action
+                        },
+                        success: function(res) {
+                            showMessage(res.message, 'success');
+                            table.ajax.reload(null, false);
+                        },
+                        error: function(err) {
+                            showMessage(err.responseJSON?.message || "Unauthorized!", 'error');
+                        }
+                    });
+                }
+            };
+
+            function autofillOldCustomer(data) {
+                $('#old_customer_code').val(data.customer_code);
+                Object.keys(data).forEach(key => {
+                    let input = $(`#customerForm [name="${key}"]`);
+                    // 🔥 REGISTRATION DATE INCLUDES FIX 🔥
+                    if (input.length && input.attr('type') !== 'file' && !['branch_id', 'company_id',
+                            'member_id', 'customer_id', 'password', 'registration_date'
+                        ].includes(key)) {
+                        input.val(data[key]);
+                    }
+                });
+                if (data.gender) $(`input[name="gender"][value="${data.gender}"]`).prop('checked', true);
+                if (data.marital_status) $(`input[name="marital_status"][value="${data.marital_status}"]`).prop(
+                    'checked', true);
+                showMessage("Old customer details auto-filled successfully!", "success");
+                fetchNewID();
+            }
+
+            function fetchNewID() {
+                let cId = $('#hidden_company_id').val() || 1;
+                $.get(`/api/v1/customers/generate-id?company_id=${cId}`, function(res) {
+                    $('#f_cust_id').val(res.customer_id);
+                });
+            }
+
+            function generatePassword() {
+                let name = $('#f_name').val() || '';
+                let aadhar = $('#f_aadhar').val() || '';
+                if (name.length >= 3 && aadhar.length >= 4) {
+                    let pass = name.substring(0, 3).toLowerCase() + '@' + aadhar.substring(aadhar.length - 4);
+                    $('#f_password').val(pass.charAt(0).toUpperCase() + pass.slice(1));
+                }
+            }
+            $('#f_name, #f_aadhar').on('input', generatePassword);
         });
     </script>
 @endpush

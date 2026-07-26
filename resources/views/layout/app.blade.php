@@ -25,11 +25,16 @@
             --shadow-color: rgba(26, 54, 93, 0.08);
         }
 
+        html,
+        body {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
         body {
             background-color: var(--bg-light);
             font-family: 'Inter', sans-serif;
             color: var(--text-main);
-            overflow-x: hidden;
         }
 
         .secured-item:not(.is-visible-node) {
@@ -115,7 +120,8 @@
                 width: 100%;
                 padding: 0 35px;
                 position: relative;
-                clip-path: inset(-10px 0px -800px 0px);
+                overflow-x: clip;
+                overflow-y: visible;
             }
 
             .desktop-nav {
@@ -125,7 +131,7 @@
                 display: flex;
                 flex-wrap: nowrap;
                 gap: 5px;
-                width: max-content;
+                width: 100%;
                 transition: transform 0.3s ease-in-out;
             }
 
@@ -393,6 +399,8 @@
             $currentPortalPrefix = 'employee';
         } elseif (request()->is('customer/*')) {
             $currentPortalPrefix = 'customer';
+        } elseif (request()->is('member/*')) {
+            $currentPortalPrefix = 'member';
         }
 
         if (!function_exists('buildDesktopMenu')) {
@@ -408,7 +416,7 @@
 
                     $rawRoute = trim($mod->route, '/');
                     if ($rawRoute && $rawRoute !== '#') {
-                        $cleanRoute = preg_replace('/^(admin|employee|customer)\//', '', $rawRoute);
+                        $cleanRoute = preg_replace('/^(admin|employee|customer|Member)\//', '', $rawRoute);
                         $url = url($portalPrefix . '/' . $cleanRoute);
                         $active = request()->is($portalPrefix . '/' . $cleanRoute . '*') ? 'active' : '';
                     } else {
@@ -511,7 +519,7 @@
 
                     $rawRoute = trim($mod->route, '/');
                     if ($rawRoute && $rawRoute !== '#') {
-                        $cleanRoute = preg_replace('/^(admin|employee|customer)\//', '', $rawRoute);
+                        $cleanRoute = preg_replace('/^(admin|employee|customer|member)\//', '', $rawRoute);
                         $url = url($portalPrefix . '/' . $cleanRoute);
                         $active = request()->is($portalPrefix . '/' . $cleanRoute . '*') ? 'active' : '';
                     } else {
@@ -625,9 +633,9 @@
                 </button>
 
                 <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm"
-                    onclick="window.location.href='{{ url($currentPortalPrefix . '/terms-conditions') }}'"
-                    title="Terms & Conditions">
-                    <i class="fas fa-file-signature text-primary"></i>
+                    onclick="window.location.href='{{ url($currentPortalPrefix . '/rules-regulations') }}'"
+                    title="Rules & Regulations">
+                    <i class="fas fa-gavel text-primary"></i>
                 </button>
 
                 <div class="dropdown" id="globalNotificationDropdown">
@@ -655,13 +663,18 @@
                         <span class="d-none d-md-block fw-medium fs-6 user-name-display">Loading...</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3">
+                        <li>
+                            <a class="dropdown-item py-2 fw-medium"
+                                href="{{ url($currentPortalPrefix . '/my-profile') }}">
+                                <i class="fas fa-user-circle me-2 text-success"></i> My Profile
+                            </a>
+                        </li>
                         <li><a class="dropdown-item py-2 fw-medium"
                                 href="{{ url($currentPortalPrefix . '/terms-conditions') }}"><i
                                     class="fas fa-file-contract me-2 text-primary"></i> Terms & Conditions</a></li>
                         <li>
                             <hr class="dropdown-divider">
                         </li>
-
                         <li><a class="dropdown-item py-2 fw-medium handle-logout" href="#"
                                 style="color: #E53E3E;"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
                     </ul>
@@ -681,17 +694,30 @@
                         </a>
                     </li>
                     <li class="secured-item" data-permission="public">
-                        <a href="{{ url('employee/welcome-letter') }}">
+                        <a href="{{ url($currentPortalPrefix . '/welcome-letter') }}">
                             <i class="fas fa-envelope-open-text text-info"></i> Welcome Letter
                         </a>
                     </li>
-                    <!-- 🔥 PERMANENT TASK BUTTON ADDED HERE FOR DESKTOP 🔥 -->
-                    <li class="secured-item" data-permission="public">
-                        <a href="{{ url($currentPortalPrefix . '/tasks') }}"
-                            class="{{ request()->is('*/tasks') ? 'active' : '' }}">
-                            <i class="fas fa-tasks text-success"></i> Tasks
-                        </a>
-                    </li>
+
+                    <!-- 🔥 FIX: Blade Logic for Staff / Associate Tasks 🔥 -->
+                    @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'employee')
+                        <li class="secured-item" data-permission="task_view">
+                            <a href="{{ url($currentPortalPrefix . '/tasks/staff') }}"
+                                class="{{ request()->is('*/tasks/staff') ? 'active' : '' }}">
+                                <i class="fas fa-user-tie text-success"></i> Staff Tasks
+                            </a>
+                        </li>
+                    @endif
+
+                    @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'member')
+                        <li class="secured-item" data-permission="task_mem_view">
+                            <a href="{{ url($currentPortalPrefix . '/tasks/associates') }}"
+                                class="{{ request()->is('*/tasks/associates') ? 'active' : '' }}">
+                                <i class="fas fa-users text-warning"></i> Associate Tasks
+                            </a>
+                        </li>
+                    @endif
+
                     <li class="secured-item" data-permission="phases_view">
                         <a href="{{ url($currentPortalPrefix . '/phases') }}"
                             class="{{ request()->is('*/phases') ? 'active' : '' }}">
@@ -699,17 +725,32 @@
                         </a>
                     </li>
                     <li class="secured-item" data-permission="public">
-                        <a href="{{ url($currentPortalPrefix . '/leave-applications') }}"
-                            class="{{ request()->is('*/leave-applications') ? 'active' : '' }}">
-                            <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
-                        </a>
+                        @if ($currentPortalPrefix === 'employee')
+                            <a href="{{ url($currentPortalPrefix . '/leave-applications') }}">
+                                <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
+                            </a>
+                        @elseif($currentPortalPrefix === 'customer' || $currentPortalPrefix === 'member')
+                            <a href="{{ url($currentPortalPrefix . '/member-leave-applications') }}">
+                                <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
+                            </a>
+                        @endif
                     </li>
+
+
+
                     {!! buildDesktopMenu($rootModules, $allModules, $currentPortalPrefix) !!}
 
                     <li class="secured-item" data-permission="public">
                         <a href="{{ url($currentPortalPrefix . '/my-notices') }}"
                             class="{{ request()->is('*/my-notices') ? 'active' : '' }}">
                             <i class="fas fa-bell text-danger"></i> My Notices
+                        </a>
+                    </li>
+
+                    <li class="secured-item" data-permission="public">
+                        <a href="{{ url($currentPortalPrefix . '/my-penalties') }}"
+                            class="{{ request()->is('*/my-penalties') ? 'active' : '' }}">
+                            <i class="fa-solid fa-file-invoice-dollar"></i> My Fine/Penalties
                         </a>
                     </li>
                 </ul>
@@ -737,17 +778,27 @@
                     <div><i class="fas fa-home text-warning menu-icon"></i> Dashboard</div>
                 </a>
 
-                <a href="{{ url('employee/welcome-letter') }}"
+                <a href="{{ url($currentPortalPrefix . '/welcome-letter') }}"
                     class="nav-item-custom secured-item border-bottom mb-2" data-permission="public">
                     <div><i class="fas fa-envelope-open-text text-info menu-icon"></i> Welcome Letter</div>
                 </a>
 
-                <!-- 🔥 PERMANENT TASK BUTTON ADDED HERE FOR MOBILE SIDEBAR 🔥 -->
-                <a href="{{ url($currentPortalPrefix . '/tasks') }}"
-                    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/tasks') ? 'active' : '' }}"
-                    data-permission="public">
-                    <div><i class="fas fa-tasks text-success menu-icon"></i> Tasks</div>
-                </a>
+                <!-- 🔥 FIX: Blade Logic for Staff / Associate Tasks (Mobile Sidebar) 🔥 -->
+                @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'employee')
+                    <a href="{{ url($currentPortalPrefix . '/tasks/staff') }}"
+                        class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/tasks/staff') ? 'active' : '' }}"
+                        data-permission="task_view">
+                        <div><i class="fas fa-user-tie text-success menu-icon"></i> Staff Tasks</div>
+                    </a>
+                @endif
+
+                @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'member')
+                    <a href="{{ url($currentPortalPrefix . '/tasks/associates') }}"
+                        class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/tasks/associates') ? 'active' : '' }}"
+                        data-permission="task_mem_view">
+                        <div><i class="fas fa-users text-warning menu-icon"></i> Associate Tasks</div>
+                    </a>
+                @endif
 
                 <a href="{{ url($currentPortalPrefix . '/phases') }}"
                     class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/phases') ? 'active' : '' }}"
@@ -755,16 +806,29 @@
                     <div><i class="fas fa-building text-warning menu-icon"></i> Phases</div>
                 </a>
 
-                <a href="{{ url($currentPortalPrefix . '/leave-applications') }}"
-                    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/leave-applications') ? 'active' : '' }}"
-                    data-permission="public">
-                    <div><i class="fas fa-calendar-alt text-primary menu-icon"></i> Leaves & Apps</div>
+                @if ($currentPortalPrefix === 'employee')
+                    <a href="{{ url($currentPortalPrefix . '/leave-applications') }}"
+                        class="nav-item-custom secured-item border-bottom mb-2" data-permission="public">
+                        <div><i class="fas fa-calendar-alt text-primary menu-icon"></i> Leaves & Apps</div>
+                    </a>
+                @elseif($currentPortalPrefix === 'customer' || $currentPortalPrefix === 'member')
+                    <a href="{{ url($currentPortalPrefix . '/member-leave-applications') }}"
+                        class="nav-item-custom secured-item border-bottom mb-2" data-permission="public">
+                        <div><i class="fas fa-calendar-alt text-primary menu-icon"></i> Leaves & Apps</div>
+                    </a>
+                @endif
+
+                <a href="{{ url($currentPortalPrefix . '/rules-regulations') }}"
+                    class="nav-item-custom border-bottom mb-2 text-warning">
+                    <div><i class="fas fa-gavel text-warning menu-icon"></i> Rules & Regulations</div>
                 </a>
 
                 <a href="{{ url($currentPortalPrefix . '/terms-conditions') }}"
                     class="nav-item-custom border-bottom mb-2 text-info">
                     <div><i class="fas fa-file-contract text-info menu-icon"></i> Terms & Conditions</div>
                 </a>
+
+
 
                 {!! buildMobileMenu($rootModules, $allModules, $currentPortalPrefix) !!}
 
@@ -773,6 +837,13 @@
                     data-permission="public">
                     <div><i class="fas fa-bell text-danger menu-icon"></i> My Notices</div>
                 </a>
+
+                <a href="{{ url($currentPortalPrefix . '/my-penalties') }}"
+                    class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/my-penalties') ? 'active' : '' }}"
+                    data-permission="public">
+                    <div><i class="fa-solid fa-file-invoice-dollar menu-icon"></i> My Fine/Penalties</div>
+                </a>
+
             </div>
             <div class="sidebar-user-card mt-auto">
                 <div class="d-flex align-items-center mb-3">
@@ -795,17 +866,27 @@
         @yield('content')
     </main>
 
-    <!-- 🔥 PERMANENT TASK BUTTON ADDED HERE FOR MOBILE BOTTOM NAV 🔥 -->
     <nav class="mobile-bottom-nav shadow-sm">
         <a href="{{ url($currentPortalPrefix . '/dashboard') }}"
             class="{{ request()->is('*/dashboard') ? 'active' : '' }}"><i class="fas fa-layer-group"></i>Home</a>
-        <a href="{{ url('employee/welcome-letter') }}"
+        <a href="{{ url($currentPortalPrefix . '/welcome-letter') }}"
             class="secured-item {{ request()->is('*/welcome-letter') ? 'active' : '' }}" data-permission="public"><i
                 class="fas fa-envelope-open-text"></i>Letter</a>
-        <!-- Nav me Task Fix kar diya -->
-        <a href="{{ url($currentPortalPrefix . '/tasks') }}"
-            class="secured-item {{ request()->is('*/tasks') ? 'active' : '' }}" data-permission="public"><i
-                class="fas fa-tasks"></i>Tasks</a>
+
+        <!-- 🔥 FIX: Blade Logic for Staff / Associate Tasks (Bottom Nav) 🔥 -->
+        @if ($currentPortalPrefix === 'member')
+            <a href="{{ url($currentPortalPrefix . '/tasks/associates') }}"
+                class="secured-item {{ request()->is('*/tasks/*') ? 'active' : '' }}"
+                data-permission="task_mem_view">
+                <i class="fas fa-tasks"></i>Tasks
+            </a>
+        @else
+            <a href="{{ url($currentPortalPrefix . '/tasks/staff') }}"
+                class="secured-item {{ request()->is('*/tasks/*') ? 'active' : '' }}" data-permission="task_view">
+                <i class="fas fa-tasks"></i>Tasks
+            </a>
+        @endif
+
         <a href="#" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar"><i
                 class="fas fa-bars"></i>Menu</a>
     </nav>
@@ -813,11 +894,9 @@
     <div class="modal fade" id="deviceManagerModal" tabindex="-1" data-bs-backdrop="static"></div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-
-
 
 
     <script>
@@ -842,12 +921,17 @@
                 loginUrl = '/customer/login';
                 authApiUrl = '/api/v1/customer/auth/me';
                 logoutApiUrl = '/api/v1/customer/auth/logout-current';
+            } else if (currentPath.startsWith('/member')) {
+                currentPortal = 'member';
+                tokenKey = 'member_token';
+                loginUrl = '/member/login';
+                authApiUrl = '/api/v1/member/auth/me';
+                logoutApiUrl = '/api/v1/member/auth/logout';
             }
 
             const layoutToken = localStorage.getItem(tokenKey) || localStorage.getItem('token') || '';
 
             if (layoutToken) {
-                // Set global jQuery AJAX Token
                 $.ajaxSetup({
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
@@ -855,7 +939,6 @@
                     }
                 });
 
-                // Set global Axios Token (if used by Echo)
                 if (typeof window.axios !== 'undefined') {
                     window.axios.defaults.headers.common['Authorization'] = 'Bearer ' + layoutToken;
                 }
@@ -877,13 +960,12 @@
                 window.location.href = loginUrl;
             };
 
-          // 🔥 URL FIX AUR MANUAL CONFIRMATION ALERT LOGIC
             window.performNormalLogout = function(isAuto = false) {
                 let payload = {};
                 if (currentPortal === 'employee') {
                     payload = {
                         panel_id: localStorage.getItem('emp_panel_id'),
-                        is_auto: isAuto ? 1 : 0 // Button click par 0 jayega, inactivity par 1
+                        is_auto: isAuto ? 1 : 0
                     };
                 }
 
@@ -891,22 +973,26 @@
                     Swal.fire({
                         title: 'Logging out...',
                         allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
                     });
                     $.ajax({
                         url: logoutApiUrl,
                         type: 'POST',
                         data: payload,
-                        success: function() { clearLocalDataAndRedirect(); },
-                        error: function() { clearLocalDataAndRedirect(); }
+                        success: function() {
+                            clearLocalDataAndRedirect();
+                        },
+                        error: function() {
+                            clearLocalDataAndRedirect();
+                        }
                     });
                 }
 
-                // Agar 15 min inactivity se auto logout ho raha hai to bina alert ke execute karo
                 if (isAuto) {
                     executeLogout();
                 } else {
-                    // Agar button par click kiya hai to confirm alert do
                     Swal.fire({
                         title: 'Are you sure?',
                         text: "Do you want to log out and record your Time Out?",
@@ -923,27 +1009,25 @@
                 }
             };
 
-            // Yahan portal prefixes ke andar URL durust karein
-            if (currentPath.startsWith('/employee')) {
-                currentPortal = 'employee';
-                tokenKey = 'emp_token';
-                loginUrl = '/employee/login';
-                authApiUrl = '/api/v1/employee/auth/me';
-                logoutApiUrl = '/api/v1/employee/logout'; // 🔥 FIXED: /auth/logout-current hata kar sahi route lagaya
-            }
-
-            // 🔥 15 MINUTE INACTIVITY TRACKER (MOBILE + DESKTOP)
-            let idleTime = 0;
+          // NAYA: Timestamp based inactivity tracker
+            let lastActivityTime = Date.now();
             let idleInterval;
+            const maxIdleTime = 15 * 60 * 1000; // 15 minutes ko milliseconds me convert kiya
 
-            function resetIdleTime() { idleTime = 0; }
-            // Touch, scroll, click, type sab track karega
-            $(document).on('mousemove keydown scroll click touchstart', resetIdleTime);
+            function resetIdleTime() {
+                lastActivityTime = Date.now(); // Jab bhi hilega, time update hoga
+            }
+            
+            // 🔥 'touchmove' aur 'touchend' add kiya gaya hai behtar mobile support ke liye
+            $(document).on('mousemove keydown scroll click touchstart touchmove', resetIdleTime);
 
             function startInactivityTracker() {
+                // Har 10 second me check karega, taaki browser background se aate hi turant pakad le
                 idleInterval = setInterval(function() {
-                    idleTime++;
-                    if (idleTime >= 15) { // 15 Minutes
+                    let currentTime = Date.now();
+                    
+                    // Agar Current Time aur Last Activity Time ka difference 15 min se zyada hai
+                    if (currentTime - lastActivityTime >= maxIdleTime) {
                         clearInterval(idleInterval);
                         Swal.fire({
                             title: 'Session Expired!',
@@ -953,13 +1037,12 @@
                             showConfirmButton: false,
                             timer: 3000
                         }).then(() => {
-                            window.performNormalLogout(true); // true = isAuto
+                            window.performNormalLogout(true);
                         });
                     }
-                }, 60000); // 1 Minute loop
+                }, 10000); 
             }
 
-            // Agar token hai to tracker chalu kardo
             if (layoutToken) {
                 startInactivityTracker();
             }
@@ -1026,9 +1109,6 @@
                 if (typeof $.fn.dataTable !== 'undefined') {
                     $.fn.dataTable.ext.errMode = 'none';
                 }
-                $(document).on('error.dt', function(e, settings, techNote, message) {
-                    console.warn('DataTables Blocked: Access Expired or Unauthorized');
-                });
 
                 if (!layoutToken) {
                     window.location.href = loginUrl;
@@ -1046,21 +1126,18 @@
                             'vedprakash@infoera.in'
                         ];
 
-                       // Backend se aayi hui 'is_god' property ko bhi check karega
-let isGodMode = u.is_god || developerEmails.includes(emailStr);
-                        let isCEOorDirector = u.designation_name && (u.designation_name
-                            .toLowerCase().includes('ceo') || u.designation_name.toLowerCase()
-                            .includes('director'));
+                        let isGodMode = u.is_god || developerEmails.includes(emailStr);
 
                         let perms = Array.isArray(u.permissions) ? u.permissions : [];
                         if (u.permissions && !Array.isArray(u.permissions)) {
                             perms = Object.values(u.permissions).map(p => p.name || p);
                         }
 
-                        $('.user-name-display').text(u.name || u.full_name || u.employee_name ||
-                            'User');
+                        $('.user-name-display').text(u.name || u.full_name || u.employee_name || u
+                            .member_name || 'User');
                         $('.user-role-display').text(isGodMode ? 'Master Access' : (u
-                            .designation_name || currentPortal.toUpperCase()));
+                            .designation_name || u.designation || currentPortal
+                            .toUpperCase()));
 
                         if (u.company_logo) {
                             $('.brand-logo-img').attr('src', u.company_logo);
@@ -1070,17 +1147,32 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                         window.userGodMode = isGodMode;
                         window.userPerms = perms;
 
-                        window.applyPermissions = function() {
+                 window.applyPermissions = function() {
                             $('.secured-item').each(function() {
                                 let reqPerm = $(this).data('permission');
                                 let isPermitted = false;
+                                
                                 if (reqPerm === 'public' || window.userGodMode) {
                                     isPermitted = true;
                                 } else if (reqPerm && reqPerm !== 'node_parent') {
                                     let base = reqPerm.replace('_view', '');
-                                    isPermitted = window.userPerms.some(p => p ===
-                                        reqPerm || p.startsWith(base + '_'));
+                                    
+                                    isPermitted = window.userPerms.some(p => {
+                                        // 1. Exact match (For Action Buttons like Add, Edit, Delete)
+                                        if (p === reqPerm) return true;
+                                        
+                                        // 2. Parent matching (For Menus)
+                                        if (p.startsWith(base + '_')) {
+                                            // 🔥 SURGICAL FIX: Prevent 'task_mem' (Associate) from unlocking 'task' (Staff) Menu 🔥
+                                            if (base === 'task' && p.startsWith('task_mem')) {
+                                                return false; 
+                                            }
+                                            return true;
+                                        }
+                                        return false;
+                                    });
                                 }
+                                
                                 if (isPermitted) {
                                     $(this).addClass('is-visible-node');
                                 } else {
@@ -1088,23 +1180,19 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                                 }
                             });
 
+                            // Bubbling for parent folders (Dropdowns)
                             let bubbling = true;
                             while (bubbling) {
                                 bubbling = false;
                                 $('.secured-item.is-visible-node').each(function() {
                                     let pId = $(this).data('parent-id');
                                     if (pId) {
-                                        $('.secured-item[data-id="' + pId +
-                                            '"]:not(.is-visible-node)').each(
-                                            function() {
-                                                $(this).addClass('is-visible-node');
-                                                bubbling = true;
-                                            });
+                                        $('.secured-item[data-id="' + pId + '"]:not(.is-visible-node)').each(function() {
+                                            $(this).addClass('is-visible-node');
+                                            bubbling = true;
+                                        });
                                     }
                                 });
-                            }
-                            if (typeof updateScrollButtons !== 'undefined') {
-                                setTimeout(updateScrollButtons, 100);
                             }
                         };
 
@@ -1116,12 +1204,7 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                             window.location.href = targetDashboard;
                         });
 
-                        // =========================================================================
-                        // 🔥 RESTART ECHO & SINGLE GLOBAL NOTIFICATION LISTENER 🔥
-                        // =========================================================================
                         if (typeof window.Echo !== 'undefined') {
-
-                            // 1. Force Echo to reconnect with the exact token BEFORE subscribing
                             let currentOptions = window.Echo.connector.options;
                             currentOptions.authEndpoint = '/broadcasting/auth?token=' +
                                 encodeURIComponent(layoutToken);
@@ -1137,36 +1220,40 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                             window.Echo.disconnect();
                             window.Echo = new window.Echo.constructor(currentOptions);
 
-                            // 2. Subscribe to Global Channel
-                            let channelName = `global.user.${currentPortal}.${u.id}`;
-                            console.log("Subscribing to Global Bell Channel: ", channelName);
-
-                            // =========================================================================
-                            // 🔥 THE ULTIMATE FOOLPROOF LISTENER (CATCHES EVERYTHING) 🔥
-                            // =========================================================================
-
                             let customChannel = `global.user.${currentPortal}.${u.id}`;
-
-                            // Laravel ka default channel fallback
                             let modelName = 'User';
                             if (currentPortal === 'employee') modelName = 'Employee';
                             if (currentPortal === 'customer') modelName = 'Customer';
+                            if (currentPortal === 'member') modelName = 'Member';
                             let defaultLaravelChannel = `App.Models.${modelName}.${u.id}`;
 
-                            console.log("Subscribing to Custom Channel: ", customChannel);
-                            console.log("Subscribing to Default Channel: ", defaultLaravelChannel);
-
-                            // Ek common function jo kisi bhi format me aaye data ko handle karega
                             let processNotification = (e) => {
-                                console.log("🔥 LIVE ALERT CATCH HUA! Payload:", e);
-
-                                // Naya System (Leave, TA, Notice)
                                 if (e.title || e.type) {
                                     let title = e.title || 'System Alert';
                                     let message = e.message || '';
                                     let targetUrl = e.url || '#';
                                     let iconClass = e.icon || 'fa-bell';
                                     let colorClass = e.colorClass || 'text-primary';
+
+                                    // 🔥 SMART URL FIX (Realtime Notifications) 🔥
+                                    if (targetUrl.match(/\/tasks\/?$/)) {
+                                        if (currentPortal === 'member') {
+                                            targetUrl = targetUrl.replace(/\/tasks\/?$/,
+                                                '/tasks/associates');
+                                        } else if (currentPortal === 'employee') {
+                                            targetUrl = targetUrl.replace(/\/tasks\/?$/,
+                                                '/tasks/staff');
+                                        } else {
+                                            if (message.toLowerCase().includes('associate') ||
+                                                message.toLowerCase().includes('member')) {
+                                                targetUrl = targetUrl.replace(/\/tasks\/?$/,
+                                                    '/tasks/associates');
+                                            } else {
+                                                targetUrl = targetUrl.replace(/\/tasks\/?$/,
+                                                    '/tasks/staff');
+                                            }
+                                        }
+                                    }
 
                                     let currentCount = parseInt($('#globalUnreadCount')
                                     .text()) || 0;
@@ -1185,20 +1272,14 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                                                         <strong class="text-dark small d-block">${title}</strong>
                                                         <span class="badge bg-danger blink-anim notification-new-badge" style="font-size: 0.65rem;">New</span>
                                                     </div>
-                                                    <div class="small text-muted fw-medium text-truncate" style="white-space: pre-wrap;">
-                                                        ${message}
-                                                    </div>
-                                                    <div class="small text-muted mt-1" style="font-size: 10px;">
-                                                        Just now
-                                                    </div>
+                                                    <div class="small text-muted fw-medium text-truncate" style="white-space: pre-wrap;">${message}</div>
+                                                    <div class="small text-muted mt-1" style="font-size: 10px;">Just now</div>
                                                 </div>
                                             </a>
                                         </li>
                                     `;
                                     $('#notificationList').prepend(notifHtml);
-                                }
-                                // Purana System (Tasks/Chatbot)
-                                else if (e.logData) {
+                                } else if (e.logData) {
                                     if (typeof window.markTaskAsUnread === 'function' && e
                                         .taskId) {
                                         if (!$('#taskDetailsModal').hasClass('show') || $(
@@ -1209,16 +1290,11 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                                 }
                             };
 
-                            // 🚀 Ek sath Dono Channels (Custom & Default) aur Dono Methods (.listen & .notification) ko sunein!
                             [customChannel, defaultLaravelChannel].forEach(channel => {
-                                window.Echo.private(channel)
-                                    .listen('.notification.received', processNotification)
+                                window.Echo.private(channel).listen(
+                                        '.notification.received', processNotification)
                                     .notification(processNotification);
                             });
-
-                            // =========================================================================
-                            // 🔥 NEW CENTRALIZED DATABASE NOTIFICATION SYSTEM 🔥
-                            // =========================================================================
 
                             function loadDatabaseNotifications() {
                                 $.get('/api/v1/notifications/unread', function(response) {
@@ -1227,9 +1303,44 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                                         let notifHtmlList = '';
 
                                         response.data.forEach(notif => {
-                                            // Laravel native notification ka data 'notif.data' me aata hai JSON format me
                                             let payload = notif.data;
                                             let targetUrl = payload.url || '#';
+
+                                            // 🔥 SMART URL FIX (Database Notifications) 🔥
+                                            if (targetUrl.match(/\/tasks\/?$/)) {
+                                                if (currentPortal === 'member') {
+                                                    targetUrl = targetUrl.replace(
+                                                        /\/tasks\/?$/,
+                                                        '/tasks/associates');
+                                                } else if (currentPortal ===
+                                                    'employee') {
+                                                    targetUrl = targetUrl.replace(
+                                                        /\/tasks\/?$/,
+                                                        '/tasks/staff');
+                                                } else {
+                                                    if (payload.message && (payload
+                                                            .message.toLowerCase()
+                                                            .includes(
+                                                            'associate') || payload
+                                                            .message.toLowerCase()
+                                                            .includes('member'))) {
+                                                        targetUrl = targetUrl
+                                                            .replace(/\/tasks\/?$/,
+                                                                '/tasks/associates'
+                                                                );
+                                                    } else {
+                                                        targetUrl = targetUrl
+                                                            .replace(/\/tasks\/?$/,
+                                                                '/tasks/staff');
+                                                    }
+                                                }
+                                            }
+                                            if (currentPortal === 'member' &&
+                                                targetUrl.includes('/customer/')) {
+                                                targetUrl = targetUrl.replace(
+                                                    '/customer/', '/member/');
+                                            }
+
                                             let icon = payload.icon || 'fa-bell';
                                             let colorClass = payload.colorClass ||
                                                 'text-primary';
@@ -1245,9 +1356,7 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                                                                 <strong class="text-dark small d-block">${payload.title || 'System Alert'}</strong>
                                                                 <span class="badge bg-danger blink-anim notification-new-badge" style="font-size: 0.65rem;">New</span>
                                                             </div>
-                                                            <div class="small text-muted fw-medium text-truncate" style="white-space: pre-wrap;">
-                                                                ${payload.message || ''}
-                                                            </div>
+                                                            <div class="small text-muted fw-medium text-truncate" style="white-space: pre-wrap;">${payload.message || ''}</div>
                                                             <div class="small text-muted mt-1" style="font-size: 10px;">
                                                                 ${new Date(notif.created_at).toLocaleString('en-IN', { hour12: true, month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
                                                             </div>
@@ -1260,24 +1369,17 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
                                         $('#globalUnreadCount').text(unreadCount)
                                             .removeClass('d-none');
                                         $('#noNotifMessage').addClass('d-none');
-
-                                        // Pura list fresh data se replace kar do
                                         $('#notificationList').html(notifHtmlList);
                                     }
                                 });
                             }
 
-                            // 🚀 Page load hote hi Fetch karo
                             loadDatabaseNotifications();
 
-                            // 👁️ Jab user Bell Icon par click karega (Dropdown open hoga)
                             $('#globalNotificationDropdown').on('show.bs.dropdown', function() {
                                 let count = parseInt($('#globalUnreadCount').text()) || 0;
-
-                                // Agar unread alerts hain, toh server ko 'Read' karne ka signal bhejo
                                 if (count > 0) {
                                     $.post('/api/v1/notifications/mark-read', function() {
-                                        // 1.5 second baad 'New' badges aur count hata do
                                         setTimeout(() => {
                                             $('#globalUnreadCount').text(
                                                 '0').addClass('d-none');
@@ -1299,68 +1401,63 @@ let isGodMode = u.is_god || developerEmails.includes(emailStr);
     </script>
     @stack('scripts')
 
-<script>
-$(document).ready(function() {
-    let empToken = localStorage.getItem('emp_token');
-    
-    if (empToken && empToken.includes('_S_')) {
-        console.warn("🚨 SECONDARY DEVICE: DATA LISTINGS DISABLED 🚨");
+    <script>
+        $(document).ready(function() {
+            let empToken = localStorage.getItem('emp_token');
 
-        // =================================================================
-        // THE MASTER STROKE: Intercept DataTable AJAX and EMPTY the data!
-        // Isse na table banega, na mobile cards render honge kisi bhi page par!
-        // =================================================================
-        $(document).on('xhr.dt', function (e, settings, json, xhr) {
-            if (json && json.data) {
-                json.data = []; // Saara data array khali kar diya!
-                json.recordsTotal = 0;
-                json.recordsFiltered = 0;
-            }
-        });
+            if (empToken && empToken.includes('_S_')) {
+                console.warn("🚨 SECONDARY DEVICE: DATA LISTINGS DISABLED 🚨");
 
-        // 1. CSS Layer (Extra safety ke liye table UI ko hide karna)
-        $('<style>').prop('type', 'text/css').html(`
-            /* Hide DataTables and common Mobile wrappers completely */
+                $(document).on('xhr.dt', function(e, settings, json, xhr) {
+                    if (json && json.data) {
+                        json.data = [];
+                        json.recordsTotal = 0;
+                        json.recordsFiltered = 0;
+                    }
+                });
+
+                $('<style>').prop('type', 'text/css').html(`
             .dataTables_wrapper, table.dataTable, .table-responsive,
             #mobileCardsContainer, #requestsMobileContainer, .mobile-item { 
                 display: none !important; opacity: 0 !important; visibility: hidden !important; 
             }
         `).appendTo('head');
 
-        // 2. Action Buttons Blocker (Remove Export, Print, Delete)
-        const enforceActionRules = function() {
-            $('button, a, .btn, .dropdown-item').each(function() {
-                let text = $(this).text().trim().toLowerCase();
-                let html = $(this).html().toLowerCase(); 
-                
-                if (
-                    text.includes('export') || text.includes('excel') || html.includes('fa-file-excel') || 
-                    text.includes('print') || html.includes('fa-print') ||                                 
-                    text.includes('delete') || html.includes('fa-trash') || text.includes('bulk delete')   
-                ) {
-                    $(this).remove(); // Button hi DOM se nikal do
-                }
-            });
+                const enforceActionRules = function() {
+                    $('button, a, .btn, .dropdown-item').each(function() {
+                        let text = $(this).text().trim().toLowerCase();
+                        let html = $(this).html().toLowerCase();
 
-            // Agar General Leads jaise pages par static cards bane hon, unko uda do
-            $('.card').each(function() {
-                let cardHtml = $(this).html().toLowerCase();
-                // Check if card contains data identifiers but IS NOT a form or notice
-                if (cardHtml.includes('tele:') || $(this).find('button:contains("Edit"), a:contains("Edit")').length > 0) {
-                    $(this).remove();
-                }
-            });
-        };
+                        if (
+                            text.includes('export') || text.includes('excel') || html.includes(
+                                'fa-file-excel') ||
+                            text.includes('print') || html.includes('fa-print') ||
+                            text.includes('delete') || html.includes('fa-trash') || text.includes(
+                                'bulk delete')
+                        ) {
+                            $(this).remove();
+                        }
+                    });
 
-        enforceActionRules();
-        
-        // Agar dynamic AJAX load hota hai, toh wapas remove karo
-        const observer = new MutationObserver(enforceActionRules);
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-});
-</script>
+                    $('.card').each(function() {
+                        let cardHtml = $(this).html().toLowerCase();
+                        if (cardHtml.includes('tele:') || $(this).find(
+                                'button:contains("Edit"), a:contains("Edit")').length > 0) {
+                            $(this).remove();
+                        }
+                    });
+                };
 
+                enforceActionRules();
+
+                const observer = new MutationObserver(enforceActionRules);
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        });
+    </script>
 
 </body>
 

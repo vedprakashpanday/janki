@@ -300,5 +300,30 @@ class BranchController extends Controller
         return ['latitude' => null, 'longitude' => null];
     }
 
+  public function searchDynamic(Request $request)
+    {
+        $q = $request->q;
+        $companyId = $request->company_id;
+        if (strlen($q) < 3 || empty($companyId)) return response()->json(['status' => 'success', 'data' => []]);
+
+        $context = $this->getGlobalContext();
+        $query = \App\Models\Branch::where('branch_status', 'active')
+            ->where('company_id', $companyId)
+            ->where('branch_name', 'LIKE', "%{$q}%");
+
+        // 🔥 Master HO Bypass Logic
+        $isMasterHO = false;
+        if ($context->is_employee && empty($context->branch_id) && !empty($context->company_id)) {
+            $comp = \App\Models\Company::find($context->company_id);
+            if ($comp && empty($comp->parent_id)) $isMasterHO = true;
+        }
+
+        if (!$context->is_god && !$context->is_director && !$isMasterHO && $context->company_id) {
+            $query->where('company_id', $context->company_id);
+        }
+
+        $branches = $query->limit(20)->get(['id', 'branch_name', 'branch_id']);
+        return response()->json(['status' => 'success', 'data' => $branches]);
+    }
 
 }

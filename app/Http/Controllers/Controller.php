@@ -34,6 +34,8 @@ class Controller extends BaseController
             'department_id' => $user->department_id ?? null,
             'role_level'    => 'unknown',
             'profile_id'    => $user->id,
+            // 🔥 YAHAN YE NAYI LINE ADD KARNI HAI 🔥
+            'permissions'   => self::getLiveActivePermissions($user)
         ];
 
         // ----------------------------------------------------------------
@@ -109,6 +111,8 @@ class Controller extends BaseController
         elseif ($table === 'members') {
             $context->is_member  = true;
             $context->role_level = 'member';
+             $context->company_id  = $user->company_id ?? null;
+            $context->branch_id   = $user->branch_id  ?? null;
             $context->profile_id = $user->member_id ?? $user->id;
         }
 
@@ -118,6 +122,8 @@ class Controller extends BaseController
         elseif ($table === 'vendors') {
             $context->is_vendor  = true;
             $context->role_level = 'vendor';
+             $context->company_id  = $user->company_id ?? null;
+            $context->branch_id   = $user->branch_id  ?? null;
             $context->profile_id = $user->vendor_id ?? $user->id;
         }
 
@@ -127,6 +133,8 @@ class Controller extends BaseController
         elseif ($table === 'customers') {
             $context->is_customer = true;
             $context->role_level  = 'customer';
+             $context->company_id  = $user->company_id ?? null;
+            $context->branch_id   = $user->branch_id  ?? null;
             $context->profile_id  = $user->customer_id ?? $user->id;
         }
 

@@ -19,13 +19,11 @@ class AttendanceTimeWindowController extends Controller
         $context = $this->getGlobalContext();
         $companies = collect();
 
-        // 1. GOD MODE (CEO/Developers/admin@jankivilla.com) - Full Access
         if ($context->is_god) {
             $companies = Company::where('status', 'active')->with(['branches' => function ($q) {
                 $q->where('branch_status', 'active');
             }])->get();
         }
-        // 2. DIRECTOR MODE - Locked to their Company
         elseif ($context->is_director) {
             $directorMapping = DB::table('company_director')->where('director_id', $context->profile_id)->first();
             $lockedCompanyId = $directorMapping ? $directorMapping->company_id : $context->company_id;
@@ -34,13 +32,12 @@ class AttendanceTimeWindowController extends Controller
                 $q->where('branch_status', 'active');
             }])->get();
         }
-        // 3. BRANCH HR/ADMIN MODE - Locked to their Company & Branch
         elseif ($context->is_employee) {
             $companies = Company::where('id', $context->company_id)->where('status', 'active')->with(['branches' => function ($q) use ($context) {
                 if ($context->branch_id) {
                     $q->where('id', $context->branch_id)->where('branch_status', 'active');
                 } else {
-                    $q->whereRaw('1 = 0'); // Empty relations if HO staff
+                    $q->whereRaw('1 = 0');
                 }
             }])->get();
         }
@@ -66,7 +63,7 @@ class AttendanceTimeWindowController extends Controller
     }
 
     /**
-     * Store Time Window Rules based on strict RBAC
+     * Store Time Window Rules
      */
     public function store(Request $request)
     {
@@ -76,11 +73,9 @@ class AttendanceTimeWindowController extends Controller
         $hasDirect = false;
         $hasRequest = false;
 
-        // 🔥 LOGIC: God Mode and Directors bypass all permission checks
         if ($context->is_god || $context->is_director) {
             $hasDirect = true;
         } else {
-            // 🔥 LOGIC: Employees strictly need RBAC permissions
             $permissions = self::getLiveActivePermissions($user);
             $hasDirect = in_array('atten_wind_add_direct', $permissions);
             $hasRequest = in_array('atten_wind_add_request', $permissions);
@@ -94,6 +89,7 @@ class AttendanceTimeWindowController extends Controller
             'selections' => 'required|array',
             'login_start' => 'required',
             'login_end' => 'required',
+            'late_time' => 'required', // 🔥 NAYA: Late Threshold validation
             'logout_start' => 'required',
             'logout_end' => 'required',
             'min_working_hours' => 'required|numeric'
@@ -124,6 +120,7 @@ class AttendanceTimeWindowController extends Controller
                         [
                             'login_start' => $request->login_start,
                             'login_end' => $request->login_end,
+                            'late_time' => $request->late_time, // 🔥 NAYA: Insert Late Time
                             'logout_start' => $request->logout_start,
                             'logout_end' => $request->logout_end,
                             'min_working_hours' => $request->min_working_hours,
@@ -143,7 +140,7 @@ class AttendanceTimeWindowController extends Controller
     }
 
     /**
-     * Get list of all configured time windows (With Hierarchy Check)
+     * Get list of all configured time windows
      */
     public function index(Request $request)
     {
@@ -161,7 +158,7 @@ class AttendanceTimeWindowController extends Controller
             if ($context->branch_id) {
                 $query->where('branch_id', $context->branch_id);
             } else {
-                $query->whereNull('branch_id'); // If HO staff, see HO rules
+                $query->whereNull('branch_id');
             }
         }
 
@@ -179,6 +176,7 @@ class AttendanceTimeWindowController extends Controller
         $request->validate([
             'login_start' => 'required',
             'login_end' => 'required',
+            'late_time' => 'required', // 🔥 NAYA
             'logout_start' => 'required',
             'logout_end' => 'required',
             'min_working_hours' => 'required|numeric'
@@ -189,6 +187,7 @@ class AttendanceTimeWindowController extends Controller
         $window->update([
             'login_start' => $request->login_start,
             'login_end' => $request->login_end,
+            'late_time' => $request->late_time, // 🔥 NAYA
             'logout_start' => $request->logout_start,
             'logout_end' => $request->logout_end,
             'min_working_hours' => $request->min_working_hours,
@@ -197,9 +196,6 @@ class AttendanceTimeWindowController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Time Window Updated Successfully!']);
     }
 
-    /**
-     * Delete an existing rule
-     */
     public function destroy($id)
     {
         $window = AttendanceTimeWindow::findOrFail($id);
@@ -207,9 +203,6 @@ class AttendanceTimeWindowController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Time Window Rule Deleted!']);
     }
 
-    /**
-     * Bulk Delete Time Windows
-     */
     public function bulkDelete(Request $request)
     {
         $request->validate([
@@ -224,6 +217,4 @@ class AttendanceTimeWindowController extends Controller
             'message' => count($request->ids) . ' Time Windows deleted successfully!'
         ]);
     }
-
-
 }

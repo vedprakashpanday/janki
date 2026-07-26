@@ -93,9 +93,10 @@
                 <p class="text-muted small mb-0">Call customers, update feedback, and track goals.</p>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-info shadow-sm text-white secured-item" data-permission="tele_export" id="printReportBtn">
-                <i class="fas fa-print"></i> <span class="d-none d-md-inline ms-1">Print Report</span>
-            </button>
+                <button class="btn btn-sm btn-info shadow-sm text-white secured-item" data-permission="tele_export"
+                    id="printReportBtn">
+                    <i class="fas fa-print"></i> <span class="d-none d-md-inline ms-1">Print Report</span>
+                </button>
                 <button class="btn btn-sm btn-success shadow-sm secured-item" data-permission="tele_export"
                     id="exportExcelBtn">
                     <i class="fas fa-file-excel"></i> <span id="exportBtnText">Export Advanced Excel</span>
@@ -150,7 +151,7 @@
             </div>
 
             <div class="row g-2 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="small fw-bold text-muted mb-1">Search Customer Name/Mobile</label>
                     <input type="text" id="liveSearch" class="form-control form-control-sm shadow-none"
                         placeholder="Type here...">
@@ -166,22 +167,57 @@
                 <div class="col-md-3">
                     <label class="small fw-bold text-muted mb-1">Call Status</label>
                     <select id="statusFilter" class="form-select form-select-sm shadow-none">
-                        <option value="">All Statuses (History)</option>
-                        <option value="Pending" selected>Pending (Fresh Calls)</option>
-                        <option value="Connected">Connected</option>
-                        <option value="Interested">Interested</option>
-                        <option value="Not Reachable">Not Reachable</option>
-                        <option value="Follow Up">Follow Up</option>
-                        <option value="Site Visit Scheduled">Site Visit Scheduled</option>
-                        <option value="Site Visit Done">Site Visit Done</option>
-                        <option value="Booking Done">Booking Done</option>
-                        <option value="Lost">Lost</option>
-                        <option value="Not Interested">Not Interested</option>
+                        <option value="">21. All Status (History)</option>
+                        <option value="pending" selected>22. Pending status</option>
+                        <option value="Connected">1. Connected Call</option>
+                        <option value="Interested">2. Interested Call</option>
+                        <option value="Not Interested">3. Not Interested Call</option>
+                        <option value="Not Answering Call">4. Not Answering Call</option>
+                        <option value="Not Reachable">5. Not Reachable call</option>
+                        <option value="Number Doesn't Exists call">6. Number Doesn't Exists call</option>
+                        <option value="Site visit Scheduled">7. Site visit Scheduled Call</option>
+                        <option value="Site Visit Done">8. Site Visit Done Call</option>
+                        <option value="Booking Done">9. Booking Done</option>
+                        <option value="Lost Lead">10. Lost Lead</option>
+                        <option value="Booking Confirm">11. Booking Confirm</option>
+                        <option value="Follow Up">12. FollowUp Required</option>
+                        <option value="Registry Completed">13. Registry Completed</option>
+                        <option value="On Hold">14. On Hold</option>
+                        <option value="Highly Interested">15. Highly Interested</option>
+                        <option value="Call Back Requested">16. Call Back Requested</option>
+                        <option value="Busy">17. Busy</option>
+                        <option value="Switched Off">18. Switched Off</option>
+                        <option value="DND/Call Rejected">19. DND/Call Rejected</option>
+                        <option value="Price Discussion">20. Price Discussion</option>
+                        <option value="Incoming Call Not Available">23. Incoming Call Not Available</option>
                     </select>
                 </div>
-                <div class="col-md-2 text-end">
-                    <button class="btn btn-sm btn-primary w-100 shadow-sm fw-bold" id="applyFilterBtn"><i
-                            class="fas fa-filter"></i> Apply Filters</button>
+                <div class="col-md-3 text-end d-flex justify-content-end gap-3">
+                    <button class="btn btn-sm btn-warning shadow-sm fw-bold text-dark" id="todayScheduledBtn">
+                        <i class="fas fa-calendar-day"></i> Today's Scheduled
+                    </button>
+                    <button class="btn btn-sm btn-primary shadow-sm fw-bold" id="applyFilterBtn">
+                        <i class="fas fa-filter"></i> Apply Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="summaryCard" class="card shadow-sm border-0 mb-3 d-none bg-light"
+            style="border-left: 4px solid var(--bs-primary) !important;">
+            <div class="card-body p-3">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                    <div>
+                        <h6 class="mb-0 fw-bold text-primary"><i class="fas fa-chart-pie me-2"></i>Filter Summary</h6>
+                        <small class="text-muted" id="summaryFilterText">Showing results for applied filters.</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-primary fs-6 py-1 px-3 shadow-sm rounded-pill">
+                            Total Leads: <span id="totalLeadsCount">0</span>
+                        </span>
+                    </div>
+                </div>
+                <div id="employeeSplitContainer" class="d-flex flex-wrap gap-2 mt-3 border-top pt-3">
                 </div>
             </div>
         </div>
@@ -292,16 +328,28 @@
                                 <label class="form-label small fw-bold text-dark">Call Status *</label>
                                 <select name="call_status" id="callStatus" class="form-select shadow-none border-primary"
                                     required>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Connected">Connected</option>
-                                    <option value="Interested">Interested</option>
-                                    <option value="Not Reachable">Not Reachable</option>
-                                    <option value="Follow Up">Follow Up</option>
-                                    <option value="Site Visit Scheduled">Site Visit Scheduled</option>
-                                    <option value="Site Visit Done">Site Visit Done</option>
-                                    <option value="Booking Done">Booking Done</option>
-                                    <option value="Lost">Lost</option>
-                                    <option value="Not Interested">Not Interested</option>
+                                    <option value="Pending">22. Pending status</option>
+                                    <option value="Connected ">1. Connected Call</option>
+                                    <option value="Interested">2. Interested Call</option>
+                                    <option value="Not Interested">3. Not Interested Call</option>
+                                    <option value="Not Answering Call">4. Not Answering Call</option>
+                                    <option value="Not Reachable">5. Not Reachable call</option>
+                                    <option value="Number Doesn't Exists call">6. Number Doesn't Exists call</option>
+                                    <option value="Site visit Scheduled">7. Site visit Scheduled Call</option>
+                                    <option value="Site Visit Done Call">8. Site Visit Done Call</option>
+                                    <option value="Booking Done">9. Booking Done</option>
+                                    <option value="Lost Lead">10. Lost Lead</option>
+                                    <option value="Booking Confirm">11. Booking Confirm</option>
+                                    <option value="Follow Up">12. FollowUp Required</option>
+                                    <option value="Registry Completed">13. Registry Completed</option>
+                                    <option value="On Hold">14. On Hold</option>
+                                    <option value="Highly Interested">15. Highly Interested</option>
+                                    <option value="Call Back Requested">16. Call Back Requested</option>
+                                    <option value="Busy">17. Busy</option>
+                                    <option value="Switched Off">18. Switched Off</option>
+                                    <option value="DND/Call Rejected">19. DND/Call Rejected</option>
+                                    <option value="Price Discussion">20. Price Discussion</option>
+                                    <option value="Incoming Call Not Available">23. Incoming Call Not Available</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -366,6 +414,54 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="summaryDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white border-0">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-chart-pie me-2"></i> Performance & Hot Leads: <span
+                            id="summaryEmpName" class="text-warning"></span></h5>
+                    <button class="btn btn-sm btn-light ms-auto me-3 fw-bold no-print" id="printSummaryBtn">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button type="button" class="btn-close btn-close-white shadow-none"
+                        data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-list-ul me-1"></i> Call Status Breakdown</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered table-sm text-center align-middle mb-0" id="modalSummaryTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-start">Call Status (Assigned As)</th>
+                                    <th class="text-primary">Assigned Total</th>
+                                    <th class="text-success">Called</th>
+                                    <th class="text-danger">Left (Pending)</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="fw-bold mt-4 text-success mb-3"><i class="fas fa-star me-1"></i> Interested / Hot Leads
+                        List</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm align-middle mb-0" id="modalInterestedTable">
+                            <thead class="table-success">
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Mobile Number</th>
+                                    <th>Refer By</th>
+                                    <th>Current Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -376,6 +472,14 @@
             let currentOffset = 0;
             let limit = 20;
             let userContext = {};
+
+            // 🔥 NAYA CODE: Check if URL has ?filter=today (from Notification)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('filter') === 'today') {
+                setTimeout(function() {
+                    $('#todayScheduledBtn').trigger('click'); // Button ko apne aap daba dega
+                }, 500);
+            }
 
             // --- SELECT2 INITIALIZATION & ACTIONS ---
             function initSelect2(element) {
@@ -423,7 +527,7 @@
                             let emp = res.data[0];
                             select.html(
                                 `<option value="${emp.id}">${emp.full_name} (${emp.member_id})</option>`
-                            );
+                                );
                             select.prop('disabled', true);
                         } else {
                             let html = '<option value="">All Telecallers</option>';
@@ -534,7 +638,6 @@
 
                     if (userContext.is_employee && !userContext.is_god && !userContext
                         .is_director) {
-                        // 🔥 Fixed Designation Selection Issue 🔥
                         if (userContext.designation_id) {
                             $('#desigSelect').val([userContext.designation_id]).trigger('change');
                         } else {
@@ -576,6 +679,7 @@
             }
 
             // --- MAIN DATA LOADING ---
+            // --- MAIN DATA LOADING ---
             function loadAllocations(append = false) {
                 if (!append) {
                     currentOffset = 0;
@@ -597,7 +701,9 @@
                     call_status: $('#statusFilter').val(),
                     month: $('#monthFilter').val(),
                     date: $('#dateFilter').val(),
-                    search: $('#liveSearch').val()
+                    search: $('#liveSearch').val(),
+                    // 🔥 YAHAN NAYA PARAMETER ADD KIYA HAI 🔥
+                    scheduled_today: $('#todayScheduledBtn').hasClass('active-scheduled') ? 1 : 0
                 };
 
                 $.ajax({
@@ -613,6 +719,37 @@
                             renderData(res.data);
                             currentOffset += res.data.length;
                             $('#loadMoreContainer').toggleClass('d-none', !res.has_more);
+
+                            // ==========================================
+                            // 🔥 Summary UI Update Logic
+                            // ==========================================
+                            if (!append) {
+                                $('#totalLeadsCount').text(res.total_count || res.data.length);
+
+                                if (res.employee_summary && res.employee_summary.length > 0) {
+                                    let empHtml = '';
+                                    res.employee_summary.forEach(emp => {
+                                        empHtml += `
+                                        <div class="bg-white border rounded shadow-sm px-3 py-2 d-flex align-items-center emp-summary-badge" data-empid="${emp.id}" data-emptype="${emp.type}" data-empname="${emp.name}" style="cursor: pointer; transition: 0.2s;">
+                                            <i class="fas fa-user-circle text-info fs-5 me-2"></i>
+                                            <div class="lh-1">
+                                                <small class="text-muted d-block fw-bold" style="font-size: 10px;">TELECALLER</small>
+                                                <span class="fw-bold text-dark fs-6">${emp.name}</span>
+                                            </div>
+                                            <div class="ms-3 ps-3 border-start">
+                                                <span class="badge bg-danger fs-6">${emp.count}</span>
+                                            </div>
+                                        </div>`;
+                                    });
+                                    $('#employeeSplitContainer').html(empHtml);
+                                } else {
+                                    $('#employeeSplitContainer').html(
+                                        '<span class="text-muted small">No specific telecaller split available.</span>'
+                                        );
+                                }
+                                $('#summaryCard').removeClass('d-none');
+                            }
+
                         } else if (!append) {
                             $('#callTableBody').html(
                                 '<tr><td colspan="6" class="text-center py-4 text-muted">No calls found in this filter.</td></tr>'
@@ -621,6 +758,7 @@
                                 '<div class="text-center py-4 text-muted bg-white rounded shadow-sm">No calls found.</div>'
                             );
                             $('#loadMoreContainer').addClass('d-none');
+                            $('#summaryCard').addClass('d-none');
                         }
                         updateBulkActionBar();
                         if (typeof window.applyPermissions === 'function') window.applyPermissions();
@@ -646,6 +784,10 @@
                         `<br><button class="btn btn-sm btn-outline-info mt-1 py-0 px-2 fw-bold show-phase-btn" data-name="${phaseName}" data-desc="${phaseDesc}" data-img="${phaseImg}"><i class="fas fa-info-circle"></i> View Details</button>` :
                         '';
 
+                    let systemRemark = item.remark ?
+                        `<br><small class="text-danger fw-bold" style="font-size: 11px; background: #fff5f5; padding: 2px 4px; border-radius: 4px; border: 1px solid #ffcccc;"><i class="fas fa-info-circle"></i> ${item.remark}</small>` :
+                        '';
+
                     let bgClass = item.call_status === 'Pending' ? 'warning' : (item.call_status ===
                         'Connected' ? 'success' : (item.call_status === 'Lost' ? 'danger' : 'info'));
                     let statusBadge =
@@ -665,7 +807,7 @@
                     $('#callTableBody').append(`
                     <tr class="data-row">
                         <td class="ps-4"><input type="checkbox" class="form-check-input row-checkbox shadow-none" value="${item.id}"></td>
-                        <td class="fw-bold text-dark">${cName}</td>
+                        <td class="fw-bold text-dark">${cName} ${systemRemark}</td>
                         <td>
                             <a href="tel:${cPhone}" class="text-decoration-none fw-bold text-primary"><i class="fas fa-phone-square-alt me-1"></i>${cPhone}</a>
                             ${cAltPhone}
@@ -692,6 +834,7 @@
                                 <h6 class="mb-0 fw-bold text-dark"><input type="checkbox" class="form-check-input row-checkbox shadow-none me-2" value="${item.id}">${cName}</h6>
                                 ${statusBadge}
                             </div>
+                            ${item.remark ? `<div class="mb-2">${systemRemark}</div>` : ''}
                             <div class="mb-2">
                                 <a href="tel:${cPhone}" class="text-decoration-none fw-bold text-primary"><i class="fas fa-phone-alt me-1"></i>${cPhone}</a>
                                 ${cAltPhone}
@@ -716,6 +859,38 @@
             $('#applyFilterBtn').on('click', function() {
                 loadAllocations(false);
             });
+
+        // 🔥 NAYA CODE: Today's Scheduled Quick Filter (Smart Toggle) 🔥
+            $('#todayScheduledBtn').on('click', function() {
+                $(this).toggleClass('active-scheduled');
+                
+                if ($(this).hasClass('active-scheduled')) {
+                    // Button ko red karke active dikhao
+                    $(this).removeClass('btn-warning').addClass('btn-danger').html('<i class="fas fa-calendar-check"></i> Showing Scheduled');
+                    
+                    // Baaki normal filters clear kar do taaki dates clash na karein
+                    $('#dateFilter').val('');
+                    $('#statusFilter').val('');
+                    $('#monthFilter').val('');
+                    $('#liveSearch').val('');
+                } else {
+                    // Wapas normal mode
+                    $(this).removeClass('btn-danger').addClass('btn-warning').html('<i class="fas fa-calendar-day"></i> Today\'s Scheduled');
+                }
+                
+                loadAllocations(false);
+            });
+
+            $('#applyFilterBtn').on('click', function() {
+                // Agar normal filter apply kiya toh Scheduled wala toggle band kar do
+                $('#todayScheduledBtn').removeClass('active-scheduled btn-danger').addClass('btn-warning').html('<i class="fas fa-calendar-day"></i> Today\'s Scheduled');
+                loadAllocations(false);
+            });
+
+            $('#loadMoreBtn').on('click', function() {
+                loadAllocations(true);
+            });
+
             $('#loadMoreBtn').on('click', function() {
                 loadAllocations(true);
             });
@@ -792,34 +967,33 @@
                 });
             });
 
-
-            // 🔥 DETAILED EXCEL EXPORT (With Called At Timestamp) 🔥
+            // DETAILED EXCEL EXPORT
             $('#exportExcelBtn').on('click', function() {
                 let btn = $('#exportBtnText');
                 btn.text('Exporting...');
                 $('#exportExcelBtn').prop('disabled', true);
 
-                let payload = {
-                    export: 1,
+               let payload = {
+                    offset: currentOffset,
                     company_ids: getSelected('companySelect'),
                     branch_ids: getSelected('branchSelect'),
                     department_ids: getSelected('deptSelect'),
                     designation_ids: getSelected('desigSelect'),
-                    assignee_ids: $('#assigneeSelect').val() ? $('#assigneeSelect').val().join(',') : $(
-                        '#assigneeFilter').val(),
+                    assignee_ids: $('#assigneeSelect').val() ? $('#assigneeSelect').val().join(',') : $('#assigneeFilter').val(),
                     call_status: $('#statusFilter').val(),
                     month: $('#monthFilter').val(),
                     date: $('#dateFilter').val(),
-                    search: $('#liveSearch').val()
+                    search: $('#liveSearch').val(),
+                    // 🔥 NAYA PARAMETER
+                    scheduled_today: $('#todayScheduledBtn').hasClass('active-scheduled') ? 1 : 0
                 };
-
+                
                 $.ajax({
                     url: apiPrefix + '/telecalling/allocations',
                     type: 'GET',
                     data: payload,
                     success: function(res) {
                         if (res.data && res.data.length > 0) {
-                            // 🔥 NAYA: 'Called At' column header me add kiya gaya hai
                             let csv =
                                 "Company,Branch,Department,Designation,Telecaller Name,Telecaller ID,Customer Name,Mobile,Alternate Mobile,Email,Address,DOB,Anniversary,Phase,Task,Status,Interested For,Budget,Follow-up,Remarks,Called At\n";
 
@@ -841,7 +1015,6 @@
                                 let custName = (cust.cust_name || '').replace(/,/g,
                                 " ");
                                 let custMob = (cust.mobile || '');
-
                                 let altMob = (cust.alternate_no || '');
                                 let emailId = (cust.email || '').replace(/,/g, " ");
                                 let address = (cust.address || '').replace(/\n/g, " ")
@@ -859,8 +1032,6 @@
                                 let bud = (item.budget || '').replace(/,/g, " ");
                                 let rem = (item.remark || '').replace(/\n/g, " ")
                                     .replace(/,/g, " ");
-
-                                // 🔥 NAYA: called_at field ko row me add kiya gaya
                                 let calledAt = (item.called_at || '');
 
                                 csv +=
@@ -903,7 +1074,7 @@
             });
 
             function updateBulkActionBar() {
-                let c = $('.data-row:visible .row-checkbox:checked').length / 2; // TR and Card duplicate handle
+                let c = $('.data-row:visible .row-checkbox:checked').length / 2;
                 $('#selectedCount').text(Math.ceil(c));
                 c > 0 ? $('#bulkActionBar').removeClass('d-none') : $('#bulkActionBar').addClass('d-none');
             }
@@ -928,53 +1099,177 @@
                 }
             });
 
-     // 🔥 DETAILED PRINT REPORT (AJAX FIX) 🔥
-        $('#printReportBtn').on('click', function() {
-            let btn = $(this);
-            let originalHtml = btn.html();
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Generating...');
+            // DETAILED PRINT REPORT
+            $('#printReportBtn').on('click', function() {
+                let btn = $(this);
+                let originalHtml = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Generating...');
 
-            let payload = {
-                company_ids: getSelected('companySelect'),
-                branch_ids: getSelected('branchSelect'),
-                department_ids: getSelected('deptSelect'),
-                designation_ids: getSelected('desigSelect'),
-                assignee_ids: $('#assigneeSelect').val() ? $('#assigneeSelect').val().join(',') : $('#assigneeFilter').val(),
-                call_status: $('#statusFilter').val(),
-                month: $('#monthFilter').val(),
-                date: $('#dateFilter').val(),
-                search: $('#liveSearch').val()
-            };
+                let payload = {
+                    company_ids: getSelected('companySelect'),
+                    branch_ids: getSelected('branchSelect'),
+                    department_ids: getSelected('deptSelect'),
+                    designation_ids: getSelected('desigSelect'),
+                    assignee_ids: $('#assigneeSelect').val() ? $('#assigneeSelect').val().join(',') : $(
+                        '#assigneeFilter').val(),
+                    call_status: $('#statusFilter').val(),
+                    month: $('#monthFilter').val(),
+                    date: $('#dateFilter').val(),
+                    search: $('#liveSearch').val()
+                };
 
-            // AJAX ke zariye request bhejenge taaki API Token sath me jaye
-            $.ajax({
-                url: apiPrefix + '/telecalling/allocations/print',
-                type: 'GET',
-                data: payload,
-                success: function(htmlResponse) {
-                    // Naya tab kholo
-                    let printWindow = window.open('', '_blank');
-                    
-                    // Naye tab me backend se aayi hui HTML right kar do
-                    printWindow.document.open();
-                    printWindow.document.write(htmlResponse);
-                    printWindow.document.close();
-                    
-                    // 1 second ka wait karke auto-print popup open kar do
-                    setTimeout(function() {
-                        printWindow.print();
-                    }, 1000);
-                },
-                error: function(xhr) {
-                    Swal.fire('Error', 'Failed to generate print report.', 'error');
-                },
-                complete: function() {
-                    btn.prop('disabled', false).html(originalHtml);
-                }
+                $.ajax({
+                    url: apiPrefix + '/telecalling/allocations/print',
+                    type: 'GET',
+                    data: payload,
+                    success: function(htmlResponse) {
+                        let printWindow = window.open('', '_blank');
+                        printWindow.document.open();
+                        printWindow.document.write(htmlResponse);
+                        printWindow.document.close();
+
+                        setTimeout(function() {
+                            printWindow.print();
+                        }, 1000);
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', 'Failed to generate print report.', 'error');
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).html(originalHtml);
+                    }
+                });
             });
-        });
 
+          // 🔥 Print Detailed Summary Logic (FIXED: AJAX ke zariye taaki Token jaye aur redirect na ho) 🔥
+          // 🔥 Print Detailed Summary Logic (FIXED: Current Employee Ka Data Bhejega) 🔥
+            $('#printSummaryBtn').on('click', function() {
+                let btn = $(this);
+                let originalHtml = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Print...');
 
+                // Modal ke title se pehle hum data- attributes set karenge
+                let empId = btn.data('empid'); 
+                let empType = btn.data('emptype');
+                
+                let payload = {
+                    emp_id: empId,
+                    emp_type: empType,
+                    call_status: $('#statusFilter').val(),
+                    month: $('#monthFilter').val(),
+                    date: $('#dateFilter').val()
+                };
+
+                $.ajax({
+                    url: apiPrefix + '/telecalling/allocations/summary/print',
+                    type: 'GET',
+                    data: payload,
+                    success: function(htmlResponse) {
+                        let printWindow = window.open('', '_blank');
+                        printWindow.document.open();
+                        printWindow.document.write(htmlResponse);
+                        printWindow.document.close();
+                        
+                        setTimeout(function() {
+                            printWindow.print();
+                        }, 1000);
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', 'Print report fetch karne me error aayi.', 'error');
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).html(originalHtml);
+                    }
+                });
+            });
+
+          
+           // 🔥 Unified Detailed Summary Button Click Logic 🔥
+            $(document).on('click', '.emp-summary-badge', function() {
+                let btn = $(this);
+                
+                let empId = btn.data('empid'); 
+                let empType = btn.data('emptype');
+                let empName = btn.data('empname');
+                
+                // NAYA: Print button me current employee ka ID store kar rahe hain taaki print usika nikle
+                $('#printSummaryBtn').data('empid', empId).data('emptype', empType);
+
+                // Header Name Update
+                $('#summaryEmpName').text(empName);
+
+                let originalText = btn.html();
+                btn.css('pointer-events', 'none').animate({opacity: 0.5}, 200);
+
+                $.ajax({
+                    url: apiPrefix + '/telecalling/allocations/detailed-summary',
+                    type: 'GET',
+                    data: {
+                        emp_id: empId,
+                        emp_type: empType,
+                        date: $('#dateFilter').val(),
+                        month: $('#monthFilter').val()
+                    },
+                    success: function(res) {
+                        if (res.status === 'success') {
+                            // 1. Table me Summary dalo
+                            let summaryHtml = '';
+                            let tAssigned = 0,
+                                tCalled = 0,
+                                tLeft = 0;
+                            $.each(res.summary, function(status, counts) {
+                                summaryHtml += `<tr>
+                                    <td class="text-start fw-bold ps-3">${status}</td>
+                                    <td class="text-primary fw-bold">${counts.assigned}</td>
+                                    <td class="text-success fw-bold">${counts.called}</td>
+                                    <td class="text-danger fw-bold">${counts.left}</td>
+                                </tr>`;
+                                tAssigned += counts.assigned;
+                                tCalled += counts.called;
+                                tLeft += counts.left;
+                            });
+
+                            if (tAssigned === 0) {
+                                summaryHtml =
+                                    '<tr><td colspan="4" class="text-muted py-3">No summary data found for applied filters.</td></tr>';
+                            } else {
+                                summaryHtml += `<tr class="table-dark">
+                                    <td class="text-end fw-bold">TOTAL:</td>
+                                    <td class="fw-bold fs-6 text-primary">${tAssigned}</td>
+                                    <td class="fw-bold fs-6 text-success">${tCalled}</td>
+                                    <td class="fw-bold fs-6 text-danger">${tLeft}</td>
+                                </tr>`;
+                            }
+                            $('#modalSummaryTable tbody').html(summaryHtml);
+
+                            // 2. Table me Interested Leads dalo
+                            let intHtml = '';
+                            if (res.interested_customers.length > 0) {
+                                $.each(res.interested_customers, function(i, cust) {
+                                    intHtml += `<tr>
+                                        <td class="fw-bold text-dark">${cust.name}</td>
+                                        <td>${cust.mobile}</td>
+                                        <td>${cust.refer_by}</td>
+                                        <td><span class="badge bg-success shadow-sm">${cust.status}</span></td>
+                                    </tr>`;
+                                });
+                            } else {
+                                intHtml =
+                                    `<tr><td colspan="4" class="text-center text-muted py-3">No interested leads found in this filter.</td></tr>`;
+                            }
+                            $('#modalInterestedTable tbody').html(intHtml);
+
+                            // Modal Open karo
+                            $('#summaryDetailsModal').modal('show');
+                        }
+                    },
+                    complete: function() {
+                        btn.css('pointer-events', 'auto').animate({
+                            opacity: 1
+                        }, 200);
+                    }
+                });
+            });
 
         });
     </script>

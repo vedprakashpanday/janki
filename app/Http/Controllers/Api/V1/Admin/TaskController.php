@@ -22,58 +22,56 @@ class TaskController extends Controller
         $this->mediaConverter = $mediaConverter;
     }
 
-    public function index(Request $request)
+    public function index(\Illuminate\Http\Request $request)
     {
         $context = $this->getGlobalContext();
         $user = auth()->user();
-
-        if ($context->is_employee || $context->is_member) {
-            $this->autoSyncDynamicTasks($user);
-        }
-
-        // 🔥 NAYA: 'phase' relation load kiya gaya hai
-        $query = Task::with([
-            'assigner',
-            'assignee',
-            'trackingModule',
-            'phase',
-            'progressLogs' => function ($q) {
-                $q->with('actor')->orderBy('created_at', 'desc');
-            }
-        ]);
-
-        if ($context->is_god) {
-            if ($request->filled('company_id')) $query->where('company_id', $request->company_id);
-            if ($request->filled('branch_id')) $query->where('branch_id', $request->branch_id);
-        } elseif ($context->is_director) {
-            $query->where('company_id', $context->company_id);
-            if ($request->filled('branch_id')) $query->where('branch_id', $request->branch_id);
-        } else {
-            $query->where(function ($q) use ($user) {
-                $q->where(function ($subQ) use ($user) {
-                    $subQ->where('assignee_type', get_class($user))->where('assignee_id', $user->id);
-                })->orWhere(function ($subQ) use ($user) {
-                    $subQ->where('assigner_type', get_class($user))->where('assigner_id', $user->id);
-                });
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        $tasks = $query->orderBy('created_at', 'desc')->get();
-
-        $tasks->map(function ($task) {
-            try {
-                $task->syncLiveProgress();
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error("Task Progress Sync Failed for Task {$task->id}: " . $e->getMessage());
-            }
-            return $task;
+        
+        $query = \App\Models\Task::with(['assignee', 'phase', 'progressLogs.actor', 'attachments']);
+        
+        // 1. Separation: Staff ya Associate (Default Staff)
+        $assigneeType = $request->get('type', 'App\Models\Employee'); 
+        $query->where('assignee_type', $assigneeType);
+        
+        // 2. Sirf Aaj Ke Tasks (Current Date)
+        $today = now()->toDateString();
+        $query->whereDate('created_at', $today);
+        
+        // 3. Sirf "Active" Staff ya Members ke Tasks
+        $query->whereHasMorph('assignee', [$assigneeType], function($q) use ($assigneeType) {
+             if ($assigneeType === 'App\Models\Employee') {
+                 $q->where('emp_status', 'active');
+             } else {
+                 $q->where('status', 'active');
+             }
         });
 
-        return response()->json(['status' => 'success', 'data' => $tasks]);
+        // 4. 🔥 THE BYPASS & SECURITY LOGIC 🔥
+        if ($context->is_god || $context->role_level === 'ceo') {
+            // God / Developer / CEO: Sab kuch dikhega (Full Bypass)
+        } 
+        elseif ($context->is_director) {
+            // Director: Sirf apni company ka dikhega
+            $query->where('company_id', $context->company_id);
+        } 
+        else {
+            // Normal Employee / Assigned Member
+            // Agar employee ke paas dusro ke tasks dekhne ki permission hai:
+            if (in_array('task_view_all', $context->permissions ?? [])) {
+                 $query->where('branch_id', $context->branch_id);
+            } else {
+                 // Warna sirf apna task dikhega
+                 $query->where('assignee_id', $user->id);
+            }
+        }
+        
+        // Sort karke return karein
+        $tasks = $query->latest()->get();
+        
+        return response()->json([
+            'status' => 'success', 
+            'data' => $tasks
+        ]);
     }
 
     private function autoSyncDynamicTasks($user)
@@ -260,20 +258,39 @@ class TaskController extends Controller
                 $assigneeRecord = $target['record'];
                 $count = $target['count'];
 
-                $portal = 'admin';
-                if (str_contains(get_class($assigneeRecord), 'Employee') || str_contains(get_class($assigneeRecord), 'adm_regist')) {
-                    $portal = 'employee';
-                } elseif (str_contains(get_class($assigneeRecord), 'Member')) {
-                    $portal = 'customer';
-                }
+                // JAB LOOP ME TASK CREATE HOTA HAI (Uske thik baad Notification bhejein)
+        
+        // Check Portal Type
+        $portal = str_contains($request->assignee_type, 'Employee') ? 'employee' : 'member';
+        $assigneeRecord = $request->assignee_type::find($assigneeId);
 
-                $assigneeRecord->notify(new SystemAlertNotification(
-                    "New Task Assigned",
-                    "You have been assigned {$count} new task(s) by {$assignerName}.",
-                    "/{$portal}/tasks",
-                    "fa-tasks",
-                    "text-success"
-                ));
+        if ($assigneeRecord) {
+            // 🔥 SMART NOTIFICATION SEGREGATION 🔥
+            if ($task->target_count > 0) {
+                // Target Based Task (Blue color, Bullseye icon)
+                $notifTitle = "🎯 New Target Task Assigned";
+                $notifIcon = "fa-bullseye";
+                $notifColor = "text-primary";
+            } else {
+                // Manual Task (Orange color, Pin icon)
+                $notifTitle = "📌 New Manual Task Assigned";
+                $notifIcon = "fa-thumbtack";
+                $notifColor = "text-warning";
+            }
+
+            $notifMsg = "Task: " . $task->title . " \nPriority: " . $task->priority;
+            // 🔥 SMART ROUTING LOGIC 🔥
+        $taskRoute = str_contains($task->assignee_type, 'Employee') ? 'tasks/staff' : 'tasks/associates';
+        $targetUrl = "/{$portal}/{$taskRoute}";
+
+            $assigneeRecord->notify(new \App\Notifications\SystemAlertNotification(
+                $notifTitle,
+                $notifMsg,
+               $targetUrl, // Link to open Tasks page
+                $notifIcon,
+                $notifColor
+            ));
+        }
             }
 
             return response()->json([
@@ -428,10 +445,14 @@ class TaskController extends Controller
                 $truncatedTitle = \Illuminate\Support\Str::limit($task->title, 25);
                 $truncatedMsg = \Illuminate\Support\Str::limit($request->message_or_remark, 40);
 
+                // 🔥 SMART ROUTING LOGIC 🔥
+        $taskRoute = str_contains($task->assignee_type, 'Employee') ? 'tasks/staff' : 'tasks/associates';
+        $targetUrl = "/{$portal}/{$taskRoute}";
+
                 $receiverRecord->notify(new SystemAlertNotification(
                     "Task Update: {$truncatedTitle}",
                     "New msg from {$senderName}: {$truncatedMsg}",
-                    "/{$portal}/tasks",
+                   $targetUrl,
                     "fa-comments",
                     "text-info"
                 ));
@@ -529,10 +550,11 @@ class TaskController extends Controller
         try {
             $context = $this->getGlobalContext();
 
-            $query = Task::with([
+           $query = Task::with([
                 'assignee',
                 'progressLogs' => function ($q) {
-                    $q->with('actor')->orderBy('created_at', 'asc');
+                    // 🔥 NAYA: 'attachments' add kiya gaya hai
+                    $q->with(['actor', 'attachments'])->orderBy('created_at', 'asc');
                 }
             ]);
 
@@ -543,12 +565,29 @@ class TaskController extends Controller
                 ]);
             }
 
-            if ($request->filled('employee_id')) {
-                $query->where('assignee_id', $request->employee_id)
-                    ->where('assignee_type', 'App\Models\Employee');
+          // 🔥 FIX 2: Handle Frontend's 'assignee_ids' array and other dropdown filters 🔥
+            if ($request->filled('assignee_ids')) {
+                $assigneeIds = explode(',', $request->assignee_ids);
+                $query->whereIn('assignee_id', $assigneeIds);
+            } elseif ($request->filled('employee_id')) {
+                $query->where('assignee_id', $request->employee_id)->where('assignee_type', 'App\Models\Employee');
             } elseif ($request->filled('member_id')) {
-                $query->where('assignee_id', $request->member_id)
-                    ->where('assignee_type', 'App\Models\Member');
+                $query->where('assignee_id', $request->member_id)->where('assignee_type', 'App\Models\Member');
+            }
+
+            // Report generation ke waqt baki Multi-Select parameters par bhi filter apply karna zaroori hai
+            if ($request->filled('company_ids')) {
+                $query->whereIn('company_id', explode(',', $request->company_ids));
+            }
+            if ($request->filled('branch_ids')) {
+                $branchIds = [];
+                foreach(explode(',', $request->branch_ids) as $b) {
+                    if(!str_starts_with($b, 'HO_')) $branchIds[] = $b;
+                }
+                if(count($branchIds) > 0) $query->whereIn('branch_id', $branchIds);
+            }
+            if ($request->filled('department_ids')) {
+                $query->whereIn('department_id', explode(',', $request->department_ids));
             }
 
             if ($request->filled('status')) {
@@ -589,13 +628,20 @@ class TaskController extends Controller
                     $report[$empId]['pending_tasks']++;
                 }
 
-                $logs = [];
+               $logs = [];
                 foreach ($task->progressLogs as $log) {
                     $logs[] = [
                         'date' => $log->created_at->format('d M, h:i A'),
                         'actor' => $log->actor ? ($log->actor->full_name ?? $log->actor->member_name ?? $log->actor->name) : 'System',
                         'message' => $log->message_or_remark,
-                        'type' => $log->log_type
+                        'type' => $log->log_type,
+                        // 🔥 NAYA: Frontend ko attachments bhejne ka code 🔥
+                        'attachments' => $log->attachments ? $log->attachments->map(function ($file) {
+                            return [
+                                'file_name' => $file->file_name,
+                                'file_path' => $file->file_path
+                            ];
+                        })->toArray() : []
                     ];
                 }
 
@@ -625,4 +671,81 @@ class TaskController extends Controller
             ], 500);
         }
     }
+
+// 🔥 Edit Chat Message (With 5-Min Strict Validation)
+    public function editReply(\Illuminate\Http\Request $request, $log_id)
+    {
+        $request->validate(['message_or_remark' => 'required|string']);
+        $log = \App\Models\TaskProgressLog::findOrFail($log_id);
+        
+        $user = auth()->user();
+        $isOwner = ($log->actor_type === get_class($user) && $log->actor_id === $user->id);
+        $context = $this->getGlobalContext();
+        
+        // SuperUser Check (Developer, Admin, CEO, Director)
+        $isSuperUser = $context->is_god || in_array(strtolower($context->role_level ?? ''), ['ceo', 'director', 'admin']);
+
+        if (!$isOwner && !$isSuperUser) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized to edit this message'], 403);
+        }
+
+        // 🔥 BACKEND FIX: 5 Minute Edit Limit for Regular Users
+        if ($isOwner && !$isSuperUser) {
+            $minutesPassed = $log->created_at->diffInMinutes(now());
+            if ($minutesPassed > 5) {
+                return response()->json(['success' => false, 'message' => 'Time limit exceeded! You can only edit messages within 5 minutes.'], 403);
+            }
+        }
+
+        if ($log->is_deleted) {
+            return response()->json(['success' => false, 'message' => 'Cannot edit a deleted message'], 400);
+        }
+
+        $log->message_or_remark = $request->message_or_remark;
+        $log->is_edited = 1;
+        $log->save();
+
+        broadcast(new \App\Events\TaskProgressUpdated($log->task_id, $log))->toOthers();
+
+        return response()->json(['success' => true, 'message' => 'Message updated successfully']);
+    }
+
+    // 🔥 Delete Chat Message (Soft Delete for Admins visibility)
+    public function deleteReply(\Illuminate\Http\Request $request, $log_id)
+    {
+        $request->validate(['delete_type' => 'required|in:for_me,for_everyone']);
+        $log = \App\Models\TaskProgressLog::findOrFail($log_id);
+        
+        $user = auth()->user();
+        $isOwner = ($log->actor_type === get_class($user) && $log->actor_id === $user->id);
+        $context = $this->getGlobalContext();
+        $isSuperUser = $context->is_god || in_array(strtolower($context->role_level ?? ''), ['ceo', 'director', 'admin']);
+
+        if ($request->delete_type === 'for_everyone') {
+            if (!$isOwner && !$isSuperUser) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+            
+            // 🔥 BACKEND FIX: Do NOT overwrite text and Do NOT delete physical attachments. Just flag it!
+            $log->is_deleted = 1;
+            $log->save();
+
+            broadcast(new \App\Events\TaskProgressUpdated($log->task_id, $log))->toOthers();
+
+        } else {
+            // Delete for Me logic
+            $deletedFor = $log->deleted_for ? (is_array($log->deleted_for) ? $log->deleted_for : json_decode($log->deleted_for, true)) : [];
+            $userIdentifier = get_class($user) . '_' . $user->id;
+            
+            if (!in_array($userIdentifier, $deletedFor)) {
+                $deletedFor[] = $userIdentifier;
+                $log->deleted_for = json_encode($deletedFor);
+                $log->save();
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Message deleted successfully']);
+    }
+      
+
 }

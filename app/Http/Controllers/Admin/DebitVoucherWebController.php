@@ -11,12 +11,24 @@ use Illuminate\Support\Facades\DB;
 
 class DebitVoucherWebController extends Controller
 {
-    // List/Datatable dikhane ke liye
+   // 1. Current Date Data ke liye (Prefix: dv_)
     public function index()
     {
-        return view('admin.debit_vouchers.index');
+        return view('admin.debit_vouchers.index', [
+            'prefix' => 'dv_',
+            'source' => 'index'
+        ]);
     }
 
+    // 2. All Time Data / Directory ke liye (Prefix: dv_dir_)
+    public function directory()
+    {
+        // Notice karein ki view same 'index' load ho raha hai, bas prefix aur source change ho gaye hain
+        return view('admin.debit_vouchers.index', [
+            'prefix' => 'dv_dir_',
+            'source' => 'directory'
+        ]);
+    }
     // Form dikhane ke liye
     public function create()
     {

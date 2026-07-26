@@ -339,6 +339,8 @@ if (!$user->can('company_delete')) {
             $query->where('id', $user->company_id);
         }
 
+        
+
         $companies = $query->get();
         return response()->json(['status' => 'success', 'data' => $companies]);
     }
@@ -373,4 +375,34 @@ if (!$user->can('company_delete')) {
 
         return ['latitude' => null, 'longitude' => null];
     }
+
+  public function searchDynamic(Request $request)
+    {
+        $q = $request->q;
+        if (strlen($q) < 3) return response()->json(['status' => 'success', 'data' => []]);
+
+        $context = $this->getGlobalContext();
+        $query = \App\Models\Company::where('status', 'active')
+            ->where(function($sq) use ($q) {
+                $sq->where('company_name', 'LIKE', "%{$q}%")
+                   ->orWhere('company_code', 'LIKE', "%{$q}%");
+            });
+
+        // 🔥 Master HO Bypass Logic
+        $isMasterHO = false;
+        if ($context->is_employee && empty($context->branch_id) && !empty($context->company_id)) {
+            $comp = \App\Models\Company::find($context->company_id);
+            if ($comp && empty($comp->parent_id)) $isMasterHO = true;
+        }
+
+        if (!$context->is_god && !$context->is_director && !$isMasterHO && $context->company_id) {
+            $query->where('id', $context->company_id);
+        }
+
+        $companies = $query->limit(20)->get(['id', 'company_name', 'company_code']);
+        return response()->json(['status' => 'success', 'data' => $companies]);
+    }
+
+
+
 }

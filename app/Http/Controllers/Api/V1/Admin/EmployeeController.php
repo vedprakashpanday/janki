@@ -39,9 +39,8 @@ class EmployeeController extends Controller
         return $prefix . str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
     }
 
-    // Auto-Rearrange IDs based on Date of Joining (DOJ)
     private function resequenceCompanyEmployees($companyId)
-    {
+{
         if (!$companyId) return;
 
         $companyCode = 'MST';
@@ -51,92 +50,124 @@ class EmployeeController extends Controller
         $prefix = $companyCode . '-A/';
         $svcPrefix = $companyCode . '-A/SVC/';
 
+        // 🔥 FIX: 0001 se 0006 sequence wale employees ko skip karne ke liye NOT LIKE use kiya hai
         $employees = Employee::where('company_id', $companyId)
+            ->where(function ($q) {
+                for ($i = 1; $i <= 6; $i++) {
+                    $suffix = str_pad($i, 4, '0', STR_PAD_LEFT); // 0001, 0002... 0006
+                    $q->where('member_id', 'NOT LIKE', '%' . $suffix);
+                }
+            })
             ->orderBy('doj', 'asc')
             ->orderBy('id', 'asc')
             ->get();
 
         $updates = [];
-        $seq = 7;
+        $seq = 7; // Sequence 7 se hi shuru hogi, un-shuffled IDs safely ignored rahengi
 
-        foreach ($employees as $emp) {
-            $newMemberId = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
-            $newServiceId = $svcPrefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
+            foreach ($employees as $emp) {
+                $newMemberId = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
+                $newServiceId = $svcPrefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
-            if ($emp->member_id !== $newMemberId) {
-                $expectedOldServiceId = str_replace('-A/', '-A/SVC/', $emp->member_id);
-                $shouldUpdateServiceId = ($emp->service_id === $expectedOldServiceId);
+                if ($emp->member_id !== $newMemberId) {
+                    $expectedOldServiceId = str_replace('-A/', '-A/SVC/', $emp->member_id);
+                    $shouldUpdateServiceId = ($emp->service_id === $expectedOldServiceId);
 
-                $updates[] = [
-                    'id' => $emp->id,
-                    'old_member_id' => $emp->member_id,
-                    'new_member_id' => $newMemberId,
-                    'new_service_id' => $shouldUpdateServiceId ? $newServiceId : $emp->service_id,
-                    'temp_member_id' => 'TMP-' . $emp->id . '-' . time() . rand(10, 99)
-                ];
+                    $updates[] = [
+                        'id' => $emp->id,
+                        'old_member_id' => $emp->member_id,
+                        'new_member_id' => $newMemberId,
+                        'new_service_id' => $shouldUpdateServiceId ? $newServiceId : $emp->service_id,
+                        'temp_member_id' => 'TMP-' . $emp->id . '-' . time() . rand(10, 99)
+                    ];
+                }
+                $seq++;
             }
-            $seq++;
-        }
 
-        foreach ($updates as $up) {
-            $old = $up['old_member_id'];
-            $tmp = $up['temp_member_id'];
+            foreach ($updates as $up) {
+                $old = $up['old_member_id'];
+                $tmp = $up['temp_member_id'];
 
-            EmployeeBankDetail::where('member_id', $old)->update(['member_id' => $tmp]);
-            ServiceRecord::where('member_id', $old)->update(['member_id' => $tmp]);
-            \App\Models\EmployeeLogin::where('user_id', $old)->update(['user_id' => $tmp]);
-            DB::table('adm_regist')->where('id', $up['id'])->update(['member_id' => $tmp]);
-        }
+                EmployeeBankDetail::where('member_id', $old)->update(['member_id' => $tmp]);
+                ServiceRecord::where('member_id', $old)->update(['member_id' => $tmp]);
+                \App\Models\EmployeeLogin::where('user_id', $old)->update(['user_id' => $tmp]);
+                DB::table('adm_regist')->where('id', $up['id'])->update(['member_id' => $tmp]);
+            }
 
-        foreach ($updates as $up) {
-            $tmp = $up['temp_member_id'];
-            $newMem = $up['new_member_id'];
-            $newSvc = $up['new_service_id'];
+            foreach ($updates as $up) {
+                $tmp = $up['temp_member_id'];
+                $newMem = $up['new_member_id'];
+                $newSvc = $up['new_service_id'];
 
-            EmployeeBankDetail::where('member_id', $tmp)->update(['member_id' => $newMem]);
-            ServiceRecord::where('member_id', $tmp)->update([
-                'member_id' => $newMem,
-                'service_id' => $newSvc
-            ]);
-            \App\Models\EmployeeLogin::where('user_id', $tmp)->update(['user_id' => $newMem]);
-            DB::table('adm_regist')->where('id', $up['id'])->update([
-                'member_id' => $newMem,
-                'service_id' => $newSvc
-            ]);
-        }
-    }
+                EmployeeBankDetail::where('member_id', $tmp)->update(['member_id' => $newMem]);
+                ServiceRecord::where('member_id', $tmp)->update([
+                    'member_id' => $newMem,
+                    'service_id' => $newSvc
+                ]);
+                \App\Models\EmployeeLogin::where('user_id', $tmp)->update(['user_id' => $newMem]);
+                DB::table('adm_regist')->where('id', $up['id'])->update([
+                    'member_id' => $newMem,
+                    'service_id' => $newSvc
+                ]);
+            }
+}
 
-    public function index(Request $request)
+   public function index(Request $request)
     {
         $context = $this->getGlobalContext();
 
-       // 🔥 FIX: Relation load karte waqt agar branch_id NULL hai toh use reject nahi karna hai
         $query = Employee::with([
-            'company' => function ($q) {
-                $q->where('status', 'active');
-            },
-            'branch' => function ($q) {
-                // Yahan se strict where hatakar sirf active branch laane ka logic lagaya hai
-                $q->where('branch_status', 'active');
-            },
-            'department' => function ($q) {
-                $q->where('status', 'active');
-            },
+            'company' => function ($q) { $q->where('status', 'active'); },
+            'branch' => function ($q) { $q->where('branch_status', 'active'); },
+            'department' => function ($q) { $q->where('status', 'active'); },
             'designation',
-            'bankDetails' // 🔥 Isko bhi zaroor add karein taaki data aaye
+            'bankDetails' 
         ]);
-       // 🔥 1. Sirf ACTIVE employees ko lana hai
- 
 
-        if (!$context->is_god) {
+    // 🔥 BYPASS AUR ACCESS LOGIC 🔥
+        if (!$context->is_god) { 
+            $userPerms = $context->permissions ?? [];
+
+            if (!in_array('employee_view', $userPerms) && !in_array('emp_dir_view', $userPerms)) {
+                return response()->json([
+                    "draw" => intval($request->input('draw')),
+                    "recordsTotal" => 0,
+                    "recordsFiltered" => 0,
+                    "data" => []
+                ]);
+            }
+
             if ($context->is_director) {
+                // Director apni puri company dekh sakta hai
                 $query->where('company_id', $context->company_id);
-            } elseif ($context->is_employee) {
-                $query->where('company_id', $context->company_id)
-                    ->where('branch_id', $context->branch_id);
+            } else {
+                // 🔥 EXACT FIX: Ab employee ko kewal wahi data dikhega jisme created_by me uski ID ho.
+                $userId = auth()->id(); 
+                
+                $query->where('created_by', $userId);
+                
+                // Scoping location based
+                if ($context->is_employee) {
+                    $query->where('company_id', $context->company_id)
+                          ->where('branch_id', $context->branch_id);
+                }
             }
         }
 
+        // ==========================================
+        // 🔥 MAIN FIX: Time Scope Filter Sabke Liye 🔥
+        // Ye God block se bahar hai, isliye CEO ko bhi Employee Management page par 
+        // sirf aaj ka data dikhega aur Directory page par poora data dikhega.
+        // ==========================================
+        if ($request->input('time_scope') !== 'all_time') {
+            $today = \Carbon\Carbon::today()->toDateString();
+            $query->whereDate('created_at', $today);
+        }
+        
+       
+        
+
+        // --- Niche ka code aapka same rahega (Company, Branch filters etc.) ---
         if ($request->filled('company_ids')) {
             $query->whereIn('company_id', explode(',', $request->company_ids));
         } elseif ($request->filled('company_id')) {
@@ -265,10 +296,11 @@ class EmployeeController extends Controller
                     $branchId = $context->branch_id;
                 }
             }
-
-            $hasDirect = $context->is_god;
+                $hasDirect = $context->is_god;
             if (!$hasDirect && method_exists(auth()->user(), 'getAllPermissions')) {
-                if (in_array('employee_add_direct', auth()->user()->getAllPermissions()->pluck('name')->toArray())) {
+                $perms = auth()->user()->getAllPermissions()->pluck('name')->toArray();
+                // 🔥 FIX: Check for emp_dir_add logic
+                if (in_array('employee_add_direct', $perms) || in_array('emp_dir_add_direct', $perms) || in_array('emp_dir_add', $perms) || in_array('employee_add', $perms)) {
                     $hasDirect = true;
                 }
             }
@@ -277,11 +309,19 @@ class EmployeeController extends Controller
 
             $memberId = $this->generateSmartEmployeeId($companyId);
             $serviceId = str_replace('-A/', '-A/SVC/', $memberId);
-
-            if ($request->is_transfer == '1' && $request->transfer_old_id) {
+                if ($request->is_transfer == '1' && $request->transfer_old_id) {
                 $oldEmp = Employee::find($request->transfer_old_id);
-                if ($oldEmp && $oldEmp->service_id) {
-                    $serviceId = $oldEmp->service_id;
+                if ($oldEmp) {
+                    $oldEmp->emp_status = 'transferred';
+                    $oldEmp->d_o_l = $request->doj;
+                    $oldEmp->transferred_to_company = $companyId;
+                    $oldEmp->save();
+                    
+                    // 🔥 FIX: Update chalane ka safe tareeka taaki database error na aaye
+                    $lastSvc = ServiceRecord::where('user_id', $oldEmp->id)->orderBy('id', 'desc')->first();
+                    if ($lastSvc) {
+                        $lastSvc->update(['status' => 'transferred', 'date_of_leaving' => $request->doj]);
+                    }
                 }
             }
 
@@ -291,8 +331,8 @@ class EmployeeController extends Controller
             $password = $namePart . '@' . $aadharPart;
 
            $employeeData = $request->except(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'branch', 'ifsc_code', 'is_transfer', 'transfer_old_id']);
-unset($employeeData['bank_branch']);
-unset($employeeData['branch']);
+        unset($employeeData['bank_branch']);
+        unset($employeeData['branch']);
             if ($request->marital_status !== 'Married') $employeeData['anniversary_date'] = null;
 
             $employeeData['member_id'] = $memberId;
@@ -303,25 +343,46 @@ unset($employeeData['branch']);
             $employeeData['emp_status'] = $finalStatus;
             $employeeData['role'] = $request->role ?? 'employee';
 
-            $fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'];
-            foreach ($fileFields as $field) {
-                if ($request->hasFile($field)) $employeeData[$field] = $this->uploadFile($request->file($field), $field);
+           $oldEmpForFiles = null;
+            if ($request->is_transfer == '1' && $request->transfer_old_id) {
+                $oldEmpForFiles = Employee::find($request->transfer_old_id);
             }
 
+            $fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'];
+            
+            foreach ($fileFields as $field) {
+                if ($request->hasFile($field)) {
+                    // Agar nayi file dali hai to use upload karega
+                    $employeeData[$field] = $this->uploadFile($request->file($field), $field);
+                } else if ($oldEmpForFiles && $oldEmpForFiles->$field) {
+                    // 🔥 FIX: Agar nayi file nahi hai aur transfer ho raha hai, to purani file copy karega
+                    $employeeData[$field] = $oldEmpForFiles->$field;
+                }
+            }
             $employee = Employee::create($employeeData);
 
-           if ($request->filled('account_no')) {
-    $bankData = $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'ifsc_code']);
-    
-    // Yahan hum ensure kar rahe hain ki database ke 'branch' column mein hi data jaye
-    $bankData['branch'] = $request->bank_branch ?? $request->branch; 
+            // 🔥 NAYA: Assign Grade as Role automatically
+            if ($request->filled('grade')) {
+                $employee->syncRoles([$request->grade]);
+            }
 
-    EmployeeBankDetail::updateOrCreate(
-        ['member_id' => $employee->member_id], 
-        $bankData
-    );
-}
+        if ($request->has('account_no')) {
+        foreach ($request->account_no as $key => $accNo) {
+            if (!empty($accNo)) { // Sirf wahi row save kare jisme Account No bhara ho
+                EmployeeBankDetail::create([
+                    'member_id'    => $employee->member_id,
+                    'account_name' => $request->account_name[$key] ?? null,
+                    'account_no'   => $accNo,
+                    'account_type' => $request->account_type[$key] ?? null,
+                    'bank_name'    => $request->bank_name[$key] ?? null,
+                    'branch'       => $request->bank_branch[$key] ?? null,
+                    'ifsc_code'    => $request->ifsc_code[$key] ?? null,
+                ]);
+            }
+        }
+        }
 
+         // Employee creation ke theek baad wala hissa (Lagbhag line 250 ke aaspaas)
             ServiceRecord::create([
                 'user_id' => $employee->id,
                 'member_id' => $employee->member_id,
@@ -331,8 +392,10 @@ unset($employeeData['branch']);
                 'department_id' => $employee->department_id,
                 'designation_id' => $employee->designation_id,
                 'joining_date' => $employee->doj,
+                'promotion_date' => $employee->doj, // 🔥 NAYA: Pehle designation ki date joining date hogi
                 'role' => $employee->role,
-                'status' => $finalStatus
+                'status' => $finalStatus,
+                'current_salary' => $request->current_salary
             ]);
 
             if ($request->is_transfer == '1' && $request->transfer_old_id) {
@@ -360,17 +423,10 @@ unset($employeeData['branch']);
     {
         $context = $this->getGlobalContext();
 
-        // 🔥 FIX: Relations par active hone ka rule lagaya gaya
         $employee = Employee::with([
-            'company' => function ($q) {
-                $q->where('status', 'active');
-            },
-            'branch' => function ($q) {
-                $q->where('branch_status', 'active');
-            },
-            'department' => function ($q) {
-                $q->where('status', 'active');
-            },
+            'company' => function ($q) { $q->where('status', 'active'); },
+            'branch' => function ($q) { $q->where('branch_status', 'active'); },
+            'department' => function ($q) { $q->where('status', 'active'); },
             'bankDetails',
             'designation'
         ])->find($id);
@@ -382,12 +438,18 @@ unset($employeeData['branch']);
 
         if ($employee) {
             $serviceHistory = [];
+            
+            // 🔥 FIX: ServiceRecord ke sath designation model load kiya table id ke through aur created_at fetch kiya
             if ($employee->service_id) {
-                $serviceHistory = \App\Models\ServiceRecord::where('service_id', $employee->service_id)
-                    ->orderBy('joining_date', 'asc')
+                $serviceHistory = \App\Models\ServiceRecord::with('designation')
+                    ->where('service_id', $employee->service_id)
+                    ->orderBy('id', 'desc') // Newest first (Top par present dikhane ke liye)
                     ->get();
             } else {
-                $serviceHistory = \App\Models\ServiceRecord::where('user_id', $employee->id)->orderBy('joining_date', 'asc')->get();
+                $serviceHistory = \App\Models\ServiceRecord::with('designation')
+                    ->where('user_id', $employee->id)
+                    ->orderBy('id', 'desc')
+                    ->get();
             }
 
             $employee->service_history_data = $serviceHistory;
@@ -413,12 +475,16 @@ unset($employeeData['branch']);
                 if ($context->is_employee && $employee->branch_id != $context->branch_id) return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
             }
 
-            $hasDirect = $context->is_god;
+           $hasDirect = $context->is_god;
             if (!$hasDirect && method_exists(auth()->user(), 'getAllPermissions')) {
-                if (in_array('employee_edit', auth()->user()->getAllPermissions()->pluck('name')->toArray())) $hasDirect = true;
+                $perms = auth()->user()->getAllPermissions()->pluck('name')->toArray();
+                // 🔥 FIX: Accept both edit slugs
+                if (in_array('employee_edit', $perms) || in_array('emp_dir_edit', $perms)) {
+                    $hasDirect = true;
+                }
             }
 
- // Yahan hum 'branch' aur 'bank_branch' dono ko filter kar rahe hain
+        // Yahan hum 'branch' aur 'bank_branch' dono ko filter kar rahe hain
             $updateData = $request->except(['account_name', 'account_no', 'account_type', 'bank_name', 'bank_branch', 'branch', 'ifsc_code', '_method', 'is_transfer', 'transfer_old_id']);
 
             // 🔥 EXTRA SAFETY: Array se forcefully remove kar rahe hain
@@ -432,44 +498,66 @@ unset($employeeData['branch']);
                 }
             }
 
-if (!$hasDirect) $updateData['emp_status'] = 'pending';
+            if (!$hasDirect) $updateData['emp_status'] = 'pending';
             if ($request->marital_status !== 'Married') $updateData['anniversary_date'] = null;
 
             $fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'];
             // 🔥 BUG FIX: Pehle file fields ko array se hata dein taaki purani file null se overwrite na ho
-foreach ($fileFields as $field) {
-    unset($updateData[$field]); 
-    if ($request->hasFile($field)) {
-        $updateData[$field] = $this->uploadFile($request->file($field), $field);
-    }
-}
-$employee->update($updateData);
-            $newCompanyId = $employee->company_id;
+            foreach ($fileFields as $field) {
+                unset($updateData[$field]); 
+                if ($request->hasFile($field)) {
+                    $updateData[$field] = $this->uploadFile($request->file($field), $field);
+                }
+            }
+            $employee->update($updateData);
+            // 🔥 NAYA: Update Grade Role automatically
+                        if ($request->filled('grade')) {
+                            // syncRoles purane grade ko hata kar naya set kar dega
+                            $employee->syncRoles([$request->grade]);
+                        }
+                        $newCompanyId = $employee->company_id;
 
-     if ($request->filled('account_no')) {
-    $bankData = $request->only(['account_name', 'account_no', 'account_type', 'bank_name', 'ifsc_code']);
-    
-    // Database table ke actual column 'branch' mein data bhej rahe hain
-    $bankData['branch'] = $request->bank_branch ?? $request->branch;
+                if ($request->has('account_no')) {
+                // 1. Purane sab delete kar dein
+                EmployeeBankDetail::where('member_id', $employee->member_id)->delete();
+                
+                // 2. Naye form ka loop chala kar save karein
+                foreach ($request->account_no as $key => $accNo) {
+                    if (!empty($accNo)) { 
+                        EmployeeBankDetail::create([
+                            'member_id'    => $employee->member_id,
+                            'account_name' => $request->account_name[$key] ?? null,
+                            'account_no'   => $accNo,
+                            'account_type' => $request->account_type[$key] ?? null,
+                            'bank_name'    => $request->bank_name[$key] ?? null,
+                            'branch'       => $request->bank_branch[$key] ?? null, // branch column map
+                            'ifsc_code'    => $request->ifsc_code[$key] ?? null,
+                        ]);
+                    }
+                }
+            }
 
-    EmployeeBankDetail::updateOrCreate(
-        ['member_id' => $employee->member_id], 
-        $bankData
-    );
-}
+         // 🔥 NAYA LOGIC: Strict matching hata di, sirf user ki absolute latest record nikalenge
+            $latestRecord = ServiceRecord::where('user_id', $employee->id)
+                ->orderBy('id', 'desc')
+                ->first();
 
-            $latestRecord = ServiceRecord::where('user_id', $employee->id)->orderBy('id', 'desc')->first();
             if ($latestRecord) {
+                $latestRecord->current_salary = $request->current_salary; 
                 $latestRecord->status = $request->emp_status;
-                if (in_array($request->emp_status, ['terminated', 'resigned', 'inactive', 'transferred'])) {
+                
+                // 🔥 FIX: Ab kisi bhi tarah ki leaving stage ho, date of leaving record ho jayegi
+                $leavingStages = ['Transferred', 'Notice Period', 'Resigned', 'Relieved', 'Terminated', 'Dismissed', 'Retired', 'Deceased'];
+                
+                if (in_array($request->emp_status, ['terminated', 'resigned', 'inactive', 'transferred']) || in_array($request->employment_stage, $leavingStages)) {
                     $latestRecord->date_of_leaving = $request->d_o_l;
                 } else {
                     $latestRecord->date_of_leaving = null;
                 }
+                
                 $latestRecord->joining_date = $employee->doj;
                 $latestRecord->save();
             }
-
             $this->resequenceCompanyEmployees($newCompanyId);
             if ($oldCompanyId && $oldCompanyId != $newCompanyId) {
                 $this->resequenceCompanyEmployees($oldCompanyId);
@@ -509,36 +597,37 @@ $employee->update($updateData);
         return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
     }
 
-    public function searchForTransfer(Request $request)
+  public function searchForTransfer(Request $request)
     {
         $term = $request->keyword;
         $targetCompanyId = $request->target_company_id;
 
         if (!$term || !$targetCompanyId) return response()->json(['status' => 'error', 'message' => 'Please select a Company first and enter a keyword.']);
 
-        // 🔥 FIX: Search query relations par active check laga diya gaya
         $employees = Employee::with([
-            'company' => function ($q) {
-                $q->where('status', 'active');
-            },
-            'branch' => function ($q) {
-                $q->where('branch_status', 'active');
-            },
-            'department' => function ($q) {
-                $q->where('status', 'active');
-            },
+            'company' => function ($q) { $q->where('status', 'active'); },
+            'branch' => function ($q) { $q->where('branch_status', 'active'); },
+            'department' => function ($q) { $q->where('status', 'active'); },
             'designation',
             'bankDetails'
         ])
-            ->where('emp_status', 'transferred')
+            // 🔥 FIX: Ab ye emp_status ke sath employment_stage bhi check karega
+            ->where(function ($q) {
+                $q->where('emp_status', 'transferred')
+                  ->orWhere('employment_stage', 'Transferred');
+            })
             ->where('transferred_to_company', $targetCompanyId)
             ->where(function ($q) use ($term) {
-                $q->where('member_id', 'LIKE', "%{$term}%")->orWhere('email', 'LIKE', "%{$term}%")->orWhere('contact_no', 'LIKE', "%{$term}%")->orWhere('aadhar_no', 'LIKE', "%{$term}%");
+                // 🔥 FIX: Full Name ko bhi search me add kar diya gaya hai
+                $q->where('full_name', 'LIKE', "%{$term}%")
+                  ->orWhere('member_id', 'LIKE', "%{$term}%")
+                  ->orWhere('email', 'LIKE', "%{$term}%")
+                  ->orWhere('contact_no', 'LIKE', "%{$term}%")
+                  ->orWhere('aadhar_no', 'LIKE', "%{$term}%");
             })->limit(10)->get();
 
         return response()->json(['status' => 'success', 'data' => $employees]);
     }
-
     public function getNextSmartId(Request $request)
     {
         $companyId = $request->company_id;
@@ -607,14 +696,15 @@ $employee->update($updateData);
         $context = $this->getGlobalContext();
         $request->validate(['status' => 'required|in:active,inactive']);
 
-        $hasPower = $context->is_god || $context->is_director;
+      $hasPower = $context->is_god || $context->is_director;
 
         if (!$hasPower && method_exists(auth()->user(), 'getAllPermissions')) {
             $perms = auth()->user()->getAllPermissions()->pluck('name')->toArray();
-            if ($request->status === 'active' && in_array('employee_approve', $perms)) {
+            // 🔥 FIX: Accept both approve/reject slugs
+            if ($request->status === 'active' && (in_array('employee_approve', $perms) || in_array('emp_dir_approve', $perms))) {
                 $hasPower = true;
             }
-            if ($request->status === 'inactive' && in_array('employee_reject', $perms)) {
+            if ($request->status === 'inactive' && (in_array('employee_reject', $perms) || in_array('emp_dir_reject', $perms))) {
                 $hasPower = true;
             }
         }
@@ -645,5 +735,128 @@ $employee->update($updateData);
 
         $actionWord = $request->status === 'active' ? 'Approved' : 'Rejected';
         return response()->json(['status' => 'success', 'message' => "Employee $actionWord Successfully!"]);
+    }
+
+    // ==========================================
+    // BULK PERMANENT DELETE (Select All ke liye)
+    // ==========================================
+  public function bulkDeletePermanent(Request $request)
+    {
+        $context = $this->getGlobalContext();
+        $ids = $request->ids;
+
+        if (empty($ids)) return response()->json(['status' => 'error', 'message' => 'No employees selected!'], 400);
+
+        // Security check
+        if (!$context->is_god && method_exists(auth()->user(), 'getAllPermissions')) {
+            $perms = auth()->user()->getAllPermissions()->pluck('name')->toArray();
+            // 🔥 FIX: Accept both delete slugs
+            if (!in_array('employee_delete', $perms) && !in_array('emp_dir_delete', $perms)) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized to permanent delete!'], 403);
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            $employees = Employee::whereIn('id', $ids)->get();
+            
+            foreach($employees as $employee) {
+                // Scope check
+                if (!$context->is_god) {
+                    if ($context->is_director && $employee->company_id != $context->company_id) continue;
+                    if ($context->is_employee && $employee->branch_id != $context->branch_id) continue;
+                    if ($employee->created_by != auth()->id()) continue; // Sirf apni entry delete kar sake
+                }
+
+                $memberId = $employee->member_id;
+                
+                // Related data hard delete
+                \App\Models\EmployeeBankDetail::where('member_id', $memberId)->delete();
+                \App\Models\ServiceRecord::where('member_id', $memberId)->delete();
+                \App\Models\EmployeeLogin::where('user_id', $memberId)->delete();
+                
+                // Permanent delete
+                $employee->forceDelete(); 
+            }
+
+            DB::commit();
+            return response()->json(['status' => 'success', 'message' => 'Selected employees permanently deleted!']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => 'Failed to delete permanently.'], 500);
+        }
+    }
+
+    public function printPage(Request $request)
+    {
+        // 🔥 FIX: URL se token nikal kar auth karenge
+        if (!auth()->check() && $request->has('token')) {
+            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($request->token);
+            if ($accessToken) {
+                auth()->login($accessToken->tokenable);
+            }
+        }
+
+        $context = $this->getGlobalContext();
+        
+        if (!$context) {
+            return response("Unauthorized Access! Please login again.", 401);
+        }
+        
+        $query = Employee::with(['company', 'department', 'designation']);
+
+        // ==========================================
+        // 🔥 MAIN FIX 1: Apni Khud ki Data (Employee Scope)
+        // ==========================================
+       // 🔥 BYPASS AUR ACCESS LOGIC 🔥
+        if (!$context->is_god) { 
+            $userPerms = $context->permissions ?? [];
+
+            if (!in_array('employee_view', $userPerms) && !in_array('emp_dir_view', $userPerms)) {
+                return response()->json([
+                    "draw" => intval($request->input('draw')),
+                    "recordsTotal" => 0,
+                    "recordsFiltered" => 0,
+                    "data" => []
+                ]);
+            }
+
+            if ($context->is_director) {
+                // Director apni puri company dekh sakta hai
+                $query->where('company_id', $context->company_id);
+            } else {
+                // 🔥 EXACT FIX: Ab employee ko kewal wahi data dikhega jisme created_by me uski ID ho.
+                $userId = auth()->id(); 
+                
+                $query->where('created_by', $userId);
+                
+                // Scoping location based
+                if ($context->is_employee) {
+                    $query->where('company_id', $context->company_id)
+                          ->where('branch_id', $context->branch_id);
+                }
+            }
+        }
+        // ==========================================
+        // 🔥 MAIN FIX 2: Time Scope (Aaj ka data)
+        // ==========================================
+        if ($request->input('time_scope') !== 'all_time') {
+            $today = \Carbon\Carbon::today()->toDateString();
+            $query->whereDate('created_at', $today);
+        }
+
+        // Apply selected dropdown filters
+        if ($request->filled('company_id')) $query->where('company_id', $request->company_id);
+        if ($request->filled('branch_id')) $query->where('branch_id', $request->branch_id);
+
+        $employees = $query->orderBy('doj', 'desc')->get();
+
+        $companyId = $context->is_god ? 1 : ($context->company_id ?? 1);
+        $branchId = $context->is_god ? null : ($context->branch_id ?? null);
+        
+        $company = \App\Models\Company::find($companyId);
+        $branch = $branchId ? \App\Models\Branch::find($branchId) : null;
+
+        return view('employees.print', compact('employees', 'company', 'branch'));
     }
 }

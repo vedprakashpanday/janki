@@ -247,28 +247,31 @@
                         </div>
 
                         <div class="row g-3 mb-3 pb-3 border-bottom">
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold">Audience Group <span
-                                        class="text-danger">*</span></label>
-                                <select id="target_audience" class="form-select shadow-sm" required>
-                                    <option value="all" selected>All / Everyone (Depends on Branch/Dept)</option>
-                                    <option value="employee">Only Employees</option>
-                                    <option value="member">Only Associate Members</option>
-                                    <option value="customer">Only Customers</option>
-                                    <option value="other" class="text-danger fw-bold">Specific (Individual Person)
-                                    </option>
-                                </select>
-                            </div>
+                        <div class="col-md-4">
+    <label class="form-label fw-bold">Audience Group <span class="text-danger">*</span></label>
+    <select id="target_audience" class="form-select shadow-sm" required>
+        <option value="all" selected>All / Everyone</option>
+        <option value="all_except_customers">All / Everyone except Customers</option>
+        <option value="all_except_management">All / Everyone except Customers, CEOs & Directors</option>
+        <option value="director">Only Directors</option>
+        <option value="employee">Only Employees</option>
+        <option value="member">Only Associate Members</option>
+        <option value="customer">Only Customers</option>
+        <option value="other" class="text-danger fw-bold">Specific (Individual Person)</option>
+    </select>
+</div>
 
-                            <div class="col-md-4 entity-div" style="display: none;">
-                                <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
-                                <select id="entity_type" class="form-select shadow-sm">
-                                    <option value="" disabled selected>Select Category...</option>
-                                    <option value="employee">Employee</option>
-                                    <option value="member">Associate Member</option>
-                                    <option value="customer">Customer</option>
-                                </select>
-                            </div>
+<div class="col-md-4 entity-div" style="display: none;">
+    <label class="form-label fw-bold">Category <span class="text-danger">*</span></label>
+    <select id="entity_type" class="form-select shadow-sm">
+        <option value="" disabled selected>Select Category...</option>
+        <option value="ceo" class="fw-bold">CEO / Super Admin</option>
+        <option value="director" class="fw-bold">Director</option>
+        <option value="employee">Employee</option>
+        <option value="member">Associate Member</option>
+        <option value="customer">Customer</option>
+    </select>
+</div>
                             <div class="col-md-4 entity-div" style="display: none;">
                                 <label class="form-label fw-bold">Select Person <span class="text-danger">*</span></label>
                                 <input type="text" id="entity_id" list="entityList" class="form-control shadow-sm"
@@ -453,12 +456,18 @@
         });
     }
 
-    function loadBranches(companyId, target = 'both') {
-        if (!companyId) return;
+   function loadBranches(companyId, target = 'both') {
+        if (!companyId) {
+            if (target === 'filter' || target === 'both') $('#filter_branch').html('<option value="">All Branches</option>');
+            if (target === 'form' || target === 'both') $('#form_branch_id').html('<option value="">All Branches</option>');
+            loadDepartments('', target); // Call to reset departments
+            return;
+        }
         $.post('/api/v1/get-branches-by-companies', {
             company_ids: [companyId]
         }, function(res) {
             let html = '<option value="">All Branches</option>';
+            html += '<option value="HO" class="fw-bold text-primary">Head Office (Main Branch)</option>';
             res.data.forEach(b => {
                 html += `<option value="${b.id}">${b.branch_name}</option>`;
             });
@@ -469,18 +478,27 @@
                 if (!userContext.is_god && userContext.branch_id) {
                     $('#filter_branch, #form_branch_id').val(userContext.branch_id).prop('disabled', true);
                     loadDepartments(userContext.branch_id);
+                } else if (!userContext.is_god && !userContext.branch_id) {
+                    $('#filter_branch, #form_branch_id').val('HO').prop('disabled', true); // User is from Head Office
+                    loadDepartments('HO');
+                } else {
+                    loadDepartments(''); // Load all depts by default
                 }
             }
         });
     }
 
+  // 🔥 DYNAMIC DEPARTMENT LOADING
     function loadDepartments(branchId, target = 'both') {
-        if (!branchId) return;
         $.get('/api/v1/departments', function(res) {
             let html = '<option value="">All Departments</option>';
             res.data.forEach(d => {
-                if (d.branch_id == branchId) {
-                    html += `<option value="${d.id}">${d.department_name}</option>`;
+                if (branchId === 'HO') {
+                    if (!d.branch_id) html += `<option value="${d.id}">${d.department_name}</option>`;
+                } else if (branchId && branchId !== '') {
+                    if (d.branch_id == branchId) html += `<option value="${d.id}">${d.department_name}</option>`;
+                } else {
+                    html += `<option value="${d.id}">${d.department_name} ${d.branch ? '('+d.branch.branch_name+')' : '(HO)'}</option>`;
                 }
             });
             if (target === 'filter' || target === 'both') $('#filter_department').html(html);
@@ -752,10 +770,13 @@ if (data.holiday) {
         });
     }
 
-    // 🔥 SAVE / UPDATE DATA SUBMISSION
     $('#saveNoticeBtn').click(function() {
         let btn = $(this);
         let id = $('#notice_id').val();
+        
+        // 🔥 SMART FIX: Seedha Exact ID uthaya
+        let exactEntityId = $('#entity_id').val(); 
+
         let payload = {
             title: $('#title').val(),
             notice_date: $('#notice_date').val(),
@@ -764,10 +785,9 @@ if (data.holiday) {
             target_branch_id: $('#form_branch_id').val(),
             target_department_id: $('#form_department_id').val(),
             entity_type: $('#entity_type').val(),
-            entity_id: $('#entity_id').val(),
+            entity_id: exactEntityId, // Directly bhej diya!
             requires_reply: $('#requires_reply').is(':checked') ? 1 : 0,
             content: tinymce.get('noticeContent').getContent(),
-            // Naya data:
             is_holiday: $('#is_holiday').is(':checked') ? 1 : 0,
             holiday_total_days: $('#holiday_total_days').val(),
             holiday_start_date: $('#holiday_start_date').val(),
@@ -791,8 +811,7 @@ if (data.holiday) {
             }
         });
     });
-
-    // 🔥 TARGET AUDIENCE CHANGEOVER EVENT HANDLERS
+   // 🔥 TARGET AUDIENCE CHANGEOVER EVENT HANDLERS
     $('#target_audience').change(function() {
         if ($(this).val() === 'other') {
             $('.entity-div').fadeIn();
@@ -805,20 +824,43 @@ if (data.holiday) {
         }
     });
 
-    $('#entity_type, #form_company_id, #form_branch_id, #form_department_id').change(function() {
+    // 🔥 SPECIFIC CATEGORY ONCHANGE (WITH DIRECTOR VALIDATION) 🔥
+    $('#entity_type').change(function() {
+        if ($(this).val() === 'director') {
+            let selectedCompany = $('#form_company_id').val();
+            if (!selectedCompany) {
+                Swal.fire({
+                    title: 'Warning!',
+                    text: 'Please select a Target Company first before fetching Directors.',
+                    icon: 'warning'
+                });
+                $(this).val(''); // Reset Category Dropdown
+                $('#entityList').html('');
+                return;
+            }
+        }
+        loadAudienceEntities();
+    });
+
+    $('#form_company_id, #form_branch_id, #form_department_id').change(function() {
         if ($('#target_audience').val() === 'other') loadAudienceEntities();
     });
 
-    // 🔥 DYNAMIC PERSONNEL CONTEXT ACCORDING TO SYSTEM LEVEL BLOCK
+    // 🔥 DYNAMIC PERSONNEL CONTEXT FETCHING
     function loadAudienceEntities() {
         let type = $('#entity_type').val();
         if (!type) return;
 
         let companyId = $('#form_company_id').val();
-        let branchId = $('#form_branch_id').val();
+        let rawBranchId = $('#form_branch_id').val();
         let departmentId = $('#form_department_id').val();
 
+        // 🔥 SMART FIX: API me query block na ho isliye HO ke case me branch khali bhejenge
+        let apiBranchId = (rawBranchId === 'HO') ? '' : rawBranchId;
+
         let url = '';
+        if (type === 'ceo') url = '/api/v1/super-admins';
+        if (type === 'director') url = '/api/v1/directors/active';
         if (type === 'employee') url = '/api/v1/employees';
         if (type === 'member') url = '/api/v1/members';
         if (type === 'customer') url = '/api/v1/customers';
@@ -827,29 +869,41 @@ if (data.holiday) {
 
         $.get(url, {
             company_id: companyId,
-            branch_id: branchId,
+            branch_id: apiBranchId, // HO hone par khali jayega
             department_id: departmentId,
-            status: 'active'
+            status: 'active',
+            emp_status: 'active' // Safey ke liye dono fields bhej diye hain
         }, function(res) {
             let html = '';
             let items = res.data || res;
+            let count = 0;
+
             if (Array.isArray(items) && items.length > 0) {
                 items.forEach(item => {
-                    let name = item.full_name || item.employee_name || item.member_name || item.customer_name || item.name || '';
-                    let uniqueId = item.employee_smart_id || item.employee_id || item.member_id || item.customer_id || item.id || '';
-                    if (name && uniqueId) {
-                        html += `<option value="${uniqueId}">${name} (${uniqueId})</option>`;
+                    if (rawBranchId === 'HO') {
+                        if (item.branch_id != null && item.branch_id != 0 && item.branch_id !== '') return;
+                    }
+
+                    let name = item.name || item.full_name || item.employee_name || item.member_name || item.customer_name || 'No Name';
+                    let displayId = item.employee_smart_id || item.member_id || item.customer_id || item.id;
+                    
+                    if (name && displayId) {
+                        // 🔥 SMART FIX: Ab hum exact string ID bhej rahe hain (e.g., EMP-001)
+                        html += `<option value="${displayId}">${name} (${displayId})</option>`;
+                        count++;
                     }
                 });
-            } else {
-                html = '<option value="" disabled>No records found</option>';
             }
+            
+            if (count === 0) {
+                html = '<option value="" disabled>No records found for this location</option>';
+            }
+            
             $('#entityList').html(html);
         }).fail(function() {
             $('#entityList').html('<option value="" disabled>Error loading records</option>');
         });
     }
-
     // 🔥 SINGLE ITEM VIEW AND OVERLAYS
     window.viewNotice = function(id) {
         $.get(`/api/v1/notices/${id}`, function(res) {

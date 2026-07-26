@@ -9,6 +9,10 @@ class SecondaryDeviceGuard
 {
     public function handle(Request $request, Closure $next)
     {
+        // // 🔥 NAYA CODE: Print aur Export routes par middleware execute mat karo
+        // if ($request->is('*print*') || $request->is('*export*')) {
+        //     return $next($request);
+        // }
         $user = $request->user();
 
         if ($user && $user->currentAccessToken()) {
@@ -26,8 +30,18 @@ class SecondaryDeviceGuard
                 // 2. DATA BLOCKER (Datatables & Cards ko Empty Array bhejna)
                 if ($request->isMethod('get')) {
                     
-                    // Ye APIs allowed rahengi (Tasks, Notices, Dropdowns)
-                    $safeUrls = ['auth/me', 'dashboard', 'dropdown', 'get-active', 'get-branches', 'get-departments', 'get-employees', 'tasks', 'notice', 'welcome-letter', 'terms-conditions'];
+                  // Ye APIs allowed rahengi (Tasks, Notices, Dropdowns, aur Form Autofills)
+                   $safeUrls = [
+                                    'auth/me', 'dashboard', 'dropdown', 'get-active', 'get-branches', 
+                                    'get-departments', 'get-employees', 'tasks', 'notice', 
+                                    'welcome-letter', 'terms-conditions', 
+                                    'context', 'next-id', 'search-sponsor', 'available-designations', 
+                                    'search-companies', 'search-branches', 'search-departments',
+                                    'companies', 'branches', 'departments', 
+                                    
+                                    // 🔥 YAHAN NAYE KEYWORDS ADD KIYE HAIN 🔥
+                                    'phases', 'search-dynamic-list'
+                                ];
                     
                     $isSafe = false;
                     foreach ($safeUrls as $url) {

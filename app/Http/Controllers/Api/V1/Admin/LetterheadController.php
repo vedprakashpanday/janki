@@ -302,7 +302,7 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
             // 5. Check in Landowners Table
             if (!$paid_to_name) {
                 $land = \Illuminate\Support\Facades\DB::table('landowners')
-                    ->where('landowner_id', $empCode)
+                    ->where('land_owner_id', $empCode)
                     ->orWhere('land_owner_id', $empCode)->first();
                 if ($land) {
                     $paid_to_name = $land->landowner_name ?? $land->full_name ?? null;

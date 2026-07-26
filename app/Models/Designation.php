@@ -14,7 +14,10 @@ class Designation extends Model
         'designation_code', 
         'designation_name', 
         'department_id', // Naya field add kiya
-        'status'
+        'status',
+        'position',                  // Naya Add Kiya
+    'plot_commission',           // Naya Add Kiya
+    'construction_commission'
     ];
 
     // Purana $casts array jisme company_ids tha, use hata dijiye.

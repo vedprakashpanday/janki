@@ -32,43 +32,79 @@ class DebitVoucherApiController extends Controller
         return false;
     }
 
-    // ==========================================
-    // 1. GET LIST (Datatable with Date Range & Scope)
+  // ==========================================
+    // 1. GET LIST (Datatable with Date Range, Scope & RBAC)
     // ==========================================
     public function index(Request $request)
     {
         try {
-            $query = DebitVoucher::query();
             $user = auth()->user();
+            
+            // Query initialize karein
+            $query = DebitVoucher::query();
 
-            // 🔥 NAYA: Date Range Filter
-            if ($request->has('start_date') && $request->has('end_date') && !empty($request->start_date) && !empty($request->end_date)) {
+            // Permissions extract karein
+            $permissions = [];
+            if (method_exists($user, 'getAllPermissions')) {
+                $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+            }
+
+            // Executive Access check (Admin/CEO)
+            $isExecutive = $this->isExecutiveAccess($user);
+            
+            // Check agar user ke paas restore ki permission hai
+            $canRestore = in_array('dv_restore', $permissions) || in_array('dv_dir_restore', $permissions);
+
+            // ---------------------------------------------------------
+            // 🛡️ FILTER 1: SOFT DELETES (Restore Visibility)
+            // ---------------------------------------------------------
+            if ($isExecutive || $canRestore) {
+                // Admin ya jiske paas restore power hai, usko deleted data bhi dikhega
+                $query->withTrashed();
+            }
+
+            // ---------------------------------------------------------
+            // 🛡️ FILTER 2: DATA SCOPING (RBAC)
+            // ---------------------------------------------------------
+            if (!$isExecutive) {
+                // Agar normal user hai, to sirf wo data dikhega jisme uska ID hai
+                $memberId = $user->member_id ?? $user->id;
+                $query->where(function ($q) use ($memberId) {
+                    $q->where('approved_by', $memberId)
+                      ->orWhere('emp_id', $memberId);
+                });
+            }
+
+            // ---------------------------------------------------------
+            // 🛡️ FILTER 3: DATE FILTER (Index vs Directory)
+            // ---------------------------------------------------------
+            // Frontend se hum pass karenge ki request Index se hai ya Directory se
+            if ($request->input('source') === 'index') {
+                // Sirf aaj ka data dikhayega
+                $query->whereDate('created_at', date('Y-m-d'));
+            }
+
+            // Custom UI Date Range Filters
+            if ($request->filled('start_date') && $request->filled('end_date')) {
                 $query->whereBetween('voucher_date', [$request->start_date, $request->end_date]);
             }
 
-            // 🔥 NAYA: Data Scope (Sirf Apna Banaya hua YA Apna Approve kiya hua dikhega)
-            if (!$this->isExecutiveAccess($user)) {
-                $query->where('branch_id', $user->branch_id ?? null)
-                    ->where(function ($q) use ($user) {
-                        $q->where('emp_id', $user->member_id ?? $user->id)
-                            ->orWhere('approved_by', $user->id);
-                    });
-            }
-
-            // Search logic
+            // ---------------------------------------------------------
+            // 🛡️ FILTER 4: SEARCH
+            // ---------------------------------------------------------
             if ($request->has('search') && $request->input('search.value')) {
                 $search = $request->input('search.value');
                 $query->where(function ($q) use ($search) {
                     $q->where('dv_no', 'LIKE', "%{$search}%")
-                        ->orWhere('head_of_account', 'LIKE', "%{$search}%");
+                      ->orWhere('head_of_account', 'LIKE', "%{$search}%");
                 });
             }
 
-            $totalData = DebitVoucher::count();
+            $totalData = DebitVoucher::count(); // Optional: You might want to scope this too
             $totalFiltered = $query->count();
 
-            $vouchers = $query->offset($request->input('start'))
-                ->limit($request->input('length'))
+            $vouchers = $query->offset($request->input('start', 0))
+                ->limit($request->input('length', 10))
                 ->orderBy('id', 'desc')
                 ->get();
 
@@ -80,7 +116,8 @@ class DebitVoucherApiController extends Controller
                     'head_of_account' => $v->head_of_account,
                     'amount' => $v->amount,
                     'payment_mode' => strtoupper($v->payment_mode ?? 'CASH'),
-                    'status' => ucfirst($v->status ?? 'pending') // 🔥 NAYA: Status bheja
+                    'status' => ucfirst($v->status ?? 'pending'),
+                    'deleted_at' => $v->deleted_at // JS me check karne ke liye ki row deleted hai ya nahi
                 ];
             });
 
@@ -95,58 +132,50 @@ class DebitVoucherApiController extends Controller
         }
     }
 
-  public function store(Request $request)
+ public function store(Request $request)
     {
         $request->validate([
+            'dv_no' => 'required',
             'voucher_date' => 'required|date',
             'head_of_account' => 'required',
+            'company_id' => 'required',
             'authorized_signatory' => 'required'
         ]);
 
         try {
             $user = auth()->user();
-            $dv_no = $request->dv_no;
-
-            if ($dv_no == 'Auto-Generated' || empty($dv_no)) {
-                $lastDv = DebitVoucher::orderBy('id', 'desc')->first();
-                $dv_no = $lastDv && is_numeric($lastDv->dv_no) ? $lastDv->dv_no + 1 : 1001;
-            }
-
             $data = $request->all();
 
-            // 🔥 FIX: Voucher ko directly user ki company se link kar do
-            $data['company_id'] = $user->company_id ?? null; // Yeh line add karein
-
-            // 🔥 FIX: Branch ID aur Branch Name dono ko handle karna
-            if (isset($data['branch_id'])) {
-                if (!is_numeric($data['branch_id']) || $data['branch_id'] === 'HO') {
-                    $data['branch_id'] = null; // 'HO' string ko null banaya taaki unsigned integer error na aaye
-                    $data['branch_name'] = 'Head Office'; // Required field ko manual fill kiya
-                } else {
-                    // Valid ID hai, to DB se branch ka naam nikal lo
-                    $branch = DB::table('branches')->where('id', $data['branch_id'])->first();
-                    $data['branch_name'] = $branch ? $branch->branch_name : 'Unknown Branch';
-                }
+            // Branch HO Logic
+           if (isset($data['branch_id']) && in_array($data['branch_id'], ['HO', 'null', ''])) {
+    $data['branch_id'] = null; 
+    $data['branch_name'] = 'Head Office';
+} else if(isset($data['branch_id'])) {
+                $branch = \App\Models\Branch::find($data['branch_id']);
+                $data['branch_name'] = $branch ? $branch->branch_name : 'Unknown Branch';
             }
 
-            $data['dv_no'] = $dv_no;
+            // Unique Check for Company + Branch
+            $exists = DebitVoucher::where('dv_no', $data['dv_no'])
+                ->where('company_id', $data['company_id'])
+                ->where('branch_id', $data['branch_id'])
+                ->exists();
+                
+            if ($exists) {
+                return response()->json(['status' => 'error', 'message' => 'This DV No is already taken for this Branch!'], 422);
+            }
+
             $data['emp_id'] = $user->member_id ?? $user->id; 
 
-            // MAKER-CHECKER LOGIC
+            // RBAC Status Logic
             $status = 'pending';
             $approved_by = null;
+            $permissions = method_exists($user, 'getAllPermissions') ? $user->getAllPermissions()->pluck('name')->toArray() : [];
 
-            $hasDirectAccess = $this->isExecutiveAccess($user);
-            if (!$hasDirectAccess && method_exists($user, 'getAllPermissions')) {
-                $perms = $user->getAllPermissions()->pluck('name')->toArray();
-                if (in_array('debit_voucher_add_direct', $perms)) {
-                    $hasDirectAccess = true;
-                }
-            }
-
-            if ($hasDirectAccess) {
+            // Agar add_direct permission hai ya Executive (admin) hai
+            if ($this->isExecutiveAccess($user) || in_array('dv_add_direct', $permissions) || in_array('dv_dir_add_direct', $permissions)) {
                 $status = 'approved';
-                $approved_by = $user->id;
+                $approved_by = $user->member_id ?? $user->id;
             }
 
             $data['status'] = $status;
@@ -154,11 +183,13 @@ class DebitVoucherApiController extends Controller
 
             DebitVoucher::create($data);
 
-            return response()->json(['status' => 'success', 'message' => 'Voucher Submitted! Status: ' . strtoupper($status)]);
+            return response()->json(['status' => 'success', 'message' => 'Voucher Created! Status: ' . strtoupper($status)]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+
     public function show($id)
     {
         $voucher = DebitVoucher::find($id);
@@ -199,75 +230,80 @@ class DebitVoucherApiController extends Controller
             $data['company_id'] = $user->company_id ?? 1; // Yeh line add karein
 
         // 🔥 FIX FOR UPDATE: Same logic for branch_name
-        if (isset($data['branch_id'])) {
-            if (!is_numeric($data['branch_id']) || $data['branch_id'] === 'HO') {
-                $data['branch_id'] = null; 
-                $data['branch_name'] = 'Head Office';
-            } else {
+       if (isset($data['branch_id']) && in_array($data['branch_id'], ['HO', 'null', ''])) {
+    $data['branch_id'] = null; 
+    $data['branch_name'] = 'Head Office';
+} else {
                 $branch = DB::table('branches')->where('id', $data['branch_id'])->first();
                 $data['branch_name'] = $branch ? $branch->branch_name : 'Unknown Branch';
             }
-        }
+        
 
         $voucher->update($data);
         return response()->json(['status' => 'success', 'message' => 'Voucher Updated Successfully!']);
     }
 
-    public function destroy($id)
+  // 🟢 Approve Action
+    public function approve($id)
     {
-        $voucher = DebitVoucher::find($id);
+        $voucher = DebitVoucher::findOrFail($id);
         $user = auth()->user();
-
-        if (!$this->isExecutiveAccess($user)) {
-            if ($voucher->branch_id != $user->branch_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized Access.'], 403);
-            }
-        }
-
-        $voucher->delete();
-        return response()->json(['status' => 'success', 'message' => 'Deleted Successfully']);
+        $voucher->update([
+            'status' => 'approved',
+            'approved_by' => $user->member_id ?? $user->id
+        ]);
+        return response()->json(['status' => 'success', 'message' => 'Voucher Approved Successfully!']);
     }
 
-    // ==========================================
-    // 🔥 NAYA: Authorized Signatory API
-    // ==========================================
+    // 🔴 Reject Action
+    public function reject($id)
+    {
+        $voucher = DebitVoucher::findOrFail($id);
+        $voucher->update(['status' => 'rejected']);
+        return response()->json(['status' => 'success', 'message' => 'Voucher Rejected!']);
+    }
+
+    // 🟠 Cancel Action
+    public function cancel($id)
+    {
+        $voucher = DebitVoucher::findOrFail($id);
+        $voucher->update(['status' => 'cancelled']);
+        return response()->json(['status' => 'success', 'message' => 'Voucher Cancelled!']);
+    }
+
+    // 🔵 Restore Action (Undo Soft Delete)
+    public function restore($id)
+    {
+        $voucher = DebitVoucher::withTrashed()->findOrFail($id);
+        $voucher->restore(); // Soft delete hatayega
+        return response()->json(['status' => 'success', 'message' => 'Voucher Restored Successfully!']);
+    }
+
+    // 🗑️ Delete Action (Soft Delete) - Existing destroy ko replace karein
+    public function destroy($id)
+    {
+        $voucher = DebitVoucher::findOrFail($id);
+        $voucher->delete(); // Ye model me SoftDeletes hone ki wajah se permanently delete nahi karega
+        return response()->json(['status' => 'success', 'message' => 'Voucher Moved to Trash (Soft Deleted)']);
+    }
+   
+   // 🟢 FIX 2: Authorized Signatory Data Type (CEO-01 to Integer ID)
     public function getAuthorizedSignatories(Request $request)
     {
         try {
-            $user = auth()->user();
-            $signatories = collect();
-
-            // Agar Master Company / HO ka hai (CEO/Directors ko fetch karo)
-            // Note: Hum assume kar rahe hain HO ka company_id '1' hai ya Executive hai
-            if ($user->company_id == 1 || $this->isExecutiveAccess($user)) {
-                $signatories = Employee::whereHas('roles', function ($q) {
-                    $q->whereIn('name', ['CEO', 'Director', 'Super Admin']);
-                })->get();
-            }
-            // Agar normal branch se hai, toh us branch ke 'Accounts' walo ko fetch karo
-            else {
-                // Find department ID for 'Accounts'
-                $accountsDept = DB::table('departments')->where('department_name', 'LIKE', '%Account%')->first();
-                if ($accountsDept) {
-                    $signatories = Employee::where('branch_id', $user->branch_id)
-                        ->where('department_id', $accountsDept->id)
-                        ->get();
-                }
-            }
-
-            $data = $signatories->map(function ($emp) {
+            $signatories = \App\Models\SuperAdmin::all();
+            $data = $signatories->map(function ($admin) {
                 return [
-                    'id' => $emp->id,
-                    'name' => ($emp->full_name ?? $emp->employee_name) . ' (' . ($emp->designation_name ?? 'Accounts') . ')'
+                    // Yahan hum ceo_id (string) ki jagah primary id (integer) use karenge
+                    'id' => $admin->id, 
+                    'name' => ($admin->full_name ?? $admin->name) . ' (CEO)'
                 ];
             });
-
             return response()->json(['status' => 'success', 'data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
-
     // (Baki Helper Functions Yahan as it is rahenge...)
     public function getMemberBankDetails(Request $request)
     {
@@ -276,93 +312,127 @@ class DebitVoucherApiController extends Controller
         return response()->json(['status' => 'error', 'message' => 'Bank details not found']);
     }
 
-    public function getBranches()
+    // Company Search
+    public function searchCompanies(Request $request)
     {
-        $query = DB::table('branches')->where('branch_status', 'active');
-        $user = auth()->user();
-        if (!$this->isExecutiveAccess($user)) $query->where('company_id', $user->company_id ?? null);
-        return response()->json(['status' => 'success', 'data' => $query->get()]);
+        if (strlen($request->q) < 3) return response()->json(['data' => []]);
+        $companies = \App\Models\Company::where('company_name', 'LIKE', "%{$request->q}%")->limit(15)->get(['id', 'company_name']);
+        return response()->json(['data' => $companies]);
     }
 
-   public function getLedgers(Request $request)
+    // Branch Search
+    public function searchBranches(Request $request)
     {
-        $query = DB::table('ledgers')->where('status', 'Active');
-        
-        // Agar branch aayi hai, to uske basis par filter karo, warna saare active ledgers bhej do
-        if ($request->filled('branch_id')) {
-            $bId = $request->branch_id;
+        if (strlen($request->q) < 3 || !$request->company_id) return response()->json(['data' => []]);
+        $branches = \App\Models\Branch::where('company_id', $request->company_id)
+            ->where('branch_name', 'LIKE', "%{$request->q}%")
+            ->where('branch_status', 'active')
+            ->limit(15)->get(['id', 'branch_name', 'branch_id']);
+        return response()->json(['data' => $branches]);
+    }
+
+   // Ledger Search (Head of Account)
+    public function searchLedgers(Request $request)
+    {
+        if (strlen($request->q) < 3) return response()->json(['data' => []]);
+        $query = \Illuminate\Support\Facades\DB::table('ledgers')->where('status', 'Active')
+            ->where(function($q) use ($request) {
+                $q->where('ledger_name', 'LIKE', "%{$request->q}%")
+                  ->orWhere('ledger_code', 'LIKE', "%{$request->q}%");
+            });
             
-            if (in_array(strtoupper($bId), ['HO', 'HEAD OFFICE', 'HEAD OFFICE (HO)'])) {
-                $query->where(function($q) {
-                    $q->whereNull('branch_id')
-                      ->orWhere('branch_id', '')
-                      ->orWhere('branch_id', '-')
-                      ->orWhere('branch_id', 'HO');
-                });
-            } else {
-                $query->where('branch_id', $bId);
-            }
+        if ($request->filled('branch_id') && $request->branch_id !== 'HO') {
+            $query->where('branch_id', $request->branch_id);
         }
         
-        return response()->json(['status' => 'success', 'data' => $query->get()]);
+        return response()->json(['data' => $query->limit(15)->get()]);
     }
 
-    public function getPaidToList(Request $request)
+    // Paid To Search
+    public function searchPaidTo(Request $request)
     {
-        $bId = $request->branch_id;
-
-        $buildQuery = function($table, $idCol, $nameCol, $type) use ($bId) {
-            $q = DB::table($table)->select("$idCol as id", "$nameCol as name", DB::raw("'$type' as type"));
-            
-            if (!empty($bId)) {
-                if (in_array(strtoupper($bId), ['HO', 'HEAD OFFICE', 'HEAD OFFICE (HO)'])) {
-                    $q->where(function($query) {
-                        $query->whereNull('branch_id')
-                              ->orWhere('branch_id', '')
-                              ->orWhere('branch_id', '-')
-                              ->orWhere('branch_id', 'HO');
-                    });
-                } else {
-                    $q->where('branch_id', $bId);
-                }
-            }
-            return $q;
-        };
-
-        $members = $buildQuery('members', 'member_id', 'member_name', 'member');
-        $vendors = $buildQuery('vendors', 'vendor_id', 'full_name', 'vendor');
-        $landowners = $buildQuery('landowners', 'land_owner_id', 'land_owner_name', 'landowner');
-        $agents = $buildQuery('agents', 'agent_id', 'full_name', 'agent');
-        $employee = $buildQuery('adm_regist', 'member_id', 'full_name', 'employee');
-
-        return response()->json([
-            'status' => 'success', 
-            'data' => $members->union($vendors)->union($landowners)->union($agents)->union($employee)->get()
-        ]);
+        if (strlen($request->q) < 3) return response()->json(['data' => []]);
+        $q = $request->q;
+        
+        // Single optimized union query for searching across tables
+        $members = \Illuminate\Support\Facades\DB::table('members')->select('member_id as id', 'member_name as name', \Illuminate\Support\Facades\DB::raw("'member' as type"))->where('member_name', 'LIKE', "%{$q}%");
+        $vendors = \Illuminate\Support\Facades\DB::table('vendors')->select('vendor_id as id', 'full_name as name', \Illuminate\Support\Facades\DB::raw("'vendor' as type"))->where('full_name', 'LIKE', "%{$q}%");
+        $employees = \Illuminate\Support\Facades\DB::table('adm_regist')->select('member_id as id', 'full_name as name', \Illuminate\Support\Facades\DB::raw("'employee' as type"))->where('full_name', 'LIKE', "%{$q}%");
+        
+        $results = $members->union($vendors)->union($employees)->limit(20)->get();
+        return response()->json(['data' => $results]);
     }
 
+ // 🟢 FIX 1: Unique DV No. Check (With strictly handled HO/null)
     public function checkDvNo(Request $request)
     {
-        return response()->json(['exists' => DB::table('debit_vouchers')->where('dv_no', $request->dv_no)->exists()]);
+        $query = DebitVoucher::where('dv_no', $request->dv_no)
+                             ->where('company_id', $request->company_id);
+
+        // String 'HO' ya 'null' ya empty value ko properly handle karein
+        if (in_array($request->branch_id, ['HO', 'null', '', null], true)) {
+            $query->whereNull('branch_id');
+        } else {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        // Edit ke waqt current voucher ko ignore karne ke liye
+        if ($request->filled('exclude_id')) {
+            $query->where('id', '!=', $request->exclude_id);
+        }
+
+        return response()->json(['exists' => $query->exists()]);
     }
 
-    public function getNextDvNo()
+   // 🟢 FIX 2: Generate Next DV No. (Company & Branch Specific)
+    public function getNextDvNo(Request $request)
     {
-        $maxDv = DB::table('debit_vouchers')->select(DB::raw('MAX(CAST(dv_no AS UNSIGNED)) as max_dv'))->first();
-        return response()->json(['next_dv' => ($maxDv && $maxDv->max_dv) ? $maxDv->max_dv + 1 : 1]);
-    }
+        $query = DB::table('debit_vouchers');
 
-    public function getSenderBankDetails()
+        // Company filter lagayein
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+
+        // Branch filter lagayein (HO ke liye NULL check)
+        if (in_array($request->branch_id, ['HO', 'null', '', null], true)) {
+            $query->whereNull('branch_id');
+        } else if ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        // Sirf is specific Company aur Branch ka Max DV No nikalega
+        $maxDv = $query->select(DB::raw('MAX(CAST(dv_no AS UNSIGNED)) as max_dv'))->first();
+        
+        return response()->json([
+            'next_dv' => ($maxDv && $maxDv->max_dv) ? $maxDv->max_dv + 1 : 1
+        ]);
+    }
+   // 🟢 FIX: Dynamic Sender Bank Search for 'CEO-' members
+    public function getSenderBankDetails(Request $request)
     {
-        $banks = DB::table('tbl_bank_details')->where('member_id', 'ABA/BR/DAR1/001')->get();
+        $q = $request->q;
+        
+        $query = DB::table('tbl_bank_details')
+                   ->where('member_id', 'LIKE', 'CEO-%');
+
+        if (!empty($q)) {
+            $query->where('bank_name', 'LIKE', "%{$q}%");
+        }
+
+        $banks = $query->limit(10)->get();
+
         if ($banks->count() > 0) {
             return response()->json(['status' => 'success', 'data' => $banks->map(function ($b) {
-                return ['display_name' => $b->bank_name . " (XXXX" . substr($b->account_no, -4) . ")", 'full_account_no' => $b->account_no];
+                // Bank Name (XXXX1234) format me return karega
+                return [
+                    'display_name' => $b->bank_name . " (XXXX" . substr($b->account_no, -4) . ")", 
+                    'full_account_no' => $b->account_no
+                ];
             })]);
         }
         return response()->json(['status' => 'error', 'message' => 'No accounts found']);
     }
-
 public function print(Request $request, $id)
     {
         // 1. Voucher fetch karein

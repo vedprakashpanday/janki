@@ -48,7 +48,7 @@
     <div id="step-3-otp" class="step-section">
         <div class="alert alert-success small"><i class="fas fa-check-circle me-1"></i> Device verified. Enter OTP sent to your email.</div>
         
-        <div class="mock-otp-box d-none" id="mockOtpBox"></div>
+        {{-- <div class="mock-otp-box d-none" id="mockOtpBox"></div> --}}
 
         <form id="verifyOtpForm">
             <div class="mb-3">
@@ -56,11 +56,18 @@
                 <input type="text" class="form-control form-control-lg bg-light text-center fw-bold" id="panel_otp_input" maxlength="6" placeholder="------" required>
             </div>
             <button type="submit" class="btn text-white w-100 py-2 fw-bold" style="background-color: #10b981;" id="btnVerifyOtp">Verify & Enter Dashboard</button>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+    <small class="text-muted">Didn't receive it?</small>
+    <a href="#" id="resendOtpBtn" class="text-decoration-none small fw-bold text-muted" style="pointer-events: none;">
+        Resend OTP in <span id="resendTimer">60</span>s
+    </a>
+</div>
             <button type="button" class="btn btn-link w-100 mt-2 text-muted small back-btn">Cancel</button>
         </form>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
@@ -109,7 +116,8 @@ $(document).ready(function() {
                 if (res.status === 'require_password') { $('#step-2-password').addClass('active'); } 
                 else if (res.status === 'require_otp') { 
                     $('#step-3-otp').addClass('active');
-                    $('#mockOtpBox').html('Bypass OTP: ' + res.mock_otp).removeClass('d-none');
+                    startResendTimer()
+                    // $('#mockOtpBox').html('Bypass OTP: ' + res.mock_otp).removeClass('d-none');
                 }
             },
             error: function(err) {
@@ -201,6 +209,58 @@ $(document).ready(function() {
             }
         });
     });
+
+   let timerInterval;
+
+        function startResendTimer() {
+            let timeLeft = 60; 
+            let btn = $('#resendOtpBtn');
+            
+            btn.addClass('text-muted').removeClass('text-success').css('pointer-events', 'none');
+            
+            clearInterval(timerInterval);
+            timerInterval = setInterval(function() {
+                timeLeft--;
+                
+                // 🔥 FIX: Directly text update karein taaki span gayab na ho
+                btn.html(`Resend OTP in <span id="resendTimer">${timeLeft}</span>s`);
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    btn.html('Resend OTP Now');
+                    btn.removeClass('text-muted').addClass('text-success').css('pointer-events', 'auto');
+                }
+            }, 1000);
+        }
+
+        // Jab user OTP request kare ya page par OTP block show ho, toh ye call karein:
+        // startResendTimer(); <-- Isko wahan daal dein jahan API 'require_otp' return karti hai.
+
+        // 🔥 Resend Button Click Event 🔥
+        $('#resendOtpBtn').on('click', function(e) {
+            e.preventDefault();
+            
+            // Note: Make sure aapke paas panel_id variable available ho JS me
+            let panelId = $('#panel_id_input').val(); // Apne according panel_id ka variable use karein
+
+            Swal.fire({ title: 'Sending...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            $.ajax({
+                url: '/api/v1/employee/resend-otp',
+                type: 'POST',
+                data: { panel_id: panelId },
+                success: function(res) {
+                    Swal.fire('Sent!', res.message, 'success');
+                    startResendTimer(); // Dobara 60 sec ka timer chalu karein
+                },
+                error: function(xhr) {
+                    let msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error sending OTP';
+                    Swal.fire('Error', msg, 'error');
+                }
+            });
+        });
+
+
 });
 </script>
 </body>

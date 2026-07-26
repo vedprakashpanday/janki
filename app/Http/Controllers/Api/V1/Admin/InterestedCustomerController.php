@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class InterestedCustomerController extends Controller
 {
-   public function index(Request $request)
+  public function index(Request $request)
     {
         $context = $this->getGlobalContext();
         $user = auth()->user();
@@ -23,8 +23,21 @@ class InterestedCustomerController extends Controller
         $isAdmin = $context->is_god || in_array($role, ['ceo', 'developer', 'admin', 'superadmin', 'manager']);
         $isDirector = $context->is_director;
 
-        // 🔥 NAYA FIX: Frontend se type parameter pakdo (Default: general)
         $type = $request->query('type', 'general');
+
+        // 🔥 VIEW PERMISSION CHECK
+        $viewSlug = $type === 'interested' ? 'interested_leads_view' : 'general_leads_view';
+        $hasView = $isAdmin || in_array($viewSlug, $context->permissions ?? []);
+
+        // Agar view permission nahi hai aur admin bhi nahi hai, to table ke liye khali data bhejein
+        if (!$hasView && !$isAdmin) {
+            return response()->json([
+                'draw' => intval($request->draw ?? 0),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => []
+            ]);
+        }
 
         // Base query - Active Leads
         $query = InterestedCustomer::with(['branch', 'company'])
@@ -36,7 +49,7 @@ class InterestedCustomerController extends Controller
             ->where('entry_status', 'pending')
             ->orderBy('id', 'desc');
 
-        // 🔥 DYNAMIC FILTER: General vs Interested
+        // DYNAMIC FILTER: General vs Interested
         if ($type === 'interested') {
             $query->whereRaw('LOWER(status) != ?', ['general']);
             $pendingQuery->whereRaw('LOWER(status) != ?', ['general']);
@@ -46,7 +59,7 @@ class InterestedCustomerController extends Controller
         }
 
         // ====================================================================
-        // 1. MAIN DATA ACCESS FILTER (RBAC) - UPDATE KIYA GAYA HAI
+        // 1. MAIN DATA ACCESS FILTER (ALL TIME DATA)
         // ====================================================================
         if (!$isAdmin) {
             $query->where('company_id', $context->company_id);
@@ -55,23 +68,39 @@ class InterestedCustomerController extends Controller
             if (!$isDirector) {
                 $context->branch_id ? $query->where('branch_id', $context->branch_id) : $query->whereNull('branch_id');
                 
-                // 🔥 NAYA LOGIC: Employee ko sirf uska assign kiya hua data dikhega
-                $query->where('called_by', $user->member_id ?? 'xx');
+                // 🔥 NAYA LOGIC: assigned_telecaller ya called_by me user ki member_id ya name ho
+                $userIdentifier = $user->member_id ?? $context->profile_id;
+                $userName = $user->full_name ?? $user->name ?? $user->member_name ?? '';
 
-                if ($context->branch_id) $pendingQuery->where('branch_id', $context->branch_id);
+                $query->where(function($q) use ($userIdentifier, $userName) {
+                    $q->where('assigned_telecaller', $userIdentifier)
+                      ->orWhere('called_by', $userIdentifier)
+                      ->orWhere('assigned_telecaller', $userName)
+                      ->orWhere('called_by', $userName);
+                });
+
+                if ($context->branch_id) {
+                    $pendingQuery->where('branch_id', $context->branch_id);
+                }
+                
+                $pendingQuery->where(function($q) use ($userIdentifier, $userName) {
+                    $q->where('assigned_telecaller', $userIdentifier)
+                      ->orWhere('called_by', $userIdentifier)
+                      ->orWhere('assigned_telecaller', $userName)
+                      ->orWhere('called_by', $userName);
+                });
             }
         }
 
         // ====================================================================
-        // SERVER SIDE DATATABLE (Pagination handles 10 at a time)
+        // SERVER SIDE DATATABLE 
         // ====================================================================
         if ($request->has('draw')) {
-            $dtQuery = clone $query; // Clone base query which already has the status filter
+            $dtQuery = clone $query; 
 
             $totalRecords = $dtQuery->count();
             $filteredRecords = $totalRecords;
 
-            // Handle Search Box
             if ($request->has('search') && !empty($request->search['value'])) {
                 $searchValue = strtolower($request->search['value']);
                 $dtQuery->where(function ($q) use ($searchValue) {
@@ -83,28 +112,25 @@ class InterestedCustomerController extends Controller
             }
 
             $data = $dtQuery->skip($request->start)->take($request->length)->get();
-
             $formattedData = [];
 
-            // Slugs dynamically set based on type
-            $viewSlug = $type === 'interested' ? 'interested_leads_view' : 'general_leads_view';
-            $editSlug = $type === 'interested' ? 'interested_leads_edit' : 'general_leads_edit';
-            $deleteSlug = $type === 'interested' ? 'interested_leads_delete' : 'general_leads_delete';
+            $viewSlugBtn = $type === 'interested' ? 'interested_leads_view' : 'general_leads_view';
+            $editSlugBtn = $type === 'interested' ? 'interested_leads_edit' : 'general_leads_edit';
+            $deleteSlugBtn = $type === 'interested' ? 'interested_leads_delete' : 'general_leads_delete';
 
             foreach ($data as $d) {
                 $compName = $d->company ? $d->company->company_name : '-';
                 $bName = $d->branch ? $d->branch->branch_name : 'HO';
                 $actions = '
                     <div class="action-btns">
-                        <button class="btn btn-sm btn-light text-info view-btn secured-item" data-permission="' . $viewSlug . '" data-id="' . $d->id . '"><i class="fas fa-eye"></i></button>
-                        <button class="btn btn-sm btn-light text-primary edit-btn secured-item" data-permission="' . $editSlug . '" data-id="' . $d->id . '"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="' . $deleteSlug . '" data-id="' . $d->id . '"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-sm btn-light text-info view-btn secured-item" data-permission="' . $viewSlugBtn . '" data-id="' . $d->id . '"><i class="fas fa-eye"></i></button>
+                        <button class="btn btn-sm btn-light text-primary edit-btn secured-item" data-permission="' . $editSlugBtn . '" data-id="' . $d->id . '"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-light text-danger delete-btn secured-item" data-permission="' . $deleteSlugBtn . '" data-id="' . $d->id . '"><i class="fas fa-trash"></i></button>
                     </div>';
 
                 $badgeColor = $type === 'interested' ? 'bg-primary' : 'bg-secondary';
 
                 $formattedData[] = [
-                    // 🔥 NAYA CODE: Desktop table ke liye checkbox yahan se jayega
                     '<input type="checkbox" class="form-check-input row-checkbox border-dark" value="' . $d->id . '" style="transform: scale(1.2);">',
                     "<b>{$compName}</b><br><small class='text-muted'>{$bName}</small>",
                     $d->cust_name,
@@ -125,10 +151,7 @@ class InterestedCustomerController extends Controller
             ]);
         }
 
-        // ====================================================================
         // INITIAL DATA LOAD (Mobile UI & Base Data)
-        // ====================================================================
-
         $mainData = (clone $query)->take(300)->get();
         $pendingRequests = (clone $pendingQuery)->take(500)->get();
 
@@ -138,7 +161,28 @@ class InterestedCustomerController extends Controller
         }
         $staffList = $staffQuery->get();
 
-        // 🔥 FIX 2: Floating Counter me bhi 'entry_status' => 'active' add kar diya
+        // 🔥 NAYA: Custom 'refer_by' list nikalne ke liye (Case-insensitive unique)
+        $rawRefers = \App\Models\InterestedCustomer::whereNotNull('refer_by')
+            ->where('refer_by', '!=', '')
+            ->distinct()
+            ->pluck('refer_by')
+            ->toArray();
+
+        $uniqueRefers = [];
+        $seen = [];
+        $staffIds = $staffList->pluck('staff_id')->map(function($id) { return strtolower(trim($id)); })->toArray();
+
+        foreach ($rawRefers as $ref) {
+            $clean = trim($ref);
+            $lower = strtolower($clean); // "JUST DAIL" aur "just dail" ko ek manega
+            
+            // Check karein ki ye naam pehle na aaya ho aur kisi Employee ki ID na ho
+            if (!empty($lower) && !in_array($lower, $seen) && !in_array($lower, $staffIds)) {
+                $seen[] = $lower;
+                $uniqueRefers[] = $clean; // Original format me save karega, jaise "Just Dail"
+            }
+        }
+
         $todayQuery = \App\Models\InterestedCustomer::where('entry_status', 'active')
                                     ->whereDate('created_at', now()->toDateString());
         
@@ -148,19 +192,23 @@ class InterestedCustomerController extends Controller
             $todayQuery->whereRaw('LOWER(status) = ?', ['general']);
         }
 
-        // ====================================================================
-        // 2. TODAY COUNT ACCESS FILTER (RBAC) - UPDATE KIYA GAYA HAI
-        // ====================================================================
+        // 2. TODAY COUNT ACCESS FILTER
         if (!$isAdmin) {
             $todayQuery->where('company_id', $context->company_id);
-            if (!$context->is_director) {
-                // 🔥 NAYA LOGIC: Counter me bhi sirf wahi ginega jo is employee ko assign hua hai
-                $todayQuery->where('called_by', $user->member_id ?? 'xx');
+            if (!$isDirector) {
+                $userIdentifier = $user->member_id ?? $context->profile_id;
+                $userName = $user->full_name ?? $user->name ?? $user->member_name ?? '';
+                $todayQuery->where(function($q) use ($userIdentifier, $userName) {
+                    $q->where('assigned_telecaller', $userIdentifier)
+                      ->orWhere('called_by', $userIdentifier)
+                      ->orWhere('assigned_telecaller', $userName)
+                      ->orWhere('called_by', $userName);
+                });
             }
         }
         $todayCount = $todayQuery->count();
 
-        return response()->json([
+   return response()->json([
             'status'           => 'success',
             'general'          => $mainData, 
             'pending_requests' => $pendingRequests,
@@ -169,6 +217,7 @@ class InterestedCustomerController extends Controller
             'auth_branch'      => $context->branch_id,
             'auth_profile_id'  => $context->profile_id,
             'staff_list'       => $staffList,
+            'custom_refers'    => $uniqueRefers, // 🔥 YE LINE ADD KAREN
             'today_count'      => $todayCount,
         ], 200, [], JSON_INVALID_UTF8_IGNORE);
     }
@@ -263,24 +312,24 @@ class InterestedCustomerController extends Controller
 
         $request->validate($rules);
 
-        $entryType = $request->input('entry_type', 'direct');
+      $entryType = $request->input('entry_type', 'direct');
         $data = $request->except(['_token', 'entry_type']);
 
         if (empty($data['branch_id'])) $data['branch_id'] = null;
 
-        // Company aur Branch ID set karna
+        // 🔥 FIX: Company_id Overwrite Bug
         if (!$isAdmin && !$context->is_director) {
-            // Employee ke liye
             $data['company_id'] = $context->company_id;
             $data['branch_id'] = $context->branch_id;
-            $data['assigned_telecaller'] = $context->profile_id;
+            // Agar employee ne manual select nahi kiya hai, to by default uski ID dal do
+            if(empty($data['assigned_telecaller'])) {
+                $data['assigned_telecaller'] = $context->profile_id;
+            }
         } else {
-            // Admin/Director ke liye
-            $data['company_id'] = $context->company_id;
+            // Admin/Director ne form me jo company chuni hai, wahi use hogi
+            $data['company_id'] = $request->company_id ?? $context->company_id;
         }
 
-        // 🔥 FIX: Ab dono ke liye check hoga ki button kaun sa daba tha!
-        // Agar "Request Lead" (request) daba tha toh 'pending', warna 'active'
         $data['entry_status'] = ($entryType === 'request') ? 'pending' : 'active';
 
 

@@ -83,17 +83,20 @@
     </style>
 
     <div class="container-fluid p-0">
-       <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h4 class="fw-bold mb-0" style="color:var(--sidebar-bg);"><i class="fas fa-sitemap text-primary me-2"></i>Department Master</h4>
+                <h4 class="fw-bold mb-0" style="color:var(--sidebar-bg);"><i
+                        class="fas fa-sitemap text-primary me-2"></i>Department Master</h4>
                 <p class="text-secondary small d-none d-md-block mb-0">Manage Departments and Hierarchical Designations</p>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-success px-3 py-2 shadow-sm" id="customExcelBtn" style="display:none;" onclick="table.button('.buttons-excel').trigger()">
+                <button class="btn btn-success px-3 py-2 shadow-sm" id="customExcelBtn" style="display:none;"
+                    onclick="table.button('.buttons-excel').trigger()">
                     <i class="fas fa-file-excel me-1"></i> <span class="d-none d-md-inline">Excel</span>
                 </button>
-                
-                <button class="btn text-white px-3 py-2 shadow-sm" id="addDepartmentBtn" style="background-color:var(--brand-primary); display:none;" onclick="openAddModal()">
+
+                <button class="btn text-white px-3 py-2 shadow-sm" id="addDepartmentBtn"
+                    style="background-color:var(--brand-primary); display:none;" onclick="openAddModal()">
                     <i class="fas fa-plus me-1"></i> <span class="d-none d-md-inline" id="addBtnText">Add Department</span>
                 </button>
             </div>
@@ -161,8 +164,8 @@
         </div>
     </div>
 
-    <div class="modal fade" id="deptModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal fade" id="deptModal" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header border-bottom-0 pb-0">
                     <h5 class="modal-title fw-bold" style="color:var(--sidebar-bg);" id="modalTitle">
@@ -302,6 +305,17 @@
             });
         }
 
+        $(document).on('input', '#m_dept_name', function() {
+            let val = $(this).val().toLowerCase();
+            if (val.includes('associate')) {
+                $('.associate-extra-fields').removeClass('d-none');
+            } else {
+                // Agar galti se associate delete kar diya, toh fields wapas hide ho jayenge aur value clear ho jayegi
+                $('.associate-extra-fields').addClass('d-none');
+                $('.d-position, .d-plot-comm, .d-const-comm').val('');
+            }
+        });
+
         function fetchAndLoadBranches(selectedCompanies, preSelectedBranches = []) {
             let payload = selectedCompanies;
             if (!payload || payload.length === 0 || payload.includes('all')) payload = ['all'];
@@ -359,7 +373,7 @@
                 ids.push($(this).val());
             });
             // 🟢 Array se unique IDs filter kar liye backend ke liye
-            let uniqueIds = [...new Set(ids)]; 
+            let uniqueIds = [...new Set(ids)];
 
             Swal.fire({
                 title: 'Delete Selected?',
@@ -450,30 +464,65 @@
             $('#deptModal').modal('show');
         };
 
-        window.addDesignationRow = function(id = '', name = '', code = '', status = 'active') {
+        window.addDesignationRow = function(id = '', name = '', code = '', status = 'active', position = '', plotComm = '',
+            constComm = '') {
             let statusSelect = `
-                <select class="form-select form-select-sm d-status">
-                    <option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
-                    <option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive</option>
-                    <option value="pending" ${status === 'pending' ? 'selected' : ''}>Pending</option>
-                </select>
-            `;
-            // Lock designation status if only requesting
+        <select class="form-select form-select-sm d-status">
+            <option value="active" ${status === 'active' ? 'selected' : ''}>Active</option>
+            <option value="inactive" ${status === 'inactive' ? 'selected' : ''}>Inactive</option>
+            <option value="pending" ${status === 'pending' ? 'selected' : ''}>Pending</option>
+        </select>
+    `;
+
             if (!hasPerm('department_add_direct') && hasPerm('department_add_request') && $('#form_method').val() ===
                 'POST') {
                 statusSelect =
                     `<select class="form-select form-select-sm d-status" disabled><option value="pending" selected>Pending</option></select>`;
             }
 
+            // Check karein ki department name mein 'associate' hai ya nahi
+            let deptName = ($('#m_dept_name').val() || '').toLowerCase();
+            let showExtra = deptName.includes('associate') ? '' : 'd-none';
+
             let rowHtml = `
-                <div class="row g-2 mb-2 desig-row align-items-center">
-                    <input type="hidden" class="d-id" value="${id}">
-                    <div class="col-12 col-md-4 mb-2 mb-md-0"><input type="text" class="form-control form-control-sm d-name" placeholder="e.g. Manager" value="${name}" required></div>
-                    <div class="col-7 col-md-3"><input type="text" class="form-control form-control-sm text-uppercase d-code" placeholder="CODE" value="${code}" required></div>
-                    <div class="col-3 col-md-3">${statusSelect}</div>
-                    <div class="col-2 col-md-2 text-end"><button type="button" class="btn btn-danger btn-sm w-100" onclick="$(this).closest('.desig-row').remove()"><i class="fas fa-trash"></i></button></div>
-                </div>`;
+        <div class="p-2 border rounded mb-2 desig-row bg-white shadow-sm">
+            <div class="row g-2 align-items-center">
+                <input type="hidden" class="d-id" value="${id}">
+                <div class="col-12 col-md-4 mb-2 mb-md-0"><input type="text" class="form-control form-control-sm d-name" placeholder="e.g. Manager" value="${name}" required></div>
+                <div class="col-7 col-md-3"><input type="text" class="form-control form-control-sm text-uppercase d-code" placeholder="CODE" value="${code}" required></div>
+                <div class="col-3 col-md-3">${statusSelect}</div>
+                <div class="col-2 col-md-2 text-end"><button type="button" class="btn btn-danger btn-sm w-100" onclick="$(this).closest('.desig-row').remove()"><i class="fas fa-trash"></i></button></div>
+            </div>
+            
+            <div class="row g-2 mt-2 associate-extra-fields ${showExtra}">
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm d-position border-info" placeholder="Position" value="${position}">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" step="0.01" class="form-control form-control-sm d-plot-comm border-info" placeholder="Plot Commission (%)" value="${plotComm}">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" step="0.01" class="form-control form-control-sm d-const-comm border-info" placeholder="Const. Commission (%)" value="${constComm}">
+                </div>
+            </div>
+        </div>`;
             $('#designationRowsContainer').append(rowHtml);
+
+            // 🔥 Naya row add hone par UI ko smoothly niche scroll karne ke liye
+            let modalBody = $('#deptModal .modal-body');
+            if (modalBody.length) {
+                // Pehle se chal rahi animation ko turant rok do, warna queue clash se
+                // scrollbar ulta-pulta jump karta hai (upar-niche).
+                modalBody.stop(true, false);
+
+                // Ek frame wait karo taaki naya row DOM me fully reflow ho jaye,
+                // tabhi scrollHeight ki sahi value milegi.
+                requestAnimationFrame(function() {
+                    modalBody.animate({
+                        scrollTop: modalBody.prop('scrollHeight')
+                    }, 300);
+                });
+            }
         };
 
         function renderMobileCards(dataset) {
@@ -483,7 +532,7 @@
             if (!dataset || dataset.length === 0) {
                 $('#mobileCardsContainer').html(
                     '<div class="text-center p-4 bg-white rounded shadow-sm text-muted small">No departments found.</div>'
-                    );
+                );
                 return;
             }
 
@@ -529,13 +578,13 @@
         $(document).ready(function() {
             loadCompanies();
 
-           // 🟢 Auth Me - Yahan Permissions Check Hongi
+            // 🟢 Auth Me - Yahan Permissions Check Hongi
             $.ajax({
                 url: `/api/v1/${currentPortal}/auth/me`,
                 type: 'GET',
                 success: function(res) {
                     currentUserData = res.data;
-                    
+
                     // Add/Request Button Logic
                     if (hasPerm('department_add_direct') || hasPerm('department_add_request')) {
                         $('#addDepartmentBtn').show();
@@ -551,12 +600,12 @@
             });
 
             $('#m_company_ids').select2({
-                dropdownParent: $('#deptModal'),
+                dropdownParent: $('#deptModal .modal-body'),
                 placeholder: '-- Select Companies --',
                 allowClear: true
             });
             $('#m_branch_ids').select2({
-                dropdownParent: $('#deptModal'),
+                dropdownParent: $('#deptModal .modal-body'),
                 placeholder: '-- Select Branches --',
                 allowClear: true
             });
@@ -587,7 +636,7 @@
                     url: '/api/v1/departments',
                     type: 'GET',
                     data: function(d) {
-                        d.company_ids = $('#filter_company').val(); 
+                        d.company_ids = $('#filter_company').val();
                     }
                 },
                 columns: [{
@@ -656,22 +705,22 @@
             });
 
             // Checkbox Logics
-        $(document).on('change', '#selectAllDt, #selectAllMaster', function() {
-            let isChecked = $(this).prop('checked');
-            $('.row-checkbox, #selectAllDt, #selectAllMaster').prop('checked', isChecked);
-            toggleBulkActions();
-        });
+            $(document).on('change', '#selectAllDt, #selectAllMaster', function() {
+                let isChecked = $(this).prop('checked');
+                $('.row-checkbox, #selectAllDt, #selectAllMaster').prop('checked', isChecked);
+                toggleBulkActions();
+            });
 
-        $(document).on('change', '.row-checkbox', function() {
-            let isChecked = $(this).prop('checked');
-            let val = $(this).val();
-            
-            // 🟢 Jo checkbox tick hua hai, uski value wale saare checkboxes (Mobile aur Desktop dono) sync rahenge
-            $(`.row-checkbox[value="${val}"]`).prop('checked', isChecked);
+            $(document).on('change', '.row-checkbox', function() {
+                let isChecked = $(this).prop('checked');
+                let val = $(this).val();
 
-            if (!isChecked) $('#selectAllDt, #selectAllMaster').prop('checked', false);
-            toggleBulkActions();
-        });
+                // 🟢 Jo checkbox tick hua hai, uski value wale saare checkboxes (Mobile aur Desktop dono) sync rahenge
+                $(`.row-checkbox[value="${val}"]`).prop('checked', isChecked);
+
+                if (!isChecked) $('#selectAllDt, #selectAllMaster').prop('checked', false);
+                toggleBulkActions();
+            });
 
             // VIEW Action
             $(document).on('click', '.view-btn', function() {
@@ -722,13 +771,22 @@
                     let dName = $(this).find('.d-name').val().trim(),
                         dCode = $(this).find('.d-code').val().trim(),
                         dStatus = $(this).find('.d-status').val(),
-                        dId = $(this).find('.d-id').val();
-                    if (dName && dCode) designationsList.push({
-                        id: dId,
-                        name: dName,
-                        code: dCode,
-                        status: dStatus
-                    });
+                        dId = $(this).find('.d-id').val(),
+                        dPos = $(this).find('.d-position').val().trim(),
+                        dPComm = $(this).find('.d-plot-comm').val().trim(),
+                        dCComm = $(this).find('.d-const-comm').val().trim();
+
+                    if (dName && dCode) {
+                        designationsList.push({
+                            id: dId,
+                            name: dName,
+                            code: dCode,
+                            status: dStatus,
+                            position: dPos !== "" ? dPos : null,
+                            plot_commission: dPComm !== "" ? dPComm : null,
+                            construction_commission: dCComm !== "" ? dCComm : null
+                        });
+                    }
                 });
 
                 let formData = $(this).serializeArray();
@@ -782,7 +840,7 @@
                             .includes('director');
                         $('#m_status').html(
                             '<option value="active">Active</option><option value="inactive">Inactive</option><option value="pending">Pending</option>'
-                            ).val(d.status).prop('disabled', false);
+                        ).val(d.status).prop('disabled', false);
 
                         let cIds = (d.company_ids && d.company_ids.length > 0) ? d.company_ids
                             .map(String) : [];
@@ -802,25 +860,38 @@
                             if (isDirector) {
                                 $('#m_branch_ids').prop('disabled', false);
                                 fetchAndLoadBranches([String(currentUserData.company_id)],
-                                bIds);
+                                    bIds);
                             } else {
                                 let branchName = currentUserData.branch_name ||
                                     `Branch #${currentUserData.branch_id}`;
                                 $('#m_branch_ids').html(
                                     `<option value="${currentUserData.branch_id}" selected>${branchName}</option>`
-                                    ).prop('disabled', true);
+                                ).prop('disabled', true);
                             }
                         }
 
                         $('#designationRowsContainer').empty();
                         if (d.designations && d.designations.length > 0) {
                             d.designations.forEach(desig => {
-                                addDesignationRow(desig.id, desig.designation_name,
-                                    desig.designation_code, desig.status);
+                                // Yahan extra parameters paas kiye gaye hain
+                                addDesignationRow(
+                                    desig.id,
+                                    desig.designation_name,
+                                    desig.designation_code,
+                                    desig.status,
+                                    desig.position || '',
+                                    desig.plot_commission || '',
+                                    desig.construction_commission || ''
+                                );
                             });
                         } else {
                             addDesignationRow();
                         }
+
+                        // 🔥 Edit modal open hone ke baad associate wale fields check karne ke liye trigger lagayein
+                        setTimeout(() => {
+                            $('#m_dept_name').trigger('input');
+                        }, 100);
 
                         $('#modalTitle').html(
                             '<i class="fas fa-edit me-2 text-primary"></i> Edit Department');

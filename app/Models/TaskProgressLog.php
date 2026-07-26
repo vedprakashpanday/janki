@@ -22,4 +22,10 @@ class TaskProgressLog extends Model
     {
         return $this->morphTo();
     }
+
+    // 🔥 YEH NAYA FUNCTION ADD KARNA HAI 🔥
+    public function attachments()
+    {
+        return $this->hasMany(TaskAttachment::class, 'task_progress_log_id');
+    }
 }

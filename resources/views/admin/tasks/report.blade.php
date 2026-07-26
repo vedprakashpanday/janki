@@ -94,9 +94,9 @@
                 <button type="button" class="btn btn-success fw-bold shadow-sm" id="exportExcelBtn" style="display: none;">
                     <i class="fas fa-file-excel me-1"></i> Export Excel
                 </button>
-                <a href="{{ route('admin.tasks') }}" class="btn btn-light border shadow-sm fw-bold">
-                    <i class="fas fa-arrow-left me-1"></i> Tasks Center
-                </a>
+                <a href="{{ url('admin/tasks/staff') }}" class="btn btn-light border shadow-sm fw-bold">
+    <i class="fas fa-arrow-left me-1"></i> Staff Tasks
+</a>
             </div>
         </div>
 
@@ -288,25 +288,29 @@
                 loadUsers();
             });
 
-            function loadUsers() {
+           function loadUsers() {
                 let params = {
-                    length: -1,
                     company_ids: getSelected('companySelect'),
                     branch_ids: getSelected('branchSelect'),
                     department_ids: getSelected('deptSelect'),
                     designation_ids: getSelected('desigSelect')
                 };
+                
                 if (!params.company_ids) {
                     $('#userSelect').html('').val(null).trigger('change.select2');
                     return;
                 }
 
-                $.get(apiPrefix + '/employees', params, function(res) {
+                // 🔥 FIX 1: Exact Dropdown Dependency API Call 🔥
+                $.get(apiPrefix + '/task-dependencies/employees', params, function(res) {
                     let html = '';
-                    res.data.forEach(user => {
-                        html +=
-                            `<option value="${user.id}">${user.full_name || user.member_name} (${user.member_id})</option>`;
-                    });
+                    if(res && res.data) {
+                        res.data.forEach(user => {
+                            let name = user.full_name || user.member_name || 'Unknown';
+                            let idCode = user.member_id ? user.member_id : 'N/A';
+                            html += `<option value="${user.id}">${name} (${idCode})</option>`;
+                        });
+                    }
                     $('#userSelect').html(html).val(null).trigger('change.select2');
                 });
             }
@@ -396,13 +400,37 @@
 
                                 chatHtml +=
                                     '<div class="chat-box mt-2" style="display: none;">';
-                                task.logs.forEach(log => {
+                             task.logs.forEach(log => {
+                                    // 🔥 ATTACHMENTS RENDERING LOGIC 🔥
+                                    let logAttachmentsHtml = '';
+                                    if (log.attachments && log.attachments.length > 0) {
+                                        logAttachmentsHtml += '<div class="mt-2 d-flex flex-wrap gap-2 align-items-center">';
+                                        log.attachments.forEach(file => {
+                                            let filePath = file.file_path.startsWith('/') ? file.file_path : '/' + file.file_path;
+                                            let isImage = filePath.match(/\.(jpeg|jpg|gif|png|webp)$/i);
+
+                                            if (isImage) {
+                                                logAttachmentsHtml += `
+                                                    <a href="${filePath}" target="_blank" class="d-inline-block border rounded overflow-hidden shadow-sm me-1 position-relative" title="Click to view image" style="width: 50px; height: 50px;">
+                                                        <img src="${filePath}" class="w-100 h-100" style="object-fit: cover;">
+                                                    </a>`;
+                                            } else {
+                                                logAttachmentsHtml += `
+                                                    <a href="${filePath}" target="_blank" class="badge bg-white text-primary border border-info border-opacity-25 text-decoration-none py-1 px-2 shadow-sm" style="font-size: 10px;">
+                                                        <i class="fas fa-paperclip me-1 text-info"></i> ${file.file_name || 'View Attachment'}
+                                                    </a>`;
+                                            }
+                                        });
+                                        logAttachmentsHtml += '</div>';
+                                    }
+
                                     chatHtml += `<div class="chat-msg">
                                         <div class="d-flex justify-content-between">
                                             <strong class="text-primary"><i class="fas fa-comment-dots"></i> ${log.actor}</strong>
                                             <small class="text-muted">${log.date}</small>
                                         </div>
-                                        <span class="text-dark d-block mt-1">${log.message}</span>
+                                        <span class="text-dark d-block mt-1" style="white-space: pre-wrap;">${log.message}</span>
+                                        ${logAttachmentsHtml}
                                     </div>`;
                                 });
                                 chatHtml += '</div>';
@@ -517,8 +545,8 @@
                 $('.task-collapse').collapse('hide');
             });
 
-            // ==========================================
-            // 🔥 EXPORT TO EXCEL (CSV) LOGIC 🔥
+         // ==========================================
+            // 🔥 EXPORT TO EXCEL (CSV) LOGIC (With Smart File Naming) 🔥
             // ==========================================
             $('#exportExcelBtn').on('click', function() {
                 if (globalReportData.length === 0) {
@@ -526,41 +554,60 @@
                     return;
                 }
 
-                let csvContent =
-                    "Employee Name,Task Title,Type,Priority,Status,Assigned Date,Due Date,Target,Achieved,Progress %,Chat Date,Actor,Message\n";
+                let csvContent = "Employee Name,Task Title,Type,Priority,Status,Assigned Date,Due Date,Target,Achieved,Progress %,Chat Date,Actor,Message,Attachment Links\n";
+                let currentDomain = window.location.origin;
 
                 globalReportData.forEach(emp => {
-                    let safeEmpName = `"${emp.employee_name.replace(/"/g, '""')}"`;
+                    let safeEmpName = `"${(emp.employee_name || '').replace(/"/g, '""')}"`;
 
                     emp.tasks.forEach(task => {
                         let type = task.is_target_based ? 'Target Based' : 'Manual';
-                        let safeTitle = `"${task.title.replace(/"/g, '""')}"`;
+                        let safeTitle = `"${(task.title || '').replace(/"/g, '""')}"`;
 
-                        if (task.logs.length > 0) {
+                        if (task.logs && task.logs.length > 0) {
                             task.logs.forEach(log => {
-                                let safeMsg =
-                                `"${log.message.replace(/"/g, '""')}"`;
-                                let safeActor =
-                                `"${log.actor.replace(/"/g, '""')}"`;
+                                let safeMsg = `"${(log.message || '').replace(/"/g, '""')}"`;
+                                let safeActor = `"${(log.actor || '').replace(/"/g, '""')}"`;
 
-                                csvContent +=
-                                    `${safeEmpName},${safeTitle},${type},${task.priority},${task.status},${task.assigned_date},${task.due_date},${task.target},${task.achieved},${task.progress_percent},"${log.date}",${safeActor},${safeMsg}\n`;
+                                let attachLinks = '""';
+                                if (log.attachments && log.attachments.length > 0) {
+                                    let linksArray = log.attachments.map(f => {
+                                        let path = f.file_path.startsWith('/') ? f.file_path : '/' + f.file_path;
+                                        return currentDomain + path; 
+                                    });
+                                    attachLinks = `"${linksArray.join(', ')}"`;
+                                }
+
+                                csvContent += `${safeEmpName},${safeTitle},${type},${task.priority},${task.status},${task.assigned_date},${task.due_date},${task.target},${task.achieved},${task.progress_percent},"${log.date}",${safeActor},${safeMsg},${attachLinks}\n`;
                             });
                         } else {
-                            csvContent +=
-                                `${safeEmpName},${safeTitle},${type},${task.priority},${task.status},${task.assigned_date},${task.due_date},${task.target},${task.achieved},${task.progress_percent},"","",""\n`;
+                            csvContent += `${safeEmpName},${safeTitle},${type},${task.priority},${task.status},${task.assigned_date},${task.due_date},${task.target},${task.achieved},${task.progress_percent},"","","",""\n`;
                         }
                     });
                 });
 
-                const blob = new Blob([csvContent], {
-                    type: 'text/csv;charset=utf-8;'
-                });
+                // 🔥 SMART FILE NAMING LOGIC 🔥
+                let startDate = $('#filterStartDate').val();
+                let endDate = $('#filterEndDate').val();
+                let selectedUsers = $('#userSelect').select2('data');
+                
+                let fileName = "";
+                if (selectedUsers && selectedUsers.length === 1) {
+                    // Agar ek hi banda hai, toh uska naam (ID hata kar clean karke) use karo
+                    let empText = selectedUsers[0].text; 
+                    let cleanName = empText.split('(')[0].trim().replace(/[^a-zA-Z0-9]/g, '_');
+                    fileName = `${cleanName}_Tasks_${startDate}_to_${endDate}.csv`;
+                } else {
+                    // Agar all hai ya group hai
+                    fileName = `Team_Tasks_${startDate}_to_${endDate}.csv`;
+                }
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
                 const url = URL.createObjectURL(blob);
 
                 link.setAttribute("href", url);
-                link.setAttribute("download", "Employee_Task_Report_" + new Date().getTime() + ".csv");
+                link.setAttribute("download", fileName);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();

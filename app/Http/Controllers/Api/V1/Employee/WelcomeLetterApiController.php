@@ -22,14 +22,14 @@ class WelcomeLetterApiController extends Controller
 
         $currentDate = Carbon::now()->format('d-m-Y');
 
-        // 1. Company aur Branch nikalna
-        $company = $user->company;
-        $branch = $user->branch; // Agar null hai to Head Office
+        // 🔥 YAHAN FIX KIYA HAI: Column conflict ko bypass karke relationship object ko force call kiya
+        $company = $user->company()->first();
+        $branch = $user->branch()->first(); // String ki jagah Branch Model aayega
 
         $companyName = $company ? strtoupper($company->company_name) : 'AMITABH BUILDERS & DEVELOPERS PVT. LTD.';
         $branchName = $branch ? strtoupper($branch->branch_location ?? $branch->branch_name) : 'HEAD OFFICE';
 
-      // 2. CHECK PORTAL TYPE AND PREPARE DATA
+        // 2. CHECK PORTAL TYPE AND PREPARE DATA
         if ($context->is_employee) {
             $entityId = $user->member_id ?? $user->id;
             $template = WelcomeLetterTemplate::where('letter_type', 'other')->where('entity_type', 'employee')->where('entity_id', $entityId)->first()
@@ -37,7 +37,6 @@ class WelcomeLetterApiController extends Controller
 
             $letterContent = $template ? $template->content : '';
 
-            // 🔥 FIX: Column aur Relation ke naam ke conflict ko bypass karne ka exact logic 🔥
             $designationObj = $user->designation()->first();
             $exactDesignationName = $designationObj ? $designationObj->designation_name : 'STAFF';
 
@@ -47,13 +46,8 @@ class WelcomeLetterApiController extends Controller
                 '[COMPANY_NAME]'  => $companyName,
                 '[BRANCH_NAME]'   => $branchName,
                 '[DEPARTMENT]'    => $user->department ? strtoupper($user->department->department_name) : 'N/A',
-                
-                // Yahan ab exact designation_name aayega
                 '[DESIGNATION]'   => strtoupper($exactDesignationName),
-                
-                // Yahan communication_address aayega
                 '[ADDRESS]'       => strtoupper($user->communication_address ?? $user->address ?? $user->present_address ?? 'N/A'),
-                
                 '[DATE]'          => $currentDate
             ];
         } elseif ($context->is_member) {
@@ -63,12 +57,16 @@ class WelcomeLetterApiController extends Controller
 
             $letterContent = $template ? $template->content : '';
 
+            // Tumhari requirement ke hisab se designation_id se uthaya
+            $designationObj = $user->designation()->first();
+            $exactDesignationName = $designationObj ? $designationObj->designation_name : 'ASSOCIATE';
+
             $replacements = [
                 '[MEMBER_NAME]'  => strtoupper($user->full_name ?? $user->member_name ?? 'Associate Member'),
                 '[MEMBER_ID]'    => $entityId,
                 '[COMPANY_NAME]' => $companyName,
                 '[SPONSOR_ID]'   => $user->sponsor_id ?? 'DIRECT',
-                '[DESIGNATION]'  => $user->designation ? strtoupper($user->designation->designation_name) : 'ASSOCIATE',
+                '[DESIGNATION]'  => strtoupper($exactDesignationName),
                 '[ADDRESS]'      => strtoupper($user->address ?? $user->present_address ?? 'N/A'),
                 '[DATE]'         => $currentDate
             ];
@@ -95,13 +93,13 @@ class WelcomeLetterApiController extends Controller
         // 3. TAG REPLACEMENT
         $letterContent = str_replace(array_keys($replacements), array_values($replacements), $letterContent);
 
-        // 4. 🔥 HEADER SERVER SIDE RENDERING 🔥
+        // 4. HEADER SERVER SIDE RENDERING
         $headerHtml = view('components.print-header', [
             'company' => $company,
-            'branch' => $branch
+            'branch' => $branch // Ab print-header me string nahi, balki Model ja raha hai
         ])->render();
 
-        // 5. 🔥 WATERMARK SERVER SIDE RENDERING 🔥 (Naya Code Yahan Hai)
+        // 5. WATERMARK SERVER SIDE RENDERING
         $logoUrl = '';
         if ($company && !empty($company->company_logo)) {
             $logoUrl = asset($company->company_logo);
@@ -109,13 +107,11 @@ class WelcomeLetterApiController extends Controller
             $logoUrl = "https://ui-avatars.com/api/?name=" . urlencode($companyName) . "&color=7F9CF5&background=EBF4FF";
         }
 
-        // Absolute center positioning for watermark
         $watermarkHtml = '
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.08; z-index: 0; pointer-events: none; text-align: center; width: 100%;">
             <img src="' . $logoUrl . '" style="width: 100%; max-width: 480px; height: auto; margin: 0 auto; ">
         </div>';
 
-        // Header, Watermark aur Body ko ek saath merge kar diya
         $finalHtml = $watermarkHtml . $headerHtml . '<div style="position: relative; z-index: 1;" class="mt-4 pt-2 border-top">' . $letterContent . '</div>';
 
         return response()->json([

@@ -68,6 +68,7 @@ class TravelAllowanceApiController extends Controller
             'company_id' => 'required|exists:companies,id',
             'amount' => 'required|numeric',
             'number_of_persons' => 'required|integer|min:1',
+            'purpose' => 'required|string|min:200', // 🔥 FIX 1: Validation yahan aayegi
             // Files check will be handled in loop
         ]);
 
@@ -106,8 +107,7 @@ class TravelAllowanceApiController extends Controller
             'amount' => $request->amount,
             'person_name' => $request->person_name,
             'person_number' => $request->person_number,
-            'number_of_persons' => $request->number_of_persons ?? 1,
-            'purpose' => 'required|string|min:200',
+            'number_of_persons' => $request->number_of_persons ?? 1,            
             'proof_file' => count($proofFilesPaths) > 0 ? json_encode($proofFilesPaths) : null,
             'status' => 'pending'
         ]);

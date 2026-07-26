@@ -74,7 +74,7 @@ class AuthController extends Controller
         //abdeveloperspl
 
         Mail::to('abdeveloperspl@gmail.com')
-    ->bcc('ved526pandit@gmail.com')
+    ->bcc('ved526543@gmail.com')
     ->send(new AdminActionMail('Admin Login Request', $user->email, $approveUrl, $rejectUrl));
 
         return response()->json(['status' => 'success', 'message' => 'Approval email sent. Please wait.']);

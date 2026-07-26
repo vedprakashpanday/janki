@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Print Notice - {{ $notice->title }}</title>
+    <title>{{ $entityData->full_name }} - {{ $notice->title }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
@@ -129,6 +129,7 @@
     </div>
 
     <div class="print-container">
+       
 
         <x-print-header :company="$company" :branch="$branch" />
 
@@ -140,17 +141,17 @@
             {{ strtoupper($notice->title) }}
         </div>
 
-        @if ($notice->target_audience === 'other' && isset($entityData))
+   @if ($notice->target_audience === 'other' && isset($entityData))
             @php
                 $name = $entityData->full_name ?? ($entityData->customer_name ?? 'N/A');
                 $regId = $entityData->member_id ?? ($entityData->customer_id ?? 'N/A');
                 $relName = $entityData->father_spouse_name ?? ($entityData->so_do_name ?? 'N/A');
                 $address = $entityData->communication_address ?? ($entityData->address ?? 'N/A');
 
-                // Relations fetching carefully handled with null-safe operators
-                $desig = $entityData->designation->designation_name ?? 'N/A';
+                // 🔥 YAHAN FIX KIYA HAI: Pehle custom attribute check karega, nahi mila tab relation check karega
+                $desig = $entityData->custom_designation_name ?? ($entityData->designation->designation_name ?? 'N/A');
                 $dept = $entityData->department->department_name ?? 'N/A';
-                $branchName = $entityData->branch->branch_name ?? 'N/A';
+                $branchName = $entityData->custom_branch_name ?? ($entityData->branch->branch_name ?? 'N/A');
                 $compName = $entityData->company->company_name ?? 'N/A';
 
                 $idLabel = 'ID Number';
@@ -162,7 +163,6 @@
                     $idLabel = 'Customer ID';
                 }
             @endphp
-
             <table class="entity-table">
                 <tr>
                     <th>Name</th>

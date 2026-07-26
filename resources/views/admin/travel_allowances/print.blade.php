@@ -281,7 +281,7 @@
 
         <x-print-header :company="$company" :branch="$branch" />
 
-        <div class="bill-title">TRAVELLING EXPENSE BILL</div>
+        <div class="bill-title">TRAVELLING & CONVEYANCE EXPENSE BILL</div>
         <div class="bill-serial"><span class="bill-no">BILL SR. NO.:
                 TA-{{ str_pad($ta->id, 5, '0', STR_PAD_LEFT) }}</span></div>
 

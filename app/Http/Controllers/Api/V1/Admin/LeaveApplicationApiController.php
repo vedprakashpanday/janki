@@ -15,10 +15,20 @@ use Illuminate\Support\Facades\Notification;
 
 class LeaveApplicationApiController extends Controller
 {
-    public function index(Request $request)
+   public function index(Request $request)
     {
         $context = $this->getGlobalContext();
         $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter']);
+
+        // 🔥 FIX: Soft Deleted records sirf Admin, CEO, aur Director ko hi fetch honge
+        if ($context->is_god || $context->is_director) {
+            $query->withTrashed();
+        }
+
+        // 🔥 Filter based on requested User Type (Employee or Member)
+        if ($request->has('req_user_type') && in_array($request->req_user_type, ['employee', 'member'])) {
+            $query->where('user_type', $request->req_user_type);
+        }
 
         if (!$context->is_god && $context->role_level !== 'ceo') {
             if ($context->is_director) {
@@ -26,7 +36,7 @@ class LeaveApplicationApiController extends Controller
             } else {
                 $userPerms = method_exists(auth()->user(), 'getAllPermissions') ? auth()->user()->getAllPermissions()->pluck('name')->toArray() : [];
 
-                if (in_array('leave_appr', $userPerms) || in_array('leave_rej', $userPerms)) {
+                if (in_array('leave_appr', $userPerms) || in_array('leave_rej', $userPerms) || in_array('mem_app_appr', $userPerms) || in_array('mem_app_rej', $userPerms)) {
                     $query->where('company_id', $context->company_id);
                     if (!empty($context->branch_id)) {
                         $query->where('branch_id', $context->branch_id);
@@ -115,8 +125,8 @@ class LeaveApplicationApiController extends Controller
 
         $leave = LeaveApplication::create($data);
 
-        // 🔥 1. NEW LEAVE NOTIFICATION LOGIC 🔥
-        $applicantName = auth()->user()->full_name ?? auth()->user()->name ?? auth()->user()->member_name ?? 'An Employee';
+       // 🔥 1. NEW LEAVE NOTIFICATION LOGIC (Dynamic URL & Name Fix) 🔥
+        $applicantName = auth()->user()->member_name ?? auth()->user()->full_name ?? auth()->user()->name ?? 'An Applicant';
 
         // Target list uthao jinke pass Leave Approve ka power hai
         $targets = NotificationHelper::getTargets($leave->company_id, $leave->branch_id, 'leave_appr');
@@ -127,10 +137,13 @@ class LeaveApplicationApiController extends Controller
         });
 
         if ($targets->count() > 0) {
+            // 🔥 NAYA: User type ke hisaab se URL decide hoga
+            $redirectUrl = $leave->user_type === 'member' ? '/admin/member-leave-applications' : '/admin/leave-applications';
+            
             Notification::send($targets, new SystemAlertNotification(
                 'New Leave Request',
                 "{$applicantName} has applied for a {$leave->application_type}.",
-                '/admin/leave-applications',
+                $redirectUrl,
                 'fa-calendar-plus',
                 'text-warning'
             ));
@@ -142,7 +155,14 @@ class LeaveApplicationApiController extends Controller
     public function show($id)
     {
         $context = $this->getGlobalContext();
-        $application = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter'])->findOrFail($id);
+        $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter']);
+        
+        // 🔥 FIX: Conditional withTrashed
+        if ($context->is_god || $context->is_director) {
+            $query->withTrashed();
+        }
+        
+        $application = $query->findOrFail($id);
 
         if (!$context->is_god && $context->role_level !== 'ceo') {
             if ($context->is_director) {
@@ -243,27 +263,35 @@ class LeaveApplicationApiController extends Controller
         return response()->json(['success' => true, 'message' => 'Application updated successfully', 'data' => $leave]);
     }
 
-    public function destroy($id)
+ public function destroy($id)
     {
         $context = $this->getGlobalContext();
-        $leave = LeaveApplication::findOrFail($id);
+        // 🔥 FIX: withTrashed() joda gaya taaki soft deleted record bhi mil sake
+        $leave = LeaveApplication::withTrashed()->findOrFail($id);
 
         $userPerms = method_exists(auth()->user(), 'getAllPermissions') ? auth()->user()->getAllPermissions()->pluck('name')->toArray() : [];
-        $hasDeletePerm = in_array('leave_delete', $userPerms) || $context->is_god;
+        $hasDeletePerm = in_array('leave_delete', $userPerms) || in_array('mem_app_delete', $userPerms) || $context->is_god;
 
         $userType = isset($context->is_member) && $context->is_member ? 'member' : 'employee';
         $isExactOwner = ($leave->user_id == auth()->id() && $leave->user_type === $userType);
 
         if ($isExactOwner && !$hasDeletePerm) {
-            if ($leave->status !== 'pending') {
+            // Owner can only delete if it's pending and not already trashed
+            if ($leave->status !== 'pending' && !$leave->trashed()) {
                 return response()->json(['success' => false, 'message' => 'You cannot delete this application because it has already been processed.'], 403);
             }
         } elseif (!$hasDeletePerm) {
             return response()->json(['success' => false, 'message' => 'Unauthorized to delete!'], 403);
         }
 
-        $leave->delete();
-        return response()->json(['success' => true, 'message' => 'Application deleted successfully']);
+        // 🔥 NAYA LOGIC: Agar pehle se delete (soft delete) hai, toh ab Hard Delete (forceDelete) karo
+        if ($leave->trashed()) {
+            $leave->forceDelete();
+            return response()->json(['success' => true, 'message' => 'Application permanently deleted from database.']);
+        } else {
+            $leave->delete();
+            return response()->json(['success' => true, 'message' => 'Application moved to trash (Soft Deleted).']);
+        }
     }
 
     public function approve(Request $request, $id)
@@ -387,17 +415,26 @@ class LeaveApplicationApiController extends Controller
                     if (!empty($branchId)) $q->where('branch_id', $branchId);
                     else $q->whereNull('branch_id');
                 })
-                ->get(['id', 'full_name', 'member_id']);
+                // 🔥 FIX: 'full_name' ki jagah 'member_name as full_name' kar diya gaya hai
+                ->select('id', 'member_name as full_name', 'member_id')
+                ->get();
         }
 
         return response()->json(['success' => true, 'data' => $users]);
     }
 
-    public function printPreview($id)
+  public function printPreview($id)
     {
-        $application = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter'])->findOrFail($id);
-
         $context = $this->getGlobalContext();
+        $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter']);
+        
+        // 🔥 FIX: Conditional withTrashed
+        if ($context && ($context->is_god || $context->is_director)) {
+            $query->withTrashed();
+        }
+        
+        $application = $query->findOrFail($id);
+
         if ($context) {
             if (!$context->is_god && isset($context->is_director) && $context->is_director) {
                 if ($application->company_id != $context->company_id) {
@@ -409,9 +446,17 @@ class LeaveApplicationApiController extends Controller
         return view('admin.leave_applications.print', compact('application'));
     }
 
-    public function viewHtml($id)
+  public function viewHtml($id)
     {
-        $app = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver'])->findOrFail($id);
+        $context = $this->getGlobalContext();
+        $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver']);
+        
+        // 🔥 FIX: Conditional withTrashed
+        if ($context && ($context->is_god || $context->is_director)) {
+            $query->withTrashed();
+        }
+        
+        $app = $query->findOrFail($id);
 
         return view('admin.leave_applications.view_partial', [
             'app' => $app,
@@ -419,7 +464,7 @@ class LeaveApplicationApiController extends Controller
             'branch' => $app->branch
         ]);
     }
-
+    
     public function getApplyToOptions(Request $request)
     {
         $companyId = $request->company_id;

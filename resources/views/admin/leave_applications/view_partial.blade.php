@@ -1,5 +1,5 @@
 @php
-    // 🔥 Strict Array Check
+    // 🔥 Strict Array Check for Attachments
     $hasAttachments =
         !empty($app->proof_attachments) &&
         is_array($app->proof_attachments) &&
@@ -33,15 +33,17 @@
             {{ $app->application_type === 'Short Leave' ? 'SHORT LEAVE APPLICATION FORM' : $app->application_type . ' APPLICATION FORM' }}
         </h3>
 
-        @php
-            $name =
-                $app->user_type === 'employee' ? $app->employee->full_name ?? 'N/A' : $app->member->full_name ?? 'N/A';
-            $empCode =
-                $app->user_type === 'employee'
-                    ? $app->employee->member_id ?? ($app->employee->id ?? 'N/A')
-                    : $app->member->member_id ?? 'N/A';
+       @php
+            // 🔥 FIX: Added member_name check to remove "N/A" bug
+            $name = $app->user_type === 'employee' ? ($app->employee->full_name ?? 'N/A') : ($app->member->member_name ?? $app->member->full_name ?? 'N/A');
+            $empCode = $app->user_type === 'employee' ? ($app->employee->member_id ?? ($app->employee->id ?? 'N/A')) : ($app->member->member_id ?? 'N/A');
             $desig = $app->designation->designation_name ?? 'N/A';
-            $appDate = \Carbon\Carbon::parse($app->created_at)->format('d/m/Y');
+            $appDate = \Carbon\Carbon::parse($app->created_at)->format('d/m/Y h:i A');
+
+            // 🔥 FIX: Dynamic Labels Based on User Type
+            $codeLabel = $app->user_type === 'employee' ? 'EMP. CODE:' : 'MEMBER CODE:';
+            $nameLabel = $app->user_type === 'employee' ? 'EMP. NAME:' : 'MEMBER NAME:';
+            $sigLabel  = $app->user_type === 'employee' ? 'SIGNATURE OF EMPLOYEE' : 'SIGNATURE OF MEMBER';
 
             $toRole = 'The Management';
             $toCompany = $company ? $company->company_name : 'COMPANY NAME';
@@ -63,11 +65,11 @@
 
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;" border="1">
             <tr>
-                <td style="padding: 8px; width: 50%;"><strong>EMP. CODE:</strong> {{ $empCode }}</td>
+                <td style="padding: 8px; width: 50%;"><strong>{{ $codeLabel }}</strong> {{ $empCode }}</td>
                 <td style="padding: 8px; width: 50%;"><strong>DATE:</strong> {{ $appDate }}</td>
             </tr>
             <tr>
-                <td style="padding: 8px;"><strong>EMP. NAME:</strong> {{ strtoupper($name) }}</td>
+                <td style="padding: 8px;"><strong>{{ $nameLabel }}</strong> {{ strtoupper($name) }}</td>
                 <td style="padding: 8px;"><strong>DESIGNATION:</strong> {{ strtoupper($desig) }}</td>
             </tr>
         </table>
@@ -140,8 +142,7 @@
                 <li>I will rejoin duty on the specified date without fail and will continue my responsibilities with
                     full dedication.</li>
             </ul>
-
-            @if (!empty($app->remarks))
+@if (!empty($app->remarks))
                 @php
                     $isRejected = $app->status === 'rejected';
                     $remarkLabel = $isRejected ? "Rejecter's Remark" : "Approver's Remark";
@@ -150,6 +151,7 @@
 
                 <div
                     style="padding: 10px; background-color: #f8f9fa; border-left: 4px solid {{ $borderColor }}; margin-bottom: 15px;">
+                    <!-- 🔥 FIX: Label strictly Red aur actual Remark strictly Green -->
                     <strong style="color: #dc3545;">{{ $remarkLabel }}:</strong>
                     <span style="color: #28a745; font-weight: 600;">{{ $app->remarks }}</span>
                 </div>
@@ -165,42 +167,71 @@
             @endif
         </div>
 
-        @php
-            $approverText = 'Pending Approval';
+       @php
+            // 🔥 NAYA: ACCURATE SIGNATURE & DATE LOGIC
+            $approverText = 'PENDING APPROVAL';
             $signer = null;
+            $actionDate = null;
+            $textColor = '#000'; // Default color
 
+            // Determine Signer based on exact status
             if ($app->status === 'approved' || $app->status === 'active') {
                 $signer = $app->approver;
+                $actionDate = $app->updated_at;
+                $textColor = '#28a745'; // Green for approved
             } elseif ($app->status === 'rejected') {
                 $signer = $app->rejecter;
+                $actionDate = $app->updated_at;
+                $textColor = '#dc3545'; // Red for rejected
             }
 
             if ($signer) {
+                // Get the exact name of the person who acted
+                $sName = strtoupper($signer->full_name ?? $signer->name ?? 'AUTHORISED SIGNATORY');
+                
                 if (str_contains($app->applied_to, 'CEO') && isset($signer->ceo_id)) {
-                    $approverText = strtoupper($signer->full_name) . '<br>(' . $signer->ceo_id . ')';
+                    $approverText = "<span style='color: {$textColor};'>{$sName} ({$signer->ceo_id})</span>";
                 } elseif (str_contains($app->applied_to, 'Director') && isset($signer->director_id)) {
-                    $approverText = strtoupper($signer->full_name) . '<br>(' . $signer->director_id . ')';
+                    $approverText = "<span style='color: {$textColor};'>{$sName} ({$signer->director_id})</span>";
                 } else {
-                    $approverText = strtoupper($signer->full_name);
+                    // 🔥 Agar CEO ya Director nahi hai, toh seedha HR MANAGEMENT aayega
+                    $approverText = "<span style='color: {$textColor};'>HR MANAGEMENT</span>";
                 }
             } else {
-                $approverText =
-                    $app->status === 'rejected' ? '<span style="color:#dc3545;">REJECTED</span>' : 'PENDING';
+                // Fallback safe checking
+                if ($app->status === 'rejected') {
+                    $approverText = "<span style='color: #dc3545;'>REJECTED</span>";
+                } elseif ($app->status === 'approved' || $app->status === 'active') {
+                    $approverText = "<span style='color: #28a745;'>HR MANAGEMENT</span>";
+                } else {
+                    $approverText = "<span style='color: #ffc107;'>PENDING APPROVAL</span>";
+                }
             }
         @endphp
 
         <div style="display: flex; justify-content: space-between; margin-top: 50px; text-align: center;">
             <div style="width: 45%;">
-                <div style="font-weight: bold; margin-bottom: 5px; min-height: 20px; text-transform: uppercase;">
-                    {{ $name }} ({{ $empCode }})</div>
+                <div style="font-weight: bold; margin-bottom: 5px; min-height: 40px; display: flex; align-items: flex-end; justify-content: center; text-transform: uppercase;">
+                    {{ $name }} ({{ $empCode }})
+                </div>
                 <div style="border-top: 1px dashed #000; font-size: 14px; font-weight: bold; padding-top: 5px;">
-                    SIGNATURE OF APPLICANT</div>
+                    {{ $sigLabel }}
+                </div>
             </div>
+            
             <div style="width: 45%;">
-                <div style="font-weight: bold; margin-bottom: 5px; min-height: 20px; text-transform: uppercase;">
-                    {!! $approverText !!}</div>
+                <div style="font-weight: bold; margin-bottom: 5px; min-height: 40px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-transform: uppercase;">
+                    <div>{!! $approverText !!}</div>
+                    
+                    @if($actionDate)
+                        <div style="font-size: 12px; font-weight: bold; margin-top: 3px; color: {{ $textColor }}; text-transform: none;">
+                            Date: {{ \Carbon\Carbon::parse($actionDate)->format('d/m/Y h:i A') }}
+                        </div>
+                    @endif
+                </div>
                 <div style="border-top: 1px dashed #000; font-size: 14px; font-weight: bold; padding-top: 5px;">
-                    SIGNATURE & DATE<br>(AUTHORISED SIGNATORY)</div>
+                    SIGNATURE & DATE<br>(AUTHORISED SIGNATORY)
+                </div>
             </div>
         </div>
     </div>

@@ -105,4 +105,36 @@ class DesignationController extends Controller
 
         return response()->json(['status' => 'success', 'data' => $query->get()]);
     }
+
+    public function searchDynamic(Request $request)
+    {
+        $q = $request->q;
+        $departmentId = $request->department_id;
+
+        // 3 letter check aur department id zaroori hai
+        if (strlen($q) < 3 || empty($departmentId)) {
+            return response()->json(['status' => 'success', 'data' => []]);
+        }
+
+        $context = $this->getGlobalContext();
+        
+        $query = Designation::with('department')
+            ->where('status', 'active')
+            ->where('department_id', $departmentId)
+            ->where('designation_name', 'LIKE', "%{$q}%");
+
+        // 🛡️ ZERO-TRUST SCOPING VIA DEPARTMENT
+        if (!$context->is_god) {
+            $companyId = $context->company_id;
+            $query->whereHas('department', function ($q) use ($companyId) {
+                $q->whereNull('company_ids')
+                    ->orWhereJsonContains('company_ids', 'all')
+                    ->orWhereJsonContains('company_ids', (string)$companyId)
+                    ->orWhereJsonContains('company_ids', (int)$companyId);
+            });
+        }
+
+        $designations = $query->limit(20)->get(['id', 'designation_name', 'designation_code']);
+        return response()->json(['status' => 'success', 'data' => $designations]);
+    }
 }

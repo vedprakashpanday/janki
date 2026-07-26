@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use App\Models\AutoTaskSetting;
 use App\Models\Task;
 use App\Models\TaskProgressLog;
+use App\Models\Holiday;
+use App\Models\LeaveApplication;
 use App\Services\TelecallerAllocationService;
 use Illuminate\Support\Facades\DB;
 use App\Notifications\SystemAlertNotification;
@@ -19,10 +21,35 @@ class AutoAssignTasks extends Command
     {
         $this->info('Starting Auto Task Assignment...');
 
-        $currentTime = now()->format('H:i');
+        $todayCarbon = now();
+        $todayDate = $todayCarbon->toDateString();
 
-        $settings = \App\Models\AutoTaskSetting::where('is_active', true)
-            ->where(\Illuminate\Support\Facades\DB::raw('LEFT(run_time, 5)'), $currentTime)
+        if ($todayCarbon->isTuesday()) {
+            $this->info("Today is Tuesday (Weekly Off). Skipping all auto task assignments.");
+            return;
+        }
+
+        $isHoliday = Holiday::where('status', 'active')
+            ->where(function ($query) use ($todayDate) {
+                $query->where(function ($q) use ($todayDate) {
+                    $q->whereNotNull('end_date')
+                        ->whereDate('start_date', '<=', $todayDate)
+                        ->whereDate('end_date', '>=', $todayDate);
+                })->orWhere(function ($q) use ($todayDate) {
+                    $q->whereNull('end_date')
+                        ->whereDate('start_date', $todayDate);
+                });
+            })->exists();
+
+        if ($isHoliday) {
+            $this->info("Today is a Holiday. Skipping all auto task assignments.");
+            return;
+        }
+
+        $currentTime = $todayCarbon->format('H:i');
+
+        $settings = AutoTaskSetting::where('is_active', true)
+            ->where(DB::raw('LEFT(run_time, 5)'), $currentTime)
             ->get();
 
         if ($settings->isEmpty()) {
@@ -33,6 +60,22 @@ class AutoAssignTasks extends Command
         $tasksCreated = 0;
 
         foreach ($settings as $setting) {
+
+            $userTypeForLeave = str_contains($setting->assignee_type, 'Member') ? 'member' : 'employee';
+
+            $isOnLeave = LeaveApplication::where('user_id', $setting->assignee_id)
+                ->where('user_type', $userTypeForLeave)
+                ->where('application_type', 'Leave')
+                ->where('status', 'approved')
+                ->whereDate('approved_start_datetime', '<=', $todayDate)
+                ->whereDate('approved_end_datetime', '>=', $todayDate)
+                ->exists();
+
+            if ($isOnLeave) {
+                $this->info("Assignee ID {$setting->assignee_id} is on Approved Leave today. Skipping task assignment.");
+                continue;
+            }
+
             DB::beginTransaction();
             try {
                 $assigneeRecord = $setting->assignee_type::find($setting->assignee_id);
@@ -59,38 +102,40 @@ class AutoAssignTasks extends Command
                     'status'             => 'Pending',
                 ]);
 
-               // ----------------------------------------------------
-                // 🔥 NAYA LOGIC: FIXED TARGET + BREAKDOWN 🔥
-                // ----------------------------------------------------
-                $deadRolloverCount = 0;
-                $pendingLeftoverCount = 0;
-                $freshAllocatedCount = 0;
-
+                // 🔥 FIX: Target vs Non-Target Logic
                 if ($task->phase_id && $task->target_count > 0) {
-                    
-                    // 1. Purane 'Pending' (Jo kal call hi nahi hue)
-                    $pendingLeftoverCount = $allocationService->allocatePendingLeftovers($task);
+                    $remainingTarget = $task->target_count;
 
-                    // 2. 'Not Reachable', 'Switch Off' etc. (3-Day rule)
-                    $deadRolloverCount = $allocationService->allocateRolloverCustomers($task);
+                    $priorityCount = $allocationService->allocatePriorityCustomers($task);
+                    $remainingTarget -= $priorityCount;
 
-                    // 3. Fixed Fresh Target (Jaise 300 naye)
-                    $freshAllocatedCount = $allocationService->allocateFreshCustomers($task, $task->target_count);
+                    $leftoverCount = 0;
+                    if ($remainingTarget > 0) {
+                        $leftoverCount = $allocationService->allocatePendingLeftovers($task);
+                        $remainingTarget -= $leftoverCount;
+                    }
+
+                    $freshCount = 0;
+                    if ($remainingTarget > 0) {
+                        $freshCount = $allocationService->allocateFreshCustomers($task, $remainingTarget);
+                    }
+
+                    $rolloverCount = $allocationService->allocateRolloverCustomers($task);
+
+                    $totalAllocated = $priorityCount + $leftoverCount + $freshCount + $rolloverCount;
+                    $task->update(['target_count' => $totalAllocated]);
+
+                    $breakdownMsg = "Assigned {$totalAllocated} calls ({$priorityCount} Priority, {$freshCount} Fresh, {$leftoverCount} Leftover, {$rolloverCount} Rollover).";
+                } else {
+                    // Agar phase_id nahi hai ya target_count 0 hai, toh simple notification do
+                    $totalAllocated = $task->target_count ?? 0;
+                    $breakdownMsg = "Aapko {$totalAllocated} calls ka general task assign kiya gaya hai. Kripya apna portal check karein.";
                 }
-
-                // Total actual allocation calculation (e.g., 300 + 160 + 60 = 520)
-                $totalAllocated = $freshAllocatedCount + $pendingLeftoverCount + $deadRolloverCount;
-
-                // 🔥 UI CARD FIX: Task table ko naye total se update kar do taaki card par 300 ki jagah 520 dikhe 🔥
-                $task->update(['target_count' => $totalAllocated]);
-
-                // Clear Breakdown Message
-                $breakdownMsg = "Assigned {$totalAllocated} calls ({$freshAllocatedCount} Fresh, {$pendingLeftoverCount} Yesterday Left, {$deadRolloverCount} Dead Status).";
 
                 TaskProgressLog::create([
                     'task_id'           => $task->id,
-                    'actor_type'        => 'App\Models\Employee', 
-                    'actor_id'          => 0, 
+                    'actor_type'        => 'App\Models\Employee',
+                    'actor_id'          => 0,
                     'log_type'          => 'progress_update',
                     'message_or_remark' => "System Note: " . $breakdownMsg,
                     'entries_completed' => 0
@@ -99,9 +144,9 @@ class AutoAssignTasks extends Command
                 if ($assigneeRecord) {
                     $portal = str_contains($setting->assignee_type, 'Employee') ? 'employee' : 'admin';
                     $assigneeRecord->notify(new SystemAlertNotification(
-                        "Daily Target Assigned",
-                        $breakdownMsg, // User ki bell icon me ye poora breakdown aayega
-                        "/{$portal}/tasks",
+                        "Daily Task Assigned",
+                        $breakdownMsg,
+                        "/{$portal}/my-calling-portal?filter=today",
                         "fa-bullseye",
                         "text-primary"
                     ));
@@ -109,7 +154,7 @@ class AutoAssignTasks extends Command
 
                 DB::commit();
                 $tasksCreated++;
-                
+
                 $this->info("Assigned to ID {$setting->assignee_id}: " . $breakdownMsg);
             } catch (\Exception $e) {
                 DB::rollBack();

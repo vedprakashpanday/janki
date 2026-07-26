@@ -44,4 +44,11 @@ class Company extends Model
                     ->withPivot('role', 'director_id')
                     ->withTimestamps();
     }
+
+
+    public function siteAllocations()
+{
+    return $this->hasMany(SiteAllocation::class, 'company_id');
+}
+
 }

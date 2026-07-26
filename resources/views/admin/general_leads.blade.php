@@ -564,14 +564,26 @@
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
-    <script>
+   <script>
         $(document).ready(function() {
-            let authRole = 'employee',
-                authCompanyId = '',
-                authBranchId = '',
-                authProfileId = '';
-            let isAdmin = false,
-                isDirector = false;
+            // 🔥 1. sysContext ERROR FIX (Synchronous Load) 🔥
+            let sysContext = null;
+            $.ajax({
+                url: '/api/v1/context',
+                type: 'GET',
+                async: false, 
+                success: function(res) {
+                    sysContext = res;
+                }
+            });
+
+            let authRole = sysContext ? (sysContext.role_level || 'employee').toLowerCase() : 'employee',
+                authCompanyId = sysContext ? sysContext.company_id : '',
+                authBranchId = sysContext ? sysContext.branch_id : '',
+                authProfileId = sysContext ? sysContext.profile_id : '';
+                
+            let isAdmin = sysContext ? (sysContext.is_god || ['developer', 'ceo', 'admin'].includes(authRole)) : false,
+                isDirector = sysContext ? sysContext.is_director : false;
 
             let listData = [],
                 pendingData = [];
@@ -580,7 +592,7 @@
 
             let dataTableMain;
             let pendingTable = $('#pendingTable').DataTable({
-                pageLength: 25, // 🔥 NAYA: Default 25 rows
+                pageLength: 25, 
                 dom: '<"row"f>rt<"row"ip>'
             });
 
@@ -591,6 +603,7 @@
                 btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Downloading...');
 
                 let params = new URLSearchParams({
+                    type: 'general', // 🔥 Backend ko bataye ki General data chahiye
                     from_date: $('#r_from').val(),
                     to_date: $('#r_to').val(),
                     followup_month: $('#r_month').val(),
@@ -621,73 +634,82 @@
             };
 
             function loadAllData() {
-                if (!$.fn.DataTable.isDataTable('#dataTableMain')) {
-                    dataTableMain = $('#dataTableMain').DataTable({
-                        pageLength: 25, // 🔥 NAYA: Default 25 rows dikhayega
-                        lengthMenu: [
-                            [10, 25, 50, 100, 500],
-                            [10, 25, 50, 100, "All"]
-                        ],
-                        processing: true,
-                        serverSide: true,
-                        ajax: {
-                            url: '/api/v1/interested-customers',
-                            type: 'GET',
-                            headers: {
-                                "Accept": "application/json"
-                            }
-                        },
-                        order: [
-                            [0, 'desc']
-                        ],
-                        dom: '<"row"<"col-md-6"B><"col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
-                        buttons: [{
-                            text: '<i class="fas fa-file-excel me-1"></i> Download All (Searched) Excel',
-                            className: 'btn btn-success btn-sm shadow-sm secured-item admin-only-section',
-                            action: function(e, dt, node, config) {
-                                let searchVal = dt.search() || '';
-                                let btn = $(node);
-                                let originalText = btn.html();
-                                btn.html(
-                                    '<i class="fas fa-spinner fa-spin me-1"></i> Exporting...'
-                                );
+                // 🔥 2. VIEW PERMISSION CHECK 🔥
+                let p = (sysContext && sysContext.permissions) ? sysContext.permissions : (window.userPerms || []);
+                let hasView = isAdmin || p.includes('general_leads_view');
 
-                                $.ajax({
-                                    url: '/api/v1/general-leads/export?search=' +
-                                        encodeURIComponent(searchVal),
-                                    type: 'GET',
-                                    success: function(res) {
-                                        btn.html(originalText);
-                                        if (res.data && res.data.length > 0) {
-                                            let ws = XLSX.utils.json_to_sheet(res
-                                                .data);
-                                            let wb = XLSX.utils.book_new();
-                                            XLSX.utils.book_append_sheet(wb, ws,
-                                                "General Leads");
-                                            XLSX.writeFile(wb,
-                                                "General_Leads_Export.xlsx");
-                                        } else {
-                                            alert("No data found to export.");
+                if (!hasView) {
+                    // Agar permission nahi hai to UI hide karo
+                    $('.card.d-none.d-lg-block').hide(); 
+                    $('#mobileTabs, #desktopTabs').hide();
+                    $('#mobileSearchActive, #mobileSearchPending').hide();
+                    $('#mContainer, #mPendingContainer').hide();
+                    $('#btnLoadMore').hide();
+                    $('#floatingBulkBar').remove(); 
+                    
+                    if ($('#noViewWarning').length === 0) {
+                        $('<div id="noViewWarning" class="alert alert-warning text-center mt-3 fw-bold shadow-sm" style="background-color: #fff3cd; color: #856404; border-color: #ffeeba;"><i class="fas fa-lock me-2"></i> You only have permission to Add/Request. Data table view is restricted.</div>').insertAfter('.d-flex.justify-content-between.align-items-center.mb-4');
+                    }
+                } 
+                else {
+                    // 🔥 VIEW PERMISSION HAI TOH DATATABLE LOAD KAREN 🔥
+                    if (!$.fn.DataTable.isDataTable('#dataTableMain')) {
+                        dataTableMain = $('#dataTableMain').DataTable({
+                            pageLength: 25,
+                            lengthMenu: [ [10, 25, 50, 100, 500], [10, 25, 50, 100, "All"] ],
+                            processing: true,
+                            serverSide: true,
+                            ajax: {
+                                url: '/api/v1/interested-customers',
+                                type: 'GET',
+                                data: function(d) {
+                                    d.type = 'general'; // 🔥 NAYA: API ko specifically batayega ki General Data chahiye
+                                },
+                                headers: { "Accept": "application/json" }
+                            },
+                            order: [ [0, 'desc'] ],
+                            dom: isAdmin ? '<"row"<"col-md-6"B><"col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' : '<"row"f>rt<"row"ip>',
+                            buttons: isAdmin ? [{
+                                text: '<i class="fas fa-file-excel me-1"></i> Download All (Searched) Excel',
+                                className: 'btn btn-success btn-sm shadow-sm secured-item admin-only-section',
+                                action: function(e, dt, node, config) {
+                                    let searchVal = dt.search() || '';
+                                    let btn = $(node);
+                                    let originalText = btn.html();
+                                    btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Exporting...');
+
+                                    $.ajax({
+                                        url: '/api/v1/general-leads/export?type=general&search=' + encodeURIComponent(searchVal),
+                                        type: 'GET',
+                                        success: function(res) {
+                                            btn.html(originalText);
+                                            if (res.data && res.data.length > 0) {
+                                                let ws = XLSX.utils.json_to_sheet(res.data);
+                                                let wb = XLSX.utils.book_new();
+                                                XLSX.utils.book_append_sheet(wb, ws, "General Leads");
+                                                XLSX.writeFile(wb, "General_Leads_Export.xlsx");
+                                            } else {
+                                                alert("No data found to export.");
+                                            }
+                                        },
+                                        error: function() {
+                                            btn.html(originalText);
+                                            alert("Export failed.");
                                         }
-                                    },
-                                    error: function() {
-                                        btn.html(originalText);
-                                        alert("Export failed.");
-                                    }
-                                });
-                            }
-                        }]
-                    });
-                } else {
-                    dataTableMain.ajax.reload(null, false);
-                }
+                                    });
+                                }
+                            }] : []
+                        });
+                    } else {
+                        dataTableMain.ajax.reload(null, false);
+                    }
+                } // End of hasView condition
 
+                // Background Data Load (Counters, Datalists, Mobile Cards)
                 $.ajax({
-                    url: '/api/v1/interested-customers',
+                    url: '/api/v1/interested-customers?type=general',
                     type: 'GET',
-                    headers: {
-                        "Accept": "application/json"
-                    },
+                    headers: { "Accept": "application/json" },
                     success: function(res) {
                         authRole = (res.auth_role || 'employee').toLowerCase();
                         authCompanyId = res.auth_company || '';
@@ -707,61 +729,51 @@
                             if (typeof loadReportInitial === 'function') loadReportInitial();
                         }
 
-                        // 🔥 NAYA CODE: Admin & Director ke liye LIVE Auto-Refresh 🔥
+                        // LIVE Auto-Refresh Logic
                         if ((isAdmin || isDirector) && !window.liveUpdateStarted) {
                             window.liveUpdateStarted = true;
-
                             setInterval(function() {
-                                // 1. Sirf Counter Update karne ke liye background request
                                 $.ajax({
-                                    url: '/api/v1/interested-customers',
+                                    url: '/api/v1/interested-customers?type=general',
                                     type: 'GET',
-                                    headers: {
-                                        "Accept": "application/json"
-                                    },
+                                    headers: { "Accept": "application/json" },
                                     success: function(liveRes) {
-                                        if (liveRes.today_count !== undefined) {
-                                            $('#countValue').text(liveRes
-                                                .today_count);
-                                        }
+                                        if (liveRes.today_count !== undefined) $('#countValue').text(liveRes.today_count);
                                     }
                                 });
-
-                                // 2. DataTable ko background me update karna (Selection aur Page wahi rahega)
                                 if ($.fn.DataTable.isDataTable('#dataTableMain')) {
                                     $('#dataTableMain').DataTable().ajax.reload(null, false);
                                 }
-                            }, 10000); // Har 10 Second me automatically naya data aayega!
+                            }, 10000); 
                         }
-                        // 🔥 NAYA CODE KHATAM 🔥
 
                         listData = res.general || [];
-                        pendingData = (res.pending_requests || []).filter(d => d.status
-                            .toLowerCase() === 'general');
+                        pendingData = (res.pending_requests || []).filter(d => d.status.toLowerCase() === 'general');
 
-                        // Naya Logic: Safe filter aur Amitabh Sir ka inclusion
-                        let staffArray = res.staff_list || [];
-
-                        let activeStaff = staffArray.filter(s => {
-                            let status = s.emp_status ? s.emp_status.toString().toLowerCase() :
-                                '';
+                        let activeStaff = (res.staff_list || []).filter(s => {
+                            let status = s.emp_status ? s.emp_status.toString().toLowerCase() : '';
                             return status === 'active';
                         });
 
                         let dlHtml = '';
                         activeStaff.forEach(s => {
-                            dlHtml +=
-                                `<option value="${s.staff_id}">${s.name} (${s.role})</option>`;
+                            dlHtml += `<option value="${s.staff_id}">${s.name} (${s.role})</option>`;
                         });
 
-                        // Staff List update karein
-                        $('#staffDataList').html(dlHtml);
+                        // 🔥 3. CUSTOM REFER BY (Unique List from Controller) 🔥
+                        if (res.custom_refers && res.custom_refers.length > 0) {
+                            res.custom_refers.forEach(ref => {
+                                dlHtml += `<option value="${ref}">${ref} (Custom)</option>`;
+                            });
+                        }
 
-                        // Refer By ke liye alag list set karein (Pehle Amitabh Sir, fir baaki)
+                        $('#staffDataList').html(dlHtml);
                         let referByHtml = '<option value="Amitabh Sir">Amitabh Sir</option>' + dlHtml;
                         $('#referByDataList').html(referByHtml);
 
-                        renderMobileAndPending();
+                        if (hasView) {
+                            renderMobileAndPending();
+                        }
 
                         if ($('#f_company option').length <= 1) loadCompanies();
                         else applyCompanyLocks();

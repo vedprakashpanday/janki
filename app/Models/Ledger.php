@@ -8,17 +8,28 @@ use Illuminate\Notifications\Notifiable;
 
 class Ledger extends Model
 {
-    use HasFactory,Notifiable;
+    use HasFactory, Notifiable;
     protected $guarded = [];
 
-    // Branch ke sath relation
-    public function branch()
-    {
-        return $this->belongsTo(Branch::class, 'branch_id');
-    }
+    // branch_id hata diya gaya hai, relation removed.
 
     public function debitVouchers()
     {
         return $this->hasMany(DebitVoucher::class, 'ledger_id');
     }
+
+
+    // In Ledger.php
+    public function phase()
+    {
+        return $this->belongsTo(Phase::class, 'phase_id');
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
+
+
+
 }

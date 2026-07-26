@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Amitabh Builders & Developers - Business Card</title>
+<title>{{ $data['company_name'] }} - Premium Card</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -77,17 +77,17 @@
     <div class="side-label">✦ Front Side</div>
     <div class="biz-card">
       <div class="card-front">
-        <div class="watermark">AB</div>
+        <div class="watermark">{{ substr(trim($data['company_name']), 0, 2) }}</div>
         <div class="front-top">
           <div class="logo-area">
-            <div class="logo-icon">AB</div>
+            <div class="logo-icon">{{ substr(trim($data['company_name']), 0, 2) }}</div>
             <div class="logo-text">
-              <img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="Logo" style="width: 200px; margin-bottom: 10px; filter: invert(1);">
+              <img src="{{ $data['company_logo'] }}" alt="Logo" style="width: 200px; margin-bottom: 10px; filter: invert(1);">
             </div>
           </div>
           <div class="iso-badge">
             <span class="iso-label">Certified</span>
-            <span class="iso-num">ISO 9001</span>
+            <span class="iso-num">ISO {{ $data['iso_no'] ?: '9001' }}</span>
             <span class="iso-year">: 2015</span>
           </div>
         </div>
@@ -137,15 +137,14 @@
           </div>
           <div class="bottom-row">
             <div class="address-block">
-              <div class="address-label"><i class="fas fa-map-marker-alt"></i> &nbsp;Registered Address</div>
-              <div class="address-text">1st Floor, Pappu Yadav Building, South of NH-27,<br>Kakarghati Chowk, Bhuskaul, Darbhanga — 846007<br>Bihar, India</div>
+              <div class="address-label"><i class="fas fa-map-marker-alt"></i> &nbsp;{{ $data['is_ho'] ? 'Regd. Address' : 'Branch Address' }}</div>
+              <div class="address-text">{{ $data['is_ho'] ? $data['company_address'] : $data['branch_address'] }}</div>
             </div>
             <div class="right-col">
-              <div class="cin-text">CIN:<br><span>U43299BR2024PTC072712</span></div>
+              <div class="cin-text">CIN:<br><span>{{ $data['cin_no'] }}</span></div>
               <div class="office-phones">
                 <span class="op-label">Office Contacts</span>
-                <span class="op-nums">9060218-222/333/666</span><br>
-                <span class="op-nums" style="color:var(--gold);">&#9742; 9472467007</span>
+                <span class="op-nums">{{ $data['company_phone'] }}</span>
               </div>
             </div>
           </div>

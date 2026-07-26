@@ -69,12 +69,12 @@
                 <table class="table table-hover align-middle mb-0" id="leaveTable">
                     <thead class="bg-light">
                         <tr>
-                            <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="checkAllDesktop">
-                            </th>
-                            <th>Applicant</th>
+                            <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="checkAllDesktop"></th>
+                            <th>Employee Name & Code</th>
                             <th>Type</th>
                             <th>Duration</th>
                             <th>Date Range</th>
+                            <th>Applied On</th> <!-- 🔥 NAYA COLUMN -->
                             <th>Status</th>
                             <th class="text-end">Actions</th>
                         </tr>
@@ -343,14 +343,35 @@
 
 @push('scripts')
     <script>
-        const currentUserCtx = @json($userContext);
+       const currentUserCtx = @json($userContext);
 
         let currentPage = 1;
         let selectedIds = [];
         let globalProfile = null;
+        
+        // 🔥 NAYA: Panel ke hisaab se exact token nikalna
         let authApiUrl = '/api/v1/admin/auth/me';
-        if (window.location.pathname.startsWith('/employee')) authApiUrl = '/api/v1/employee/auth/me';
-        else if (window.location.pathname.startsWith('/customer')) authApiUrl = '/api/v1/customer/auth/me';
+        let apiToken = localStorage.getItem('admin_token');
+        let panelType = 'admin';
+
+        if (window.location.pathname.startsWith('/employee')) {
+            authApiUrl = '/api/v1/employee/auth/me';
+            apiToken = localStorage.getItem('emp_token');
+            panelType = 'employee';
+        } else if (window.location.pathname.startsWith('/customer')) {
+            authApiUrl = '/api/v1/customer/auth/me';
+            apiToken = localStorage.getItem('member_token');
+            panelType = 'member';
+        }
+
+        // 🔥 NAYA: Global AJAX Setup (Ye backend ko force karega ki cookie nahi, ye token read kare)
+        if (apiToken) {
+            $.ajaxSetup({
+                headers: {
+                    'Authorization': 'Bearer ' + apiToken
+                }
+            });
+        }
 
         function getArray(res) {
             return res.data?.data || res.data || res || [];
@@ -364,10 +385,8 @@
             }
         }
 
-        // 🔥 NAYA HELPER: Timezone Bug Fix (UTC to IST Local Time Converter)
         function getLocalInputFormat(dateStr, isDateTime = false) {
             if (!dateStr) return '';
-            // JS Date automatically adjusts UTC (Z) to local browser time (IST)
             let safeStr = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
             let d = new Date(safeStr);
             if (isNaN(d)) return '';
@@ -406,11 +425,15 @@
             });
         }
 
-        function loadDepartmentsAsync(companyId, branchId) {
+      function loadDepartmentsAsync(companyId, branchId) {
             let bId = branchId !== null && branchId !== undefined ? branchId : '';
             if (!companyId) return Promise.resolve($('#department_id').html('<option value="">Select Department</option>'));
             return $.get(`/api/v1/get-departments-by-company?company_id=${companyId}&branch_id=${bId}`).then(res => {
                 let arr = getArray(res);
+                
+                // 🔥 NAYA: Filter OUT departments having "associate" in name (Case Insensitive)
+                arr = arr.filter(d => !/associate/i.test(d.department_name));
+
                 let opts = '<option value="">Select Department</option>';
                 arr.forEach(d => opts += `<option value="${d.id}">${d.department_name}</option>`);
                 $('#department_id').html(opts);
@@ -436,8 +459,7 @@
                 let arr = getArray(res);
                 let opts = '<option value="">Select Applicant</option>';
                 arr.forEach(u => {
-                    let name = type === 'member' ? `${u.full_name || u.name} (${u.member_id})` : (u
-                        .full_name || u.name);
+                    let name = type === 'member' ? `${u.full_name || u.name} (${u.member_id})` : (u.full_name || u.name);
                     opts += `<option value="${u.id}">${name}</option>`;
                 });
                 $('#user_id').html(opts);
@@ -473,8 +495,7 @@
                 loadDesignationsAsync($(this).val()).then(() => $('#designation_id').trigger('change'));
             });
             $('#designation_id, #user_type').change(function() {
-                loadUsersAsync($('#designation_id').val(), $('#branch_id').val(), $('#company_id').val(), $(
-                    '#user_type').val());
+                loadUsersAsync($('#designation_id').val(), $('#branch_id').val(), $('#company_id').val(), $('#user_type').val());
             });
         }
 
@@ -487,7 +508,7 @@
                 let roleStr = (u.role || '').toLowerCase();
                 let emailStr = (u.email || '').toLowerCase();
 
-                if (!u.department_id && u.id && roleStr !== 'admin' && emailStr !== 'admin@jankivilla.com') {
+                if (panelType === 'employee' && !u.department_id && u.id) {
                     try {
                         let empRes = await $.get(`/api/v1/employees/${u.id}`);
                         let empData = empRes.data || empRes;
@@ -503,18 +524,21 @@
                 let role = (u.role || '').toLowerCase();
                 let desig = (u.designation_name || '').toLowerCase();
                 let email = (u.email || '').toLowerCase();
-                let isGod = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'].includes(email);
+                
+                // Sirf Admin panel me login hone par hi God Mode on hoga, Employee/Member me nahi!
+                let isGod = panelType === 'admin' && (['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'].includes(email) || role === 'ceo' || desig.includes('ceo'));
+                let isDirector = panelType === 'admin' && (role === 'director' || desig.includes('director'));
 
                 globalProfile = {
-                    is_god: isGod || role === 'ceo' || desig.includes('ceo'),
-                    is_director: role === 'director' || desig.includes('director'),
-                    user_type: u.member_id ? 'member' : 'employee',
-                    company_id: currentUserCtx.company_id || u.company_id || '',
-                    branch_id: currentUserCtx.branch_id || u.branch_id || '',
-                    department_id: currentUserCtx.department_id || u.department_id || '',
-                    designation_id: currentUserCtx.designation_id || u.designation_id || '',
-                    user_id: currentUserCtx.user_id || u.id,
-                    user_name: currentUserCtx.user_name || u.full_name || u.name || 'Applicant'
+                    is_god: isGod,
+                    is_director: isDirector,
+                    user_type: panelType === 'member' ? 'member' : 'employee', // 🔥 Force true panel type
+                    company_id: u.company_id || currentUserCtx.company_id || '',
+                    branch_id: u.branch_id || currentUserCtx.branch_id || '',
+                    department_id: u.department_id || currentUserCtx.department_id || '',
+                    designation_id: u.designation_id || currentUserCtx.designation_id || '',
+                    user_id: u.id || currentUserCtx.user_id,
+                    user_name: u.full_name || u.name || currentUserCtx.user_name || 'Applicant'
                 };
                 return globalProfile;
             } catch (e) {
@@ -522,7 +546,6 @@
                 return null;
             }
         }
-
         function applyLocks(u) {
             $('.form-select').css('pointer-events', 'auto').removeClass('bg-light');
             if (!u || u.is_god) return;
@@ -547,7 +570,8 @@
 
             setupDropdowns(false);
 
-            let u = await fetchProfile();
+           let u = await fetchProfile(); 
+            if(u) $('#user_type').val(u.user_type);
             await loadCompaniesAsync();
 
             if (u && !u.is_god) {
@@ -574,9 +598,9 @@
                     ensureOptionExists('#designation_id', u.designation_id, u.designation_name);
                     $('#designation_id').val(u.designation_id);
 
-                    $('#user_type').val(u.user_type);
+                    $('#user_type').val('employee').css('pointer-events', 'none').addClass('bg-light');
 
-                    await loadUsersAsync(u.designation_id, u.branch_id, u.company_id, u.user_type);
+                    await loadUsersAsync(u.designation_id, u.branch_id, u.company_id, 'employee');
                     ensureOptionExists('#user_id', u.user_id, u.user_name);
                     $('#user_id').val(u.user_id);
 
@@ -641,7 +665,7 @@
                 'Designation');
             $('#designation_id').val(data.designation_id || '');
 
-            $('#user_type').val(data.user_type);
+           $('#user_type').val('employee').css('pointer-events', 'none').addClass('bg-light');
 
             await loadUsersAsync(data.designation_id, data.branch_id, data.company_id, data.user_type);
             let uName = data.user_type === 'employee' ? data.employee?.full_name : data.member?.full_name;
@@ -753,7 +777,7 @@
 
         function loadLeaveData(page = 1) {
             let search = $('#searchBox').val();
-            $.get(`/api/v1/leave-applications?page=${page}&search=${search}`, function(res) {
+            $.get(`/api/v1/leave-applications?page=${page}&search=${search}&req_user_type=employee`, function(res) {
                 currentPage = page;
                 renderDesktopTable(res.data.data);
                 renderMobileCards(res.data.data);
@@ -763,75 +787,81 @@
                 $('#checkAllDesktop').prop('checked', false);
             });
         }
-
-        function getStatusBadge(status) {
+// 🔥 FIX: Strict Check for Deleted Badge
+        function getStatusBadge(status, deleted_at = null) {
+            if (deleted_at && deleted_at !== 'null') {
+                return '<span class="badge bg-secondary"><i class="fas fa-trash"></i> Deleted</span>';
+            }
             if (status === 'approved' || status === 'active') return '<span class="badge bg-success">Approved</span>';
             if (status === 'rejected') return '<span class="badge bg-danger">Rejected</span>';
             return '<span class="badge bg-warning text-dark">Pending</span>';
         }
 
+        // 🔥 FIX: Action Buttons with Strict Deleted Check
         function getActionButtons(row) {
-            let isOwner = globalProfile && (row.user_id == globalProfile.user_id && row.user_type === globalProfile
-                .user_type);
+            let isOwner = globalProfile && (row.user_id == globalProfile.user_id && row.user_type === globalProfile.user_type);
             let html = `<div class="btn-group">`;
 
             let uPerms = window.userPerms || [];
             let isGod = globalProfile ? globalProfile.is_god : (window.userGodMode || false);
+            let safeRemarks = (row.remarks || '').replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, "");
+            
+            // 🔥 STRICT CHECK: Kya ye sach me deleted hai?
+            let isDeleted = (row.deleted_at && row.deleted_at !== 'null') ? true : false;
 
-            // View Button
-            html +=
-                `<button class="btn btn-sm btn-outline-info" onclick="viewApplication(${row.id})" title="View"><i class="fas fa-eye"></i></button>`;
+            // View Button (Hamesha dikhega)
+            html += `<button class="btn btn-sm btn-outline-info" onclick="viewApplication(${row.id})" title="View"><i class="fas fa-eye"></i></button>`;
 
-            // Edit Request Button
-            if (row.status === 'pending' && (isOwner || uPerms.includes('leave_edit') || isGod)) {
-                html +=
-                    `<button class="btn btn-sm btn-outline-primary" onclick="editApplication(${row.id})" title="Edit Request"><i class="fas fa-edit"></i></button>`;
-            }
+            // Agar Deleted NAHI hai tabhi aage ke options dikhao
+            if (!isDeleted) {
+                // Edit Request Button
+                if (row.status === 'pending' && (isOwner || uPerms.includes('leave_edit') || uPerms.includes('mem_app_edit') || isGod)) {
+                    html += `<button class="btn btn-sm btn-outline-primary" onclick="editApplication(${row.id})" title="Edit Request"><i class="fas fa-edit"></i></button>`;
+                }
 
-            // Approve & Reject Buttons
-            if (row.status === 'pending' && !isOwner) {
-                if (uPerms.includes('leave_appr') || isGod) {
-                    let resumeDt = row.resume_datetime || '';
-                    html +=
-                        `<button class="btn btn-sm btn-outline-success" onclick="openApproveModal(${row.id}, '${row.duration}', '${row.application_type}', '${row.start_datetime}', '${row.end_datetime}', '${resumeDt}')" title="Approve"><i class="fas fa-check"></i></button>`;
+                // Approve & Reject Buttons
+                if (row.status === 'pending' && !isOwner) {
+                    if (uPerms.includes('leave_appr') || uPerms.includes('mem_app_appr') || isGod) {
+                        let resumeDt = row.resume_datetime || '';
+                        html += `<button class="btn btn-sm btn-outline-success" onclick="openApproveModal(${row.id}, '${row.duration}', '${row.application_type}', '${row.start_datetime}', '${row.end_datetime}', '${resumeDt}')" title="Approve"><i class="fas fa-check"></i></button>`;
+                    }
+                    if (uPerms.includes('leave_rej') || uPerms.includes('mem_app_rej') || isGod) {
+                        html += `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id})" title="Reject"><i class="fas fa-times"></i></button>`;
+                    }
                 }
-                if (uPerms.includes('leave_rej') || isGod) {
-                    html +=
-                        `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id})" title="Reject"><i class="fas fa-times"></i></button>`;
+                
+                // EDIT APPROVAL FEATURE
+                else if (row.status === 'approved' && !isOwner) {
+                    if (uPerms.includes('leave_appr') || uPerms.includes('mem_app_appr') || isGod) {
+                        let resumeDt = row.approved_resume_datetime || row.resume_datetime || '';
+                        let startDt = row.approved_start_datetime || row.start_datetime || '';
+                        let endDt = row.approved_end_datetime || row.end_datetime || '';
+                        let duration = row.approved_duration || row.duration || '';
+                        html += `<button class="btn btn-sm btn-outline-warning" onclick="openApproveModal(${row.id}, '${duration}', '${row.application_type}', '${startDt}', '${endDt}', '${resumeDt}', '${safeRemarks}', true)" title="Edit Approval"><i class="fas fa-user-edit"></i></button>`;
+                    }
                 }
-            }
-            // EDIT APPROVAL FEATURE
-            else if (row.status === 'approved' && !isOwner) {
-                if (uPerms.includes('leave_appr') || isGod) {
-                    let resumeDt = row.approved_resume_datetime || row.resume_datetime || '';
-                    let startDt = row.approved_start_datetime || row.start_datetime || '';
-                    let endDt = row.approved_end_datetime || row.end_datetime || '';
-                    let duration = row.approved_duration || row.duration || '';
-                    let remarks = row.remarks || '';
-
-                    html +=
-                        `<button class="btn btn-sm btn-outline-warning" onclick="openApproveModal(${row.id}, '${duration}', '${row.application_type}', '${startDt}', '${endDt}', '${resumeDt}', '${remarks}', true)" title="Edit Approval"><i class="fas fa-user-edit"></i></button>`;
+                // EDIT REJECTION FEATURE
+                else if (row.status === 'rejected' && !isOwner) {
+                    if (uPerms.includes('leave_rej') || uPerms.includes('mem_app_rej') || isGod) {
+                        html += `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id}, '${safeRemarks}', true)" title="Edit Rejection Remark"><i class="fas fa-edit"></i></button>`;
+                    }
                 }
-            }
-            // 🔥 NAYA: EDIT REJECTION FEATURE (Ye add karna hai)
-            else if (row.status === 'rejected' && !isOwner) {
-                if (uPerms.includes('leave_rej') || isGod) {
-                    let remarks = row.remarks || '';
-                    // Remarks me agar single quote hua to error na aaye isliye escape kiya hai
-                    html += `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id}, '${remarks.replace(/'/g, "\\'")}', true)" title="Edit Rejection Remark"><i class="fas fa-edit"></i></button>`;
-                }
-            }
+            } // END if (!isDeleted)
 
             // Print Button
-            if (row.status !== 'pending' && (uPerms.includes('leave_print') || isGod)) {
-                html +=
-                    `<button class="btn btn-sm btn-outline-secondary" onclick="printApplication(${row.id})" title="Print"><i class="fas fa-print"></i></button>`;
+            if (!isDeleted && row.status !== 'pending' && (uPerms.includes('leave_print') || uPerms.includes('mem_app_print') || isGod)) {
+                html += `<button class="btn btn-sm btn-outline-secondary" onclick="printApplication(${row.id})" title="Print"><i class="fas fa-print"></i></button>`;
             }
 
-            // Delete Button
-            if ((isOwner && row.status === 'pending') || uPerms.includes('leave_delete') || isGod) {
-                html +=
-                    `<button class="btn btn-sm btn-outline-danger" onclick="deleteSingleApplication(${row.id})" title="Delete"><i class="fas fa-trash"></i></button>`;
+            // Delete Button (Pehle Soft Delete, fir Hamesha ke liye Delete)
+            if ((isOwner && row.status === 'pending' && !isDeleted) || uPerms.includes('leave_delete') || uPerms.includes('mem_app_delete') || isGod) {
+                if (isDeleted) {
+                    // 🔥 Hard Delete Button (Dark Red)
+                    html += `<button class="btn btn-sm btn-danger" onclick="deleteSingleApplication(${row.id})" title="Permanent Delete"><i class="fas fa-trash-alt"></i></button>`;
+                } else {
+                    // Normal Delete Button
+                    html += `<button class="btn btn-sm btn-outline-danger" onclick="deleteSingleApplication(${row.id})" title="Delete to Trash"><i class="fas fa-trash"></i></button>`;
+                }
             }
 
             html += `</div>`;
@@ -846,9 +876,11 @@
                 return;
             }
 
-            data.forEach(item => {
-                let name = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member
-                    ?.full_name || 'N/A');
+           data.forEach(item => {
+                // 🔥 NAYA: Name ke sath Member ID (EMP Code) add kiya gaya
+                let baseName = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member?.member_name || item.member?.full_name || 'N/A');
+                let code = item.user_type === 'employee' ? (item.employee?.member_id || '') : (item.member?.member_id || '');
+                let name = code ? `${baseName} (${code})` : baseName;
                 let typeSuffix = item.application_type === 'Short Leave' ? 'Hrs' : 'Days';
                 let durationStr = item.duration ? `${item.duration} ${typeSuffix}` : 'N/A';
 
@@ -864,9 +896,13 @@
                     }
                 }
 
-                let paidBadge = item.is_paid_leave ?
-                    '<span class="badge bg-success ms-1" style="font-size: 10px;"><i class="fas fa-rupee-sign"></i> Paid</span>' :
-                    '';
+               let paidBadge = item.is_paid_leave ?
+                    '<span class="badge bg-success ms-1" style="font-size: 10px;"><i class="fas fa-rupee-sign"></i> Paid</span>' : '';
+
+                // 🔥 NAYA: Applied Date Formatting (DD/MM/YYYY HH:MM AM/PM)
+                let cDate = new Date(item.created_at);
+                let pad = (n) => n < 10 ? '0' + n : n;
+                let appliedOnStr = `${pad(cDate.getDate())}/${pad(cDate.getMonth() + 1)}/${cDate.getFullYear()} ${cDate.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}`;
 
                 let tr = `<tr>
                     <td><input type="checkbox" class="form-check-input row-checkbox" value="${item.id}"></td>
@@ -874,6 +910,7 @@
                     <td><span class="badge bg-primary">${item.application_type}</span> ${paidBadge}</td>
                     <td>${durationStr}</td>
                     <td>${formatAppDateRange(item)}</td>
+                    <td><span class="small fw-medium text-muted">${appliedOnStr}</span></td> <!-- 🔥 NAYA DATA -->
                     <td>${getStatusBadge(item.status)}</td>
                     <td class="text-end">${getActionButtons(item)}</td>
                 </tr>`;
@@ -887,11 +924,13 @@
             if (data.length === 0) {
                 container.html('<div class="text-center py-4 text-muted">No records found.</div>');
                 return;
-            }
+            } 
 
             data.forEach(item => {
-                let name = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member
-                    ?.full_name || 'N/A');
+                // 🔥 NAYA: Mobile cards me bhi Name ke sath Member ID add kiya gaya
+                let baseName = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member?.member_name || item.member?.full_name || 'N/A');
+                let code = item.user_type === 'employee' ? (item.employee?.member_id || '') : (item.member?.member_id || '');
+                let name = code ? `${baseName} (${code})` : baseName;
                 let typeSuffix = item.application_type === 'Short Leave' ? 'Hrs' : 'Days';
                 let durationStr = item.duration ? `${item.duration} ${typeSuffix}` : 'N/A';
 
@@ -905,8 +944,13 @@
                     }
                 }
 
-                let paidBadge = item.is_paid_leave ?
+               let paidBadge = item.is_paid_leave ?
                     '<span class="badge bg-success ms-1"><i class="fas fa-rupee-sign"></i> Paid</span>' : '';
+
+                // 🔥 NAYA: Applied Date Formatting for Mobile
+                let cDate = new Date(item.created_at);
+                let pad = (n) => n < 10 ? '0' + n : n;
+                let appliedOnStr = `${pad(cDate.getDate())}/${pad(cDate.getMonth() + 1)}/${cDate.getFullYear()} ${cDate.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}`;
 
                 let card = `<div class="card mb-2 border-0 shadow-sm">
                     <div class="card-body p-3">
@@ -917,6 +961,12 @@
                             </div>
                             ${getStatusBadge(item.status)}
                         </div>
+                        
+                        <!-- 🔥 NAYA: Applied On in Mobile View -->
+                        <div class="small text-muted mb-2 pb-2 border-bottom">
+                            <i class="fas fa-calendar-plus text-secondary me-1"></i> Applied On: <span class="text-dark fw-medium">${appliedOnStr}</span>
+                        </div>
+
                         <div class="small text-muted mb-2">
                             <i class="fas fa-building me-1"></i> ${item.company?.company_name} <br>
                             <span class="badge bg-light text-dark border me-1">${item.application_type}</span> ${paidBadge}
@@ -1012,8 +1062,8 @@
 
         function deleteSingleApplication(id) {
             Swal.fire({
-                title: 'Are you sure?',
-                text: "Do you really want to delete this application?",
+                title: 'Permanently Delete?',
+                text: "Do you really want to delete this application? This will be permanently deleted if present in trash.",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -1116,9 +1166,8 @@
             let type = $('#approve_leave_type').val();
             let start = $('#approve_start_datetime').val();
             let end = $('#approve_end_datetime').val();
-            let manualDuration = parseFloat($('#approve_duration').val());
 
-            if (!start || !end || isNaN(manualDuration)) return;
+            if (!start || !end) return;
 
             let startDate = new Date(start);
             let endDate = new Date(end);
@@ -1128,8 +1177,7 @@
             }
 
             if (endDate < startDate) {
-                $('#approve_duration_warning').text('End date/time cannot be before start date/time!').removeClass(
-                'd-none');
+                $('#approve_duration_warning').html('<i class="fas fa-exclamation-triangle"></i> End date/time cannot be before start date/time!').removeClass('d-none');
                 return;
             }
 
@@ -1140,15 +1188,10 @@
                 calcDuration = (Math.abs(endDate - startDate) / (1000 * 60 * 60)).toFixed(2);
             }
 
-            if (parseFloat(calcDuration) !== manualDuration) {
-                $('#approve_duration_warning').html(
-                    `<i class="fas fa-exclamation-triangle"></i> Warning: Selected dates equal to ${calcDuration} ${type==='Leave'?'days':'hours'}, but you entered ${manualDuration}!`
-                    ).removeClass('d-none');
-            } else {
-                $('#approve_duration_warning').addClass('d-none');
-            }
+            // 🔥 NAYA: Automatically update the duration field so the Admin doesn't submit wrong data
+            $('#approve_duration').val(calcDuration);
+            $('#approve_duration_warning').addClass('d-none');
         }
-
         function submitApprove() {
             let id = $('#approve_leave_id').val();
             let duration = $('#approve_duration').val();
@@ -1227,27 +1270,59 @@
         }
 
         // NAYA HELPER: Date Range Formatter
+      // NAYA HELPER: Smart Date Range Formatter
         function formatAppDateRange(item) {
             if(item.application_type === 'Other') return '<span class="text-muted">N/A</span>';
-            
+
             let isShort = item.application_type === 'Short Leave';
-            let start = new Date(item.start_datetime);
-            let end = new Date(item.end_datetime);
-            
-            if (isNaN(start) || isNaN(end)) return 'N/A';
+
+            let rStart = new Date(item.start_datetime);
+            let rEnd = new Date(item.end_datetime);
 
             let optDate = { day: '2-digit', month: 'short', year: 'numeric' };
             let optTime = { hour: '2-digit', minute: '2-digit', hour12: true };
-            
-            let sDate = start.toLocaleDateString('en-IN', optDate);
-            let eDate = end.toLocaleDateString('en-IN', optDate);
-            
-            if(isShort) {
-                let sTime = start.toLocaleTimeString('en-IN', optTime);
-                let eTime = end.toLocaleTimeString('en-IN', optTime);
-                return `<div class="small lh-sm"><b>From:</b> ${sDate} ${sTime}<br><b>To:</b> <span class="ms-3">${eDate} ${eTime}</span></div>`;
+
+            let reqSDate = !isNaN(rStart) ? rStart.toLocaleDateString('en-IN', optDate) : '';
+            let reqEDate = !isNaN(rEnd) ? rEnd.toLocaleDateString('en-IN', optDate) : '';
+
+            // Check for approved
+            let isApproved = item.status === 'approved' || item.status === 'active';
+            let aStart = isApproved && item.approved_start_datetime ? new Date(item.approved_start_datetime) : null;
+            let aEnd = isApproved && item.approved_end_datetime ? new Date(item.approved_end_datetime) : null;
+
+            // Agar dates modify hui hain
+            let isModified = isApproved && aStart && aEnd && (rStart.getTime() !== aStart.getTime() || rEnd.getTime() !== aEnd.getTime());
+
+            if (isModified) {
+                let appSDate = aStart.toLocaleDateString('en-IN', optDate);
+                let appEDate = aEnd.toLocaleDateString('en-IN', optDate);
+
+                if (isShort) {
+                    let rSTime = rStart.toLocaleTimeString('en-IN', optTime);
+                    let rETime = rEnd.toLocaleTimeString('en-IN', optTime);
+                    let aSTime = aStart.toLocaleTimeString('en-IN', optTime);
+                    let aETime = aEnd.toLocaleTimeString('en-IN', optTime);
+
+                    return `
+                    <div class="d-flex flex-column lh-1">
+                        <small class="text-decoration-line-through text-danger" title="Requested">Req: ${reqSDate} ${rSTime} - ${reqEDate} ${rETime}</small>
+                        <span class="fw-bold text-success mt-1" title="Approved">App: ${appSDate} ${aSTime} - ${appEDate} ${aETime}</span>
+                    </div>`;
+                } else {
+                     return `
+                    <div class="d-flex flex-column lh-1">
+                        <small class="text-decoration-line-through text-danger" title="Requested">Req: ${reqSDate} - ${reqEDate}</small>
+                        <span class="fw-bold text-success mt-1" title="Approved">App: ${appSDate} - ${appEDate}</span>
+                    </div>`;
+                }
             } else {
-                return `<div class="small lh-sm"><b>From:</b> ${sDate}<br><b>To:</b> <span class="ms-3">${eDate}</span></div>`;
+                 if(isShort) {
+                    let sTime = rStart.toLocaleTimeString('en-IN', optTime);
+                    let eTime = rEnd.toLocaleTimeString('en-IN', optTime);
+                    return `<div class="small lh-sm"><b>From:</b> ${reqSDate} ${sTime}<br><b>To:</b> <span class="ms-3">${reqEDate} ${eTime}</span></div>`;
+                } else {
+                    return `<div class="small lh-sm"><b>From:</b> ${reqSDate}<br><b>To:</b> <span class="ms-3">${reqEDate}</span></div>`;
+                }
             }
         }
 

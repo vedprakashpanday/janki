@@ -25,11 +25,37 @@
             padding: 15px;
             margin-bottom: 15px;
         }
+
+        /* 🔥 MOBILE OFFCANVAS & DESKTOP MODAL CSS 🔥 */
+        @media (max-width: 767.98px) {
+            .mobile-bottom-sheet {
+                align-items: flex-end;
+                margin: 0;
+                min-height: 100%;
+            }
+
+            .mobile-bottom-sheet .modal-content {
+                border-radius: 20px 20px 0 0 !important;
+                border: none;
+                max-height: 90vh;
+                /* 🔥 FIX: Modal ko thoda chhota rakha taaki scroll kaam kare */
+                overflow: hidden;
+                /* 🔥 FIX: Design bahar na nikle */
+            }
+
+            .modal.fade .mobile-bottom-sheet {
+                transform: translateY(100%);
+            }
+
+            .modal.show .mobile-bottom-sheet {
+                transform: translateY(0);
+            }
+        }
     </style>
 
     <div class="container-fluid py-3">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-            <h4 class="mb-0 fw-bold">Travel Allowances</h4>
+            <h4 class="mb-0 fw-bold">Travelling & Conveyance Expenses</h4>
             <div class="d-flex flex-grow-1 mx-md-3" style="max-width: 400px;">
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
@@ -38,7 +64,7 @@
                 </div>
             </div>
             <button class="btn btn-primary text-nowrap" onclick="openTAModal()">
-                <i class="fas fa-plus me-1"></i> Request TA
+                Travelling & Conveyance Expenses
             </button>
         </div>
 
@@ -47,16 +73,18 @@
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="taTable">
                         <thead class="table-light">
-                        <tr>
-                            <th class="ps-3"><input type="checkbox" id="selectAllDesktop" class="form-check-input"></th>
-                            <th>Date</th>
-                            <th>Employee</th>
-                            <th>Person Info</th> <th>Purpose & Destination</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th class="pe-3">Actions</th>
-                        </tr>
-                    </thead>
+                            <tr>
+                                <th class="ps-3"><input type="checkbox" id="selectAllDesktop" class="form-check-input">
+                                </th>
+                                <th>Date</th>
+                                <th>Employee</th>
+                                <th>Person Info</th>
+                                <th>Purpose & Destination</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th class="pe-3">Actions</th>
+                            </tr>
+                        </thead>
                         <tbody id="taTableBody"></tbody>
                     </table>
                 </div>
@@ -80,101 +108,108 @@
         <button class="btn btn-danger btn-sm fw-bold" onclick="executeBulkDelete()"><i class="fas fa-trash"></i>
             Delete</button>
     </div>
+    <div class="modal fade" id="taModal" tabindex="-1" aria-labelledby="taModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable mobile-bottom-sheet">
 
-    <div class="modal fade" id="taModal" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-fullscreen-md-down">
-            <div class="modal-content">
-                <div class="modal-header bg-light">
-                    <h5 class="modal-title" id="taModalTitle">Request Travel Allowance</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <form id="taForm" class="modal-content mb-0">
+
+                <div class="modal-header bg-light border-bottom">
+                    <h5 class="modal-title fw-bold" id="taModalTitle">Travelling & Conveyance Expenses</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="taForm">
-                    <div class="modal-body">
-                        <input type="hidden" id="ta_id" name="id">
-                        <div id="adminSelectionArea" class="row mb-3 bg-light p-3 rounded border">
-                            <h6 class="fw-bold mb-3 text-primary">Office Hierarchy (Admin Only)</h6>
-                            <div class="col-md-6 mb-2">
-                                <label class="form-label small">Company</label>
-                                <select class="form-select form-select-sm admin-select" id="company_id"
-                                    name="company_id"></select>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <label class="form-label small">Branch</label>
-                                <select class="form-select form-select-sm admin-select" id="branch_id"
-                                    name="branch_id"></select>
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label small">Department</label>
-                                <select class="form-select form-select-sm admin-select" id="department_id"
-                                    name="department_id"></select>
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label small">Designation</label>
-                                <select class="form-select form-select-sm admin-select" id="designation_id"
-                                    name="designation_id"></select>
-                            </div>
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label small">Employee</label>
-                                <select class="form-select form-select-sm admin-select" id="employee_id"
-                                    name="employee_id"></select>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label">Date</label><input type="date"
-                                    class="form-control" name="ta_date" id="ta_date" required></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Vehicle No.</label><input type="text"
-                                    class="form-control" name="vehicle_no" id="vehicle_no"></div>
 
-                                    <div class="col-md-4 mb-3">
+                <div class="modal-body p-3 p-md-4"> <input type="hidden" id="ta_id" name="id">
+
+                    <div id="adminSelectionArea" class="row mb-3 bg-light p-3 rounded border">
+                        <h6 class="fw-bold mb-3 text-primary">Office Hierarchy (Admin Only)</h6>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small">Company</label>
+                            <select class="form-select form-select-sm admin-select" id="company_id"
+                                name="company_id"></select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small">Branch</label>
+                            <select class="form-select form-select-sm admin-select" id="branch_id"
+                                name="branch_id"></select>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label small">Department</label>
+                            <select class="form-select form-select-sm admin-select" id="department_id"
+                                name="department_id"></select>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label small">Designation</label>
+                            <select class="form-select form-select-sm admin-select" id="designation_id"
+                                name="designation_id"></select>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label small">Employee</label>
+                            <select class="form-select form-select-sm admin-select" id="employee_id"
+                                name="employee_id"></select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label class="form-label">Date</label><input type="date"
+                                class="form-control" name="ta_date" id="ta_date" required></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Vehicle No.</label><input type="text"
+                                class="form-control" name="vehicle_no" id="vehicle_no"></div>
+
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Person Name</label>
-                            <input type="text" class="form-control" name="person_name" id="person_name" placeholder="Self or Guest Name">
+                            <input type="text" class="form-control" name="person_name" id="person_name"
+                                placeholder="Self or Guest Name">
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Person Contact</label>
-                            <input type="text" class="form-control" name="person_number" id="person_number" placeholder="Mobile Number">
+                            <input type="text" class="form-control" name="person_number" id="person_number"
+                                placeholder="Mobile Number">
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">No. of Persons <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" name="number_of_persons" id="number_of_persons" value="1" min="1" required>
+                            <input type="number" class="form-control" name="number_of_persons" id="number_of_persons"
+                                value="1" min="1" required>
                         </div>
 
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Purpose of Work <span class="text-danger">*</span></label>
-                                <textarea class="form-control" name="purpose" id="purpose" rows="3" minlength="200" placeholder="Detail your purpose (Minimum 200 characters required)..." required></textarea>
-                                <small id="purposeCount" class="text-danger fw-bold">0 / 200 minimum characters</small>
-                            </div>
-                            <div class="col-md-6 mb-3"><label class="form-label">Destination</label>
-                                <textarea class="form-control" name="destination" id="destination" rows="2" required></textarea>
-                            </div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Distance (KMs)</label><input
-                                    type="text" class="form-control" name="distance_km" id="distance_km"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Fuel (Litre)</label><input
-                                    type="text" class="form-control" name="fuel_litre" id="fuel_litre"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">In Time</label><input type="time"
-                                    class="form-control" name="in_time" id="in_time"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Out Time</label><input type="time"
-                                    class="form-control" name="out_time" id="out_time"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label fw-bold">Amount (₹)</label><input
-                                    type="number" step="0.01" class="form-control border-primary" name="amount"
-                                    id="amount" required></div>
-                               <!-- 🔥 MULTIPLE PROOF PREVIEW FIELD 🔥 -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Purpose of Work <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="purpose" id="purpose" rows="3" minlength="200"
+                                placeholder="Detail your purpose (Minimum 200 characters required)..." required></textarea>
+                            <small id="purposeCount" class="text-danger fw-bold">0 / 200 minimum characters</small>
+                        </div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Destination</label>
+                            <textarea class="form-control" name="destination" id="destination" rows="2" required></textarea>
+                        </div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Distance (KMs)</label><input type="text"
+                                class="form-control" name="distance_km" id="distance_km"></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Fuel (Litre)</label><input type="text"
+                                class="form-control" name="fuel_litre" id="fuel_litre"></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">In Time</label><input type="time"
+                                class="form-control" name="in_time" id="in_time"></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Out Time</label><input type="time"
+                                class="form-control" name="out_time" id="out_time"></div>
+                        <div class="col-md-4 mb-3"><label class="form-label fw-bold">Amount (₹)</label><input
+                                type="number" step="0.01" class="form-control border-primary" name="amount"
+                                id="amount" required></div>
+
                         <div class="col-md-12 mb-3">
-                            <label class="form-label fw-bold">Upload Proof(s) <span class="text-danger">*</span> <small class="text-muted">(Select multiple JPG/PDF)</small></label>
-                            <input type="file" class="form-control" id="proof_file_input" accept=".jpg,.jpeg,.png,.webp,.pdf" multiple>
-                            <!-- Image previews box -->
+                            <label class="form-label fw-bold">Upload Proof(s) <span class="text-danger">*</span> <small
+                                    class="text-muted">(Select multiple JPG/PDF)</small></label>
+                            <input type="file" class="form-control" id="proof_file_input"
+                                accept=".jpg,.jpeg,.png,.webp,.pdf" multiple>
                             <div id="proof_preview_container" class="d-flex flex-wrap gap-2 mt-2"></div>
                         </div>
-                        </div>
                     </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="saveTaBtn">Submit Request</button>
-                    </div>
-                </form>
-            </div>
+                </div>
+
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveTaBtn">Submit Request</button>
+                </div>
+            </form>
+
         </div>
     </div>
-
     <div class="modal fade" id="viewModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -242,7 +277,7 @@
             $('#purpose').on('input', function() {
                 let len = $(this).val().trim().length;
                 $('#purposeCount').text(`${len} / 200 minimum characters`);
-                if(len < 200) {
+                if (len < 200) {
                     $('#purposeCount').removeClass('text-success').addClass('text-danger');
                 } else {
                     $('#purposeCount').removeClass('text-danger').addClass('text-success');
@@ -271,10 +306,10 @@
                 if (records.length === 0) {
                     $('#taTableBody').html(
                         '<tr><td colspan="7" class="text-center text-muted py-4 fw-bold">No Records Found</td></tr>'
-                        );
+                    );
                     $('#taMobileContainer').html(
                         '<div class="text-center text-muted py-4 bg-white border rounded shadow-sm fw-bold">No Records Found</div>'
-                        );
+                    );
                     return;
                 }
 
@@ -282,18 +317,23 @@
                 let mobileHtml = '';
 
                 records.forEach(item => {
-                    let statusLabel = item.status === 'active' ? 'APPROVED' : (item.status === 'rejected' ? 'REJECTED' : 'PENDING');
-                    let badgeClass = item.status === 'active' ? 'bg-success' : (item.status === 'rejected' ? 'bg-danger' : 'bg-warning text-dark');
-                    let employeeName = item.employee ? `${item.employee.full_name} (${item.employee.member_id})` : 'N/A';
+                    let statusLabel = item.status === 'active' ? 'APPROVED' : (item.status === 'rejected' ?
+                        'REJECTED' : 'PENDING');
+                    let badgeClass = item.status === 'active' ? 'bg-success' : (item.status === 'rejected' ?
+                        'bg-danger' : 'bg-warning text-dark');
+                    let employeeName = item.employee ?
+                        `${item.employee.full_name} (${item.employee.member_id})` : 'N/A';
                     let isOwnTA = (item.employee_id == window.userId);
 
                     // 🔥 AMOUNT DISPLAY LOGIC (Strikerthrough requested amount if changed)
                     let amountDisplay = `<span class="fw-bold">₹${item.amount}</span>`;
                     if (item.status === 'active' && item.approved_amount) {
                         if (parseFloat(item.amount) !== parseFloat(item.approved_amount)) {
-                            amountDisplay = `<del class="text-muted small">₹${item.amount}</del> <br> <span class="fw-bold text-success">₹${item.approved_amount}</span>`;
+                            amountDisplay =
+                                `<del class="text-muted small">₹${item.amount}</del> <br> <span class="fw-bold text-success">₹${item.approved_amount}</span>`;
                         } else {
-                            amountDisplay = `<span class="fw-bold text-success">₹${item.approved_amount}</span>`;
+                            amountDisplay =
+                                `<span class="fw-bold text-success">₹${item.approved_amount}</span>`;
                         }
                     }
 
@@ -302,10 +342,11 @@
                         <button class="btn btn-sm btn-info text-white secured-item" data-permission="ta_print" onclick="printTA(${item.id})" title="Print"><i class="fas fa-print"></i></button>
                     `;
 
-                    if(item.status === 'pending') {
-                        let hasEditPerm = (window.userPerms || []).includes('ta_edit'); 
-                        if(isOwnTA || hasEditPerm || window.userGodMode) {
-                            actions += `<button class="btn btn-sm btn-primary" onclick="editTA(${item.id})" title="Edit Details"><i class="fas fa-pencil-alt"></i></button>`;
+                    if (item.status === 'pending') {
+                        let hasEditPerm = (window.userPerms || []).includes('ta_edit');
+                        if (isOwnTA || hasEditPerm || window.userGodMode) {
+                            actions +=
+                                `<button class="btn btn-sm btn-primary" onclick="editTA(${item.id})" title="Edit Details"><i class="fas fa-pencil-alt"></i></button>`;
                         }
                     }
 
@@ -313,12 +354,14 @@
                     if (!isOwnTA || window.userGodMode) {
                         let currentApproved = item.approved_amount || item.amount;
                         let safeRemark = item.remarks ? item.remarks.replace(/'/g, "\\'") : '';
-                        
+
                         // Re-Approve / Edit Approve button
-                        actions += `<button class="btn btn-sm btn-success secured-item" data-permission="ta_appr" onclick="updateStatus(${item.id}, 'approve', ${item.amount}, ${currentApproved}, '${safeRemark}')" title="Approve / Re-Approve"><i class="fas fa-check-double"></i></button>`;
-                        
+                        actions +=
+                            `<button class="btn btn-sm btn-success secured-item" data-permission="ta_appr" onclick="updateStatus(${item.id}, 'approve', ${item.amount}, ${currentApproved}, '${safeRemark}')" title="Approve / Re-Approve"><i class="fas fa-check-double"></i></button>`;
+
                         // Reject / Cancel Reject button
-                        actions += `<button class="btn btn-sm btn-danger secured-item" data-permission="ta_rej" onclick="updateStatus(${item.id}, 'reject', ${item.amount}, null, '${safeRemark}')" title="Reject / Re-Reject"><i class="fas fa-ban"></i></button>`;
+                        actions +=
+                            `<button class="btn btn-sm btn-danger secured-item" data-permission="ta_rej" onclick="updateStatus(${item.id}, 'reject', ${item.amount}, null, '${safeRemark}')" title="Reject / Re-Reject"><i class="fas fa-ban"></i></button>`;
                     }
                     // 🔥 YAHAN EK EXTRA } THA JISKO HATA DIYA GAYA HAI 🔥
 
@@ -380,20 +423,20 @@
         function viewTA(id) {
             $('#viewModalBody').html(
                 '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 text-muted">Loading Preview...</p></div>'
-                );
+            );
             $('#viewModal').modal('show');
             $.get(`${apiUrl}/${id}`, function(res) {
                 $('#viewModalBody').html(res.html);
             });
         }
 
-       // 🔥 FILE PREVIEW & CUT LOGIC 🔥
-        let selectedFiles = []; 
-        let existingFiles = []; 
+        // 🔥 FILE PREVIEW & CUT LOGIC 🔥
+        let selectedFiles = [];
+        let existingFiles = [];
 
         $('#proof_file_input').on('change', function(e) {
             let files = e.target.files;
-            for(let i=0; i<files.length; i++) {
+            for (let i = 0; i < files.length; i++) {
                 selectedFiles.push(files[i]);
             }
             $(this).val(''); // Reset taaki same file dubara select ho sake
@@ -402,12 +445,13 @@
 
         function renderPreviews() {
             $('#proof_preview_container').empty();
-            
+
             // Existing Files Render (Edit mode)
             existingFiles.forEach((path, index) => {
                 let isPdf = path.toLowerCase().endsWith('.pdf');
-                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' : `<img src="/${path}" style="width:100%; height:100%; object-fit:cover;">`;
-                
+                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' :
+                    `<img src="/${path}" style="width:100%; height:100%; object-fit:cover;">`;
+
                 $('#proof_preview_container').append(`
                     <div class="position-relative border rounded shadow-sm" style="width: 80px; height: 80px; overflow: hidden; background: #f8f9fa; text-align:center;">
                         ${content}
@@ -420,8 +464,9 @@
             selectedFiles.forEach((file, index) => {
                 let isPdf = file.type === 'application/pdf';
                 let url = URL.createObjectURL(file);
-                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' : `<img src="${url}" style="width:100%; height:100%; object-fit:cover;">`;
-                
+                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' :
+                    `<img src="${url}" style="width:100%; height:100%; object-fit:cover;">`;
+
                 $('#proof_preview_container').append(`
                     <div class="position-relative border border-primary border-2 rounded shadow-sm" style="width: 80px; height: 80px; overflow: hidden; background: #e3f2fd; text-align:center;">
                         ${content}
@@ -431,18 +476,25 @@
             });
         }
 
-        window.removeNew = function(index) { selectedFiles.splice(index, 1); renderPreviews(); };
-        window.removeExisting = function(index) { existingFiles.splice(index, 1); renderPreviews(); };
+        window.removeNew = function(index) {
+            selectedFiles.splice(index, 1);
+            renderPreviews();
+        };
+        window.removeExisting = function(index) {
+            existingFiles.splice(index, 1);
+            renderPreviews();
+        };
 
         function openTAModal() {
             $('#purpose').trigger('input');
             $('#taForm')[0].reset();
             $('#ta_id').val('');
-            $('#taModalTitle').text('Request Travel Allowance');
+            $('#taModalTitle').text('Request Travelling & Conveyance Expenses');
             selectedFiles = [];
             existingFiles = [];
             renderPreviews();
             prepareFormView();
+            // bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('taModal')).show();  <-- isko hata kar ye likhein:
             $('#taModal').modal('show');
         }
 
@@ -453,8 +505,8 @@
 
             $('#taForm')[0].reset();
             $('#ta_id').val(item.id);
-            $('#taModalTitle').text('Edit Travel Allowance');
-            
+            $('#taModalTitle').text('Edit Travelling & Conveyance Expenses');
+
             // Text inputs set karna
             $('#ta_date').val(item.ta_date);
             $('#vehicle_no').val(item.vehicle_no);
@@ -476,14 +528,16 @@
                 try {
                     let parsed = JSON.parse(item.proof_file);
                     existingFiles = Array.isArray(parsed) ? parsed : [item.proof_file];
-                } catch(e) {
+                } catch (e) {
                     existingFiles = [item.proof_file];
                 }
             }
             renderPreviews();
             prepareFormView(item);
+            // bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('taModal')).show();  <-- isko hata kar ye likhein:
             $('#taModal').modal('show');
         }
+
         function prepareFormView(item = null) {
             if (portal === 'employee' || (!window.userGodMode && !window.userPerms.includes('ta_appr'))) {
                 $('#adminSelectionArea').hide();
@@ -511,7 +565,8 @@
                 if (!item) loadCompanies();
             }
         }
-function saveTA() {
+
+        function saveTA() {
             if (selectedFiles.length === 0 && existingFiles.length === 0) {
                 Swal.fire('Required', 'Please upload at least one proof file.', 'error');
                 return;
@@ -521,18 +576,24 @@ function saveTA() {
             let formData = new FormData($('#taForm')[0]);
 
             // Append new files array
-            selectedFiles.forEach(file => { formData.append('proof_files[]', file); });
+            selectedFiles.forEach(file => {
+                formData.append('proof_files[]', file);
+            });
             // Keep track of files user didn't delete
             formData.append('existing_proofs', JSON.stringify(existingFiles));
 
-            if (id) { formData.append('_method', 'PUT'); }
+            if (id) {
+                formData.append('_method', 'PUT');
+            }
 
             $.ajax({
                 url: id ? `${apiUrl}/${id}` : apiUrl,
                 type: 'POST',
                 data: formData,
-                processData: false, contentType: false,
+                processData: false,
+                contentType: false,
                 success: function(res) {
+                    // bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('taModal')).hide(); <-- isko hata kar ye likhein:
                     $('#taModal').modal('hide');
                     loadData(currentPage);
                     Swal.fire('Success', res.message, 'success');
@@ -597,7 +658,9 @@ function saveTA() {
                     confirmButtonColor: '#dc3545',
                     confirmButtonText: 'Confirm Reject',
                     preConfirm: () => {
-                        return { remarks: document.getElementById('swal-remark').value }
+                        return {
+                            remarks: document.getElementById('swal-remark').value
+                        }
                     }
                 }).then((result) => {
                     if (result.isConfirmed) {
@@ -740,7 +803,7 @@ function saveTA() {
             if (!desigId) return Promise.resolve($('#employee_id').html('<option value="">Select Employee</option>'));
             return $.get(
                 `/api/v1/employees?designation_id=${desigId}&branch_id=${branchId}&company_id=${companyId}&department_id=${deptId}`
-                ).then(res => {
+            ).then(res => {
                 let arr = getArray(res);
                 let opts = '<option value="">Select Employee</option>';
                 arr.forEach(e => opts += `<option value="${e.id}">${e.full_name} (${e.member_id})</option>`);

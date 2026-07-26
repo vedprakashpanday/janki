@@ -92,4 +92,16 @@ class Employee extends Authenticatable
     {
         return new \Illuminate\Broadcasting\PrivateChannel('global.user.employee.' . $this->id);
     }
+
+    public function siteAllocations()
+{
+    // Tasks received as Site Incharge
+    return $this->hasMany(SiteAllocation::class, 'employee_id');
+}
+
+public function siteDailyEntries()
+{
+    // Daily reports submitted by this employee
+    return $this->hasMany(SiteDailyEntry::class, 'employee_id');
+}
 }

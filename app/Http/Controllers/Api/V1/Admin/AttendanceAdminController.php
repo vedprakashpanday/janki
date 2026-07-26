@@ -14,339 +14,212 @@ use Carbon\Carbon;
 
 class AttendanceAdminController extends Controller
 {
-    /**
-     * MASTER ATTENDANCE MATRIX ENDPOINT
-     */
     public function getFilteredAttendance(Request $request)
     {
         $user = auth()->user();
-
-        // --- 1. PORTAL CONTEXT AUTHORIZATION SCOPES ---
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
         $isGodAdmin = in_array(strtolower($user->email), $developerEmails) || (method_exists($user, 'hasRole') && $user->hasRole('CEO'));
         $isDirector = method_exists($user, 'hasRole') && $user->hasRole('Director');
 
         $empQuery = Employee::query()->where('emp_status', 'active');
-
-        // Multi-Tenant Hierarchy Filtering Locks
         if ($isGodAdmin) {
             if ($request->filled('company_id')) $empQuery->where('company_id', $request->company_id);
-            if ($request->filled('branch_id')) {
-                if ($request->branch_id === 'HO') {
-                    $empQuery->whereNull('branch_id');
-                } else {
-                    $empQuery->where('branch_id', $request->branch_id);
-                }
-            }
+            if ($request->filled('branch_id')) { if ($request->branch_id === 'HO') $empQuery->whereNull('branch_id'); else $empQuery->where('branch_id', $request->branch_id); }
         } elseif ($isDirector) {
             $directorMapping = DB::table('company_director')->where('director_id', $user->id)->first();
-            $lockedCompanyId = $directorMapping ? $directorMapping->company_id : $user->company_id;
-
-            $empQuery->where('company_id', $lockedCompanyId);
-            if ($request->filled('branch_id')) {
-                if ($request->branch_id === 'HO') {
-                    $empQuery->whereNull('branch_id');
-                } else {
-                    $empQuery->where('branch_id', $request->branch_id);
-                }
-            }
+            $empQuery->where('company_id', $directorMapping ? $directorMapping->company_id : $user->company_id);
+            if ($request->filled('branch_id')) { if ($request->branch_id === 'HO') $empQuery->whereNull('branch_id'); else $empQuery->where('branch_id', $request->branch_id); }
         } else {
-            // Employee / Branch Manager
             $empQuery->where('company_id', $user->company_id);
-            if ($user->branch_id) {
-                $empQuery->where('branch_id', $user->branch_id);
-            } else {
-                $empQuery->whereNull('branch_id');
-            }
+            if ($user->branch_id) $empQuery->where('branch_id', $user->branch_id); else $empQuery->whereNull('branch_id');
         }
-
-        if ($request->filled('department_id')) {
-            $empQuery->where('department_id', $request->department_id);
-        }
+        if ($request->filled('department_id')) $empQuery->where('department_id', $request->department_id);
 
         $employees = $empQuery->get();
+        if ($employees->isEmpty()) return response()->json(['success' => true, 'matrix' => []]);
 
-        if ($employees->isEmpty()) {
-            return response()->json(['success' => true, 'matrix' => []]);
-        }
+        $startDate = ($request->filled('start_date') && $request->filled('end_date')) ? Carbon::parse($request->start_date) : Carbon::now()->startOfMonth();
+        $endDate = ($request->filled('start_date') && $request->filled('end_date')) ? Carbon::parse($request->end_date) : Carbon::now()->endOfMonth(); 
 
-        // --- 2. DATE RANGE CALCULATION (Fix: Allow Full Month) ---
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $startDate = Carbon::parse($request->start_date);
-            $endDate = Carbon::parse($request->end_date);
-        } else {
-            $startDate = Carbon::now()->startOfMonth();
-            $endDate = Carbon::now()->endOfMonth(); // User asked to show full month
-        }
+        $dates = []; for ($d = $startDate->copy(); $d->lte($endDate); $d->addDay()) { $dates[] = $d->copy(); }
 
-        $dates = [];
-        for ($d = $startDate->copy(); $d->lte($endDate); $d->addDay()) {
-            $dates[] = $d->copy();
-        }
+        $empIds = $employees->pluck('member_id')->toArray(); $empDbIds = $employees->pluck('id')->toArray();
+        $attendances = Attendance::whereIn('user_id', $empIds)->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->get()->groupBy('user_id');
+        $corrections = AttendanceCorrection::whereIn('user_id', $empDbIds)->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->get()->groupBy('user_id');
+        $timeWindows = \App\Models\AttendanceTimeWindow::where('status', 'active')->get();
 
-        // --- 3. BULK DATA FETCHING ---
-        $empIds = $employees->pluck('member_id')->toArray();
-        $empDbIds = $employees->pluck('id')->toArray();
-
-        $attendances = Attendance::whereIn('user_id', $empIds)
-            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-            ->get()->groupBy('user_id');
-
-        $corrections = AttendanceCorrection::whereIn('user_id', $empDbIds)
-            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-            ->get()->groupBy('user_id');
-
-        // Holiday Query fixed to support start_date and end_date
-        $holidays = Holiday::where(function ($query) use ($startDate, $endDate) {
-            $query->whereBetween('start_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-                ->orWhere(function ($q) use ($startDate, $endDate) {
-                    $q->where('start_date', '<=', $endDate->format('Y-m-d'))
-                        ->where(function ($subQ) use ($startDate) {
-                            $subQ->whereNull('end_date')
-                                ->orWhere('end_date', '>=', $startDate->format('Y-m-d'));
-                        });
-                });
-        })->get()->flatMap(function ($holiday) {
+        $holidays = Holiday::where(function($query) use ($startDate, $endDate) {
+            $query->whereBetween('start_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->orWhere(function($q) use ($startDate, $endDate) {
+                $q->where('start_date', '<=', $endDate->format('Y-m-d'))->where(function($subQ) use ($startDate) { $subQ->whereNull('end_date')->orWhere('end_date', '>=', $startDate->format('Y-m-d')); });
+            });
+        })->get()->flatMap(function($holiday) {
             $period = \Carbon\CarbonPeriod::create($holiday->start_date, $holiday->end_date ?? $holiday->start_date);
-            $dts = [];
-            foreach ($period as $dt) {
-                $dts[] = $dt->format('Y-m-d');
-            }
-            return $dts;
+            $dts = []; foreach ($period as $dt) { $dts[] = $dt->format('Y-m-d'); } return $dts;
         })->toArray();
 
-        $leaves = LeaveApplication::whereIn('user_id', $empDbIds)
-            ->where('status', 'approved')
-            ->where(function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('start_datetime', [$startDate->format('Y-m-d 00:00:00'), $endDate->format('Y-m-d 23:59:59')])
-                    ->orWhereBetween('end_datetime', [$startDate->format('Y-m-d 00:00:00'), $endDate->format('Y-m-d 23:59:59')]);
-            })->get()->groupBy('user_id');
+        $leaves = LeaveApplication::whereIn('user_id', $empDbIds)->where('status', 'approved')->whereNotNull('approved_start_datetime')
+            ->where('approved_start_datetime', '<=', $endDate->format('Y-m-d 23:59:59'))
+            ->where('approved_end_datetime', '>=', $startDate->format('Y-m-d 00:00:00'))
+            ->get()->groupBy('user_id');
 
-        // --- 4. MATRIX GENERATION & SANDWICH LOGIC ---
-        $matrix = [];
-        $todayStr = Carbon::today()->format('Y-m-d');
+        $matrix = []; $todayStr = Carbon::today()->format('Y-m-d');
 
         foreach ($employees as $emp) {
             $empAtt = $attendances->has($emp->member_id) ? $attendances->get($emp->member_id)->keyBy('date') : collect();
             $empCorr = $corrections->has($emp->id) ? $corrections->get($emp->id)->keyBy('date') : collect();
             $empLeaves = $leaves->has($emp->id) ? $leaves->get($emp->id) : collect();
 
-            $stats = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'leave' => 0, 'extra_day' => 0];
-            $rawRecords = [];
-
-            // Joining Date Rule
-            $joinDate = $emp->created_at ? Carbon::parse($emp->created_at)->startOfDay() : Carbon::parse('2000-01-01');
+            $empWindow = $timeWindows->where('company_id', $emp->company_id)->where('branch_id', $emp->branch_id)->first() ?? $timeWindows->where('company_id', $emp->company_id)->whereNull('branch_id')->first();
+            $stats = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'leave' => 0, 'extra_day' => 0, 'late' => 0];
+            $rawRecords = []; $lateCount = 0; $joinDate = $emp->created_at ? Carbon::parse($emp->created_at)->startOfDay() : Carbon::parse('2000-01-01');
 
             foreach ($dates as $dateObj) {
-                $dStr = $dateObj->format('Y-m-d');
-                $isSunday = $dateObj->isSunday();
-                $isHoliday = in_array($dStr, $holidays);
-                $isFuture = $dStr > $todayStr;
+                $dStr = $dateObj->format('Y-m-d'); $isTuesday = $dateObj->isTuesday(); $isHoliday = in_array($dStr, $holidays); $isFuture = $dStr > $todayStr;
+                $status = 'A'; $remark = ''; $inTime = null; $outTime = null;
 
-                $status = 'A';
-                $remark = '';
-                $inTime = null;
-                $outTime = null;
+                if ($empAtt->has($dStr)) {
+                    $tempAtt = $empAtt->get($dStr);
+                    $inTime = $tempAtt->login_time ? date('h:i A', strtotime($tempAtt->login_time)) : null;
+                    $outTime = $tempAtt->logout_time ? date('h:i A', strtotime($tempAtt->logout_time)) : null;
+                }
 
-                // Priority 0: Future Dates OR Before Joining Date
-                if ($isFuture || $dateObj->lt($joinDate)) {
-                    $status = 'N/A'; // N/A will be rendered as '-' in UI
-                    if ($isFuture && $isSunday) {
-                        $status = 'WO';
-                    } elseif ($isFuture && $isHoliday) {
-                        $status = 'HO';
+                $onLeave = false; $leaveType = 'L';
+                if ($empLeaves->isNotEmpty()) {
+                    foreach ($empLeaves as $leave) {
+                        $lStart = Carbon::parse($leave->approved_start_datetime)->format('Y-m-d'); $lEnd = Carbon::parse($leave->approved_end_datetime)->format('Y-m-d');
+                        if ($dStr >= $lStart && $dStr <= $lEnd) { $onLeave = true; if ($leave->application_type === 'Short Leave') $leaveType = 'SL'; break; }
                     }
                 }
-                // Priority 1: Manual Correction by Admin
+
+                if ($dateObj->lt($joinDate)) { $status = 'N/A'; $remark = 'Before Joining'; }
                 elseif ($empCorr->has($dStr)) {
-                    $corr = $empCorr->get($dStr);
-                    $status = $corr->corrected_status;
-                    $remark = "Corrected: " . $corr->reason;
-                    if ($status == 'P') $stats['present']++;
-                    elseif ($status == 'HD') $stats['half_day']++;
-                    elseif ($status == 'L') $stats['leave']++;
-                    elseif ($status == 'A') $stats['absent']++;
-                    elseif ($status == 'WO' || $status == 'HO') $stats['extra_day']++;
-                }
-                // Priority 2: Actual Machine/Web Punch
+                    $corr = $empCorr->get($dStr); $status = $corr->corrected_status; $remark = "Corrected: " . $corr->reason;
+                    if ($status == 'P') $stats['present']++; elseif ($status == 'HD') $stats['half_day']++; elseif ($status == 'L' || $status == 'SL') $stats['leave']++; elseif ($status == 'A') $stats['absent']++; elseif ($status == 'LT') { $stats['late']++; $stats['present']++; } elseif ($status == 'WO' || $status == 'HO') $stats['extra_day']++;
+                } 
                 elseif ($empAtt->has($dStr)) {
                     $att = $empAtt->get($dStr);
-                    $inTime = $att->login_time ? date('h:i A', strtotime($att->login_time)) : null;
-                    $outTime = $att->logout_time ? date('h:i A', strtotime($att->logout_time)) : null;
 
-                    if ($isSunday || $isHoliday) {
-                        $status = 'ED';
-                        $remark = 'Worked on ' . ($isSunday ? 'Sunday' : 'Holiday');
-                        $stats['extra_day']++;
+                    if ($isTuesday || $isHoliday) { $status = 'ED'; $remark = 'Worked on ' . ($isTuesday ? 'Weekly Off' : 'Holiday'); $stats['extra_day']++; }
+                    elseif (!empty($att->login_time) && empty($att->logout_time)) {
+                        // 🔥 FIX 3: Shivam Pandey In-Office Logic 🔥
+                        if ($dStr === $todayStr) {
+                            $isLateToday = false;
+                            if ($empWindow) {
+                                $lateLimit = !empty($empWindow->late_time) ? Carbon::parse($dStr . ' ' . $empWindow->late_time) : Carbon::parse($dStr . ' ' . $empWindow->login_start)->addMinutes(60);
+                                if (Carbon::parse($dStr . ' ' . $att->login_time)->gt($lateLimit)) { $isLateToday = true; }
+                            } elseif ($att->is_late_punch) { $isLateToday = true; }
+
+                            if ($isLateToday) $lateCount++;
+
+                            
+
+                            if ($onLeave && $leaveType === 'SL') { $status = 'SL'; $remark = 'Short Leave (In-Office)'; }
+                            elseif ($isLateToday) { $status = 'LT'; $remark = 'Late In-Office (Active)'; $stats['late']++; $stats['present']++; }
+                            else { $status = 'P'; $remark = 'Present In-Office (Active)'; $stats['present']++; }
+                        } else {
+                            $status = 'HD'; $remark = 'Missed Punch-Out'; $stats['half_day']++;
+                        }
                     }
-                    // 🔥 STRICT RULE: Login null + Logout done = Half Day
-                    elseif (empty($att->login_time) && !empty($att->logout_time)) {
-                        $status = 'HD';
-                        $remark = 'Missed Punch-In';
-                        $stats['half_day']++;
+                    elseif (empty($att->login_time) && !empty($att->logout_time)) { $status = 'HD'; $remark = 'Missed Punch-In'; $stats['half_day']++; }
+                    elseif (empty($att->login_time) && empty($att->logout_time)) { $status = 'A'; $remark = 'Did not punch In/Out'; $stats['absent']++; }
+                    else {
+                        $isLateToday = false;
+                        if ($empWindow) {
+                            $lateLimit = !empty($empWindow->late_time) ? Carbon::parse($dStr . ' ' . $empWindow->late_time) : Carbon::parse($dStr . ' ' . $empWindow->login_start)->addMinutes(60);
+                            if (Carbon::parse($dStr . ' ' . $att->login_time)->gt($lateLimit)) { $isLateToday = true; }
+                        } elseif ($att->is_late_punch) { $isLateToday = true; }
+
+                        if ($isLateToday) $lateCount++;
+
+                        $minHoursRaw = $empWindow ? $empWindow->min_working_hours : 8.25;
+                        $minHours = (strpos((string)$minHoursRaw, ':') !== false) ? (int)explode(':', $minHoursRaw)[0] + ((int)explode(':', $minHoursRaw)[1] / 60) : (float)$minHoursRaw;
+
+                        $in = Carbon::parse($dStr . ' ' . $att->login_time); $out = Carbon::parse($dStr . ' ' . $att->logout_time);
+                        $diffSeconds = $out->timestamp - $in->timestamp; if ($diffSeconds < 0) { $out->addDay(); $diffSeconds = $out->timestamp - $in->timestamp; }
+                        $workedHours = $diffSeconds / 3600;
+                        
+                        $isShortHours = ($workedHours < $minHours);
+                        if ($onLeave && $leaveType === 'SL') $isShortHours = false;
+
+                        if ($isLateToday && $lateCount > 0 && ($lateCount % 3 == 0)) { $status = 'A'; $remark = 'Absent (Penalty for 3 Late Punches)'; $stats['absent']++; }
+                        elseif ($isShortHours) { $status = 'HD'; $wHours = floor($workedHours); $wMins = round(($workedHours - $wHours) * 60); $remark = 'Short Working Hours (' . $wHours . 'h ' . $wMins . 'm)'; $stats['half_day']++; }
+                        elseif ($onLeave && $leaveType === 'SL') { $status = 'SL'; $remark = 'Worked on Short Leave'; $stats['leave']++; }
+                        elseif ($isLateToday) { $status = 'LT'; $remark = 'Late Punch In'; $stats['late']++; $stats['present']++; }
+                        else { $status = 'P'; $remark = 'On Time'; $stats['present']++; }
                     }
-                    // 🔥 STRICT RULE: No login and no logout = Absent
-                    elseif (empty($att->login_time) && empty($att->logout_time)) {
-                        $status = 'A';
-                        $remark = 'Did not punch In/Out';
-                        $stats['absent']++;
-                    } elseif ($att->half_day == 1) {
-                        $status = 'HD';
-                        $remark = 'Half Day Punch';
-                        $stats['half_day']++;
-                    } elseif ($att->present == 1) {
-                        $status = 'P';
-                        $remark = 'On Time';
-                        $stats['present']++;
-                    } else {
-                        $status = 'A';
-                        $stats['absent']++;
-                    }
+                } 
+                elseif ($onLeave) {
+                    if ($leaveType === 'SL' && !$isFuture && $dStr < $todayStr) { $status = 'A'; $remark = 'Absent (No punch on SL day)'; $stats['absent']++; }
+                    else { $status = $leaveType === 'SL' ? 'SL' : 'L'; $remark = $leaveType === 'SL' ? 'Approved Short Leave' : 'Approved Leave'; $stats['leave']++; }
+                } 
+                elseif ($isFuture) { $status = 'N/A'; if ($isTuesday) { $status = 'WO'; $remark = 'Upcoming Weekly Off'; } elseif ($isHoliday) { $status = 'HO'; $remark = 'Upcoming Holiday'; } }
+                else { if ($isTuesday) { $status = 'WO'; $remark = 'Weekly Off'; } elseif ($isHoliday) { $status = 'HO'; $remark = 'Holiday'; } else { $status = 'A'; $stats['absent']++; } }
+
+                if ($empAtt->has($dStr)) {
+                    $att = $empAtt->get($dStr);
+                    $logs = $att->session_logs ? json_decode($att->session_logs, true) : []; $lastLog = end($logs);
+                    $rawRecords[$dStr] = [ 'id' => $att->id, 'status' => $status, 'remark' => $remark, 'in' => $inTime, 'out' => $outTime, 'lat' => $att->latitude, 'lng' => $att->longitude, 'out_lat' => $lastLog['out_lat'] ?? null, 'out_lng' => $lastLog['out_lng'] ?? null, 'reason' => $att->punch_reason, 'proof_images' => $att->punch_proof_images, 'verification_status' => $att->hr_verification_status ];
+                } else {
+                    $rawRecords[$dStr] = [ 'id' => null, 'status' => $status, 'remark' => $remark, 'in' => null, 'out' => null, 'lat' => null, 'lng' => null, 'out_lat' => null, 'out_lng' => null, 'reason' => null, 'proof_images' => null, 'verification_status' => 'none' ];
                 }
-                // Priority 3: Leave Approved
-                elseif ($empLeaves->isNotEmpty()) {
-                    $onLeave = false;
-                    foreach ($empLeaves as $leave) {
-                        $lStart = Carbon::parse($leave->start_datetime)->format('Y-m-d');
-                        $lEnd = Carbon::parse($leave->end_datetime)->format('Y-m-d');
-                        if ($dStr >= $lStart && $dStr <= $lEnd) {
-                            $onLeave = true;
-                            $status = 'L';
-                            $remark = 'Approved Leave';
-                            $stats['leave']++;
+            }
+
+         $finalDatesRecord = [];
+            for ($i = 0; $i < count($dates); $i++) {
+                $dStr = $dates[$i]->format('Y-m-d'); $currRecord = $rawRecords[$dStr];
+                
+                // 🔥 FIX: HR Matrix Smarter Sandwich Logic
+                if ($currRecord['status'] === 'WO' || $currRecord['status'] === 'HO') {
+                    $prevStatus = 'P';
+                    for ($p = $i - 1; $p >= 0; $p--) {
+                        $pDate = $dates[$p]->format('Y-m-d');
+                        if (!in_array($rawRecords[$pDate]['status'], ['WO', 'HO', 'N/A'])) {
+                            $prevStatus = $rawRecords[$pDate]['status'];
+                            break;
+                        }
+                    }
+                    
+                    $nextStatus = 'P';
+                    for ($n = $i + 1; $n < count($dates); $n++) {
+                        $nDate = $dates[$n]->format('Y-m-d');
+                        if (!in_array($rawRecords[$nDate]['status'], ['WO', 'HO', 'N/A'])) {
+                            $nextStatus = $rawRecords[$nDate]['status'];
                             break;
                         }
                     }
 
-                    if (!$onLeave) {
-                        if ($isSunday) {
-                            $status = 'WO';
-                            $remark = 'Weekly Off';
-                        } elseif ($isHoliday) {
-                            $status = 'HO';
-                            $remark = 'Holiday';
-                        } else {
-                            $status = 'A';
-                            $stats['absent']++;
-                        }
-                    }
-                }
-                // Priority 4: Default Check (Sunday, Holiday or Absent)
-                else {
-                    if ($isSunday) {
-                        $status = 'WO';
-                        $remark = 'Weekly Off';
-                    } elseif ($isHoliday) {
-                        $status = 'HO';
-                        $remark = 'Holiday';
-                    } else {
-                        $status = 'A';
-                        $stats['absent']++;
-                    }
-                }
-
-                if ($empAtt->has($dStr)) {
-                    $att = $empAtt->get($dStr);
-                    $rawRecords[$dStr] = [
-                        'id' => $att->id,
-                        'status' => $status,
-                        'remark' => $remark,
-                        'in' => $inTime,
-                        'out' => $outTime,
-                        'lat' => $att->latitude,
-                        'lng' => $att->longitude,
-                        'reason' => $att->punch_reason,
-                        'proof_images' => $att->punch_proof_images,
-                        'verification_status' => $att->hr_verification_status
-                    ];
-                } else {
-                    $rawRecords[$dStr] = [
-                        'id' => null,
-                        'status' => $status,
-                        'remark' => $remark,
-                        'in' => null,
-                        'out' => null,
-                        'lat' => null,
-                        'lng' => null,
-                        'reason' => null,
-                        'proof_images' => null,
-                        'verification_status' => 'none'
-                    ];
-                }
-            }
-
-            // --- 5. THE SANDWICH RULE ENGINE (Post-Calculation) ---
-            $finalDatesRecord = [];
-            for ($i = 0; $i < count($dates); $i++) {
-                $dStr = $dates[$i]->format('Y-m-d');
-                $currRecord = $rawRecords[$dStr];
-
-                if ($currRecord['status'] === 'WO' || $currRecord['status'] === 'HO') {
-                    $prevStatus = ($i > 0) ? $rawRecords[$dates[$i - 1]->format('Y-m-d')]['status'] : 'P';
-                    $nextStatus = ($i < count($dates) - 1) ? $rawRecords[$dates[$i + 1]->format('Y-m-d')]['status'] : 'P';
-
-                    $prevAbsent = in_array($prevStatus, ['A', 'L']);
-                    $nextAbsent = in_array($nextStatus, ['A', 'L']);
-
-                    if ($prevAbsent && $nextAbsent) {
-                        $currRecord['status'] = 'A';
-                        $currRecord['remark'] = 'Sandwich Rule Applied';
-                        // Stats me se extra_day hata ke absent badhana padega agar count ho gaya tha
-                        if ($rawRecords[$dStr]['status'] == 'WO' || $rawRecords[$dStr]['status'] == 'HO') {
-                            if (isset($stats['extra_day']) && $stats['extra_day'] > 0) {
-                                $stats['extra_day']--;
-                            }
-                        }
-                        $stats['absent']++;
+                    if (in_array($prevStatus, ['A', 'L', 'SL', 'CL']) && in_array($nextStatus, ['A', 'L', 'SL', 'CL'])) {
+                        $currRecord['status'] = 'A'; 
+                        $currRecord['remark'] = 'Sandwich Rule Applied'; 
+                        $stats['absent']++; 
+                        // Note: extra_day minus karne ka ghalat logic yahan se hata diya gaya hai
                     }
                 }
                 $finalDatesRecord[$dStr] = $currRecord;
             }
 
-            // 🔥 USER KI DEMAND: Name and Dept/Desig correctly map karein
             $exactName = !empty($emp->full_name) ? $emp->full_name : ($emp->name ?? 'Unknown');
+            $exactDept = !empty($emp->department_id) ? (DB::table('departments')->where('id', $emp->department_id)->value('department_name') ?? 'N/A') : 'N/A';
+           $exactDesig = !empty($emp->designation_id) ? (DB::table('designations')->where('id', $emp->designation_id)->value('designation_name') ?? 'N/A') : 'N/A';
 
-            $exactDept = 'N/A';
-            if (!empty($emp->department_id)) {
-                $deptRecord = DB::table('departments')->where('id', $emp->department_id)->first();
-                if ($deptRecord) $exactDept = $deptRecord->department_name;
-            }
+            // 🔥 NAYA: Format Extra Hours for Matrix
+            $totalExtMins = $stats['extra_minutes'] ?? 0;
+            $extH = floor($totalExtMins / 60); $extM = $totalExtMins % 60;
+            $stats['extra_hours_str'] = "{$extH}h {$extM}m";
 
-            $exactDesig = 'N/A';
-            if (!empty($emp->designation_id)) {
-                $desigRecord = DB::table('designations')->where('id', $emp->designation_id)->first();
-                if ($desigRecord) $exactDesig = $desigRecord->designation_name;
-            }
-
-            $matrix[] = [
-                'employee' => [
-                    'db_id' => $emp->id,
-                    'member_id' => $emp->member_id,
-                    'name' => $exactName,
-                    'department' => $exactDept,
-                    'designation' => $exactDesig,
-                ],
-                'stats' => $stats,
-                'dates' => $finalDatesRecord
-            ];
+            $matrix[] = [ 'employee' => [ 'db_id' => $emp->id, 'member_id' => $emp->member_id, 'name' => $exactName, 'department' => $exactDept, 'designation' => $exactDesig ], 'stats' => $stats, 'dates' => $finalDatesRecord ];
         }
 
-        return response()->json([
-            'success' => true,
-            'matrix' => $matrix,
-            'dates_list' => array_keys($matrix[0]['dates'] ?? [])
-        ]);
+        return response()->json(['success' => true, 'matrix' => $matrix, 'dates_list' => array_keys($matrix[0]['dates'] ?? [])]);
     }
 
-    /**
-     * MANUAL OVERRIDE ENDPOINT
-     */
-    public function saveCorrection(Request $request)
+   public function saveCorrection(Request $request)
     {
         $request->validate([
             'employee_id' => 'required|exists:adm_regist,id',
             'date' => 'required|date',
-            'corrected_status' => 'required|in:P,A,HD,L,WO',
+            // 🔥 FIX: 'SL' (Short Leave) ko yahan allow kar diya gaya hai
+            'corrected_status' => 'required|in:P,A,HD,L,WO,LT,SL', 
             'reason' => 'required|string'
         ]);
 
@@ -361,42 +234,35 @@ class AttendanceAdminController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Attendance manually corrected and locked!']);
     }
-
-    /**
-     * HR VERIFICATION ENDPOINT FOR PENDING PUNCHES
-     */
-    public function verifyPendingPunch(Request $request)
+  public function verifyPendingPunch(Request $request)
     {
         $request->validate([
             'attendance_id' => 'required|exists:attendances,id',
-            'action_status' => 'required|in:approved,rejected', // Action on the proof
-            'final_attendance_status' => 'required|in:P,HD,A,L', // Final status HR wants to give
-            'hr_remark' => 'required|string|min:5' // Mandatory reason from HR
+            'action_status' => 'required|in:approved,rejected',
+            // 🔥 NAYA: 'SL' ko verification allow kiya gaya hai
+            'final_attendance_status' => 'required|in:P,HD,A,L,LT,SL', 
+            'hr_remark' => 'required|string|min:2'
         ]);
 
         DB::beginTransaction();
         try {
             $attendance = Attendance::find($request->attendance_id);
 
-            // Update actual attendance record
             $attendance->hr_verification_status = $request->action_status;
             $attendance->hr_remark = $request->hr_remark;
 
-            // Reset all flags first
             $attendance->present = 0;
             $attendance->absent = 0;
             $attendance->half_day = 0;
             $attendance->leave = 0;
 
-            // Apply new HR decided status
-            if ($request->final_attendance_status == 'P') $attendance->present = 1;
+            if ($request->final_attendance_status == 'P' || $request->final_attendance_status == 'LT') $attendance->present = 1;
             elseif ($request->final_attendance_status == 'HD') $attendance->half_day = 1;
             elseif ($request->final_attendance_status == 'A') $attendance->absent = 1;
-            elseif ($request->final_attendance_status == 'L') $attendance->leave = 1;
+            elseif ($request->final_attendance_status == 'L' || $request->final_attendance_status == 'SL') $attendance->leave = 1;
 
             $attendance->save();
 
-            // Log into Corrections table for Auditing / History
             $emp = \App\Models\Employee::where('member_id', $attendance->user_id)->first();
             if ($emp) {
                 \App\Models\AttendanceCorrection::updateOrCreate(

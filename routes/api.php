@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\V1\Admin\ActionApprovalController;
 use App\Http\Controllers\Api\V1\Admin\TaskTrackingModuleController;
 use App\Http\Controllers\Api\V1\Admin\TaskController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\Admin\BankDetailController;
 
 
 
@@ -78,12 +79,41 @@ Route::prefix('v1')->group(function () {
         Route::post('/verify-id', [EmployeeAuthController::class, 'verifyId']);
         Route::post('/bind-device', [EmployeeAuthController::class, 'bindDevice']);
         Route::post('/verify-otp', [EmployeeAuthController::class, 'verifyOtp']);
+        Route::post('/resend-otp', [\App\Http\Controllers\Api\V1\Employee\AuthController::class, 'resendOtp']);
 
         Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/auth/me', [EmployeeAuthController::class, 'me']);
             Route::post('/mark-attendance', [EmployeeAuthController::class, 'markAttendance']);
             Route::get('/dashboard-data', [EmployeeAuthController::class, 'getDashboardData']);
             Route::post('/logout', [EmployeeAuthController::class, 'logout']);
+        });
+    });
+
+    Route::prefix('member')->group(function () {
+        // Open Routes (Bina Token Ke)
+        Route::post('/auth/login-request', [\App\Http\Controllers\Api\V1\Member\AuthController::class, 'requestLogin']);
+        Route::post('/auth/verify-otp', [\App\Http\Controllers\Api\V1\Member\AuthController::class, 'verifyOtp']);
+
+        // Protected Routes (Token, TimeMatrix, aur DeviceGuard ke saath)
+       // Protected Routes (Token, TimeMatrix, aur DeviceGuard ke saath)
+        Route::middleware(['auth:sanctum', 'time.matrix', \App\Http\Middleware\SecondaryDeviceGuard::class])->group(function () {
+            Route::get('/auth/me', [\App\Http\Controllers\Api\V1\Member\AuthController::class, 'me']);
+            
+            // 👇 YEH NAYI LINE ADD KAREIN (Status check karne ke liye) 👇
+            Route::get('/attendance/today-status', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'getTodayStatus']);
+            // 👇 YEH DO LINES ADD KARNI HAIN 👇
+            Route::post('/attendance/mark', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'markAttendance']);
+            Route::post('/attendance/ping-location', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'pingLocation']);
+
+            Route::get('/attendance/monthly', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'getMonthlyAttendance']);
+
+            // Logout route abhi yahan define kar dete hain future use ke liye
+            Route::post('/auth/logout', function (Illuminate\Http\Request $request) {
+                $request->user()->currentAccessToken()->delete();
+                return response()->json(['status' => 'success', 'message' => 'Logged out successfully']);
+            });
+
+         
         });
     });
 
@@ -130,6 +160,21 @@ Route::prefix('v1')->group(function () {
             return response()->json($controller->getGlobalContext());
         });
 
+         // 🟢 Member HR Attendance Matrix & Cascading Dropdowns
+        Route::prefix('member-attendance-matrix-api')->group(function () {
+            Route::get('/companies', [\App\Http\Controllers\Api\V1\Admin\MemberAttendanceAdminController::class, 'getCompanies']);
+            Route::post('/branches', [\App\Http\Controllers\Api\V1\Admin\MemberAttendanceAdminController::class, 'getBranches']);
+            Route::post('/departments', [\App\Http\Controllers\Api\V1\Admin\MemberAttendanceAdminController::class, 'getDepartments']);
+            Route::post('/designations', [\App\Http\Controllers\Api\V1\Admin\MemberAttendanceAdminController::class, 'getDesignations']);
+            Route::post('/members', [\App\Http\Controllers\Api\V1\Admin\MemberAttendanceAdminController::class, 'getMembers']);
+            
+            // Final Matrix Data Load
+            Route::post('/load-matrix', [\App\Http\Controllers\Api\V1\Admin\MemberAttendanceAdminController::class, 'loadMatrix']);
+
+            // 👇 YEH NAYI LINE ADD KAREIN 👇
+            Route::post('/get-route', [\App\Http\Controllers\Api\V1\Admin\MemberAttendanceAdminController::class, 'getMemberRoute']);
+        });
+
         // Role Manager Setup & Write Permissions
         Route::get('role-manager/users', [RolePermissionController::class, 'getUsers']);
         Route::post('role-manager/assign', [RolePermissionController::class, 'assignPowers']);
@@ -137,6 +182,32 @@ Route::prefix('v1')->group(function () {
         Route::post('role-manager/revoke-permission', [RolePermissionController::class, 'revokeSinglePermission']);
         Route::post('role-manager/revoke-module', [RolePermissionController::class, 'revokeModulePermissions']);
         Route::get('role-manager/roles-permissions', [RolePermissionController::class, 'getRolesAndPermissions']);
+
+        // 🔥 ROLE MANAGER CASCADING DROPDOWNS API
+    Route::prefix('role-manager/dropdown')->group(function () {
+        Route::get('companies', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'getCompanies']);
+        Route::get('branches', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'getBranches']);
+        Route::get('departments', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'getDepartments']);
+        Route::get('designations', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'getDesignations']);
+        Route::get('targets', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'getTargetUsers']); // Employee ya Member
+    });
+
+// --- Dynamic 3-Letter Search APIs ---
+Route::get('/companies/search-dynamic', [\App\Http\Controllers\Api\V1\Admin\CompanyApiController::class, 'searchDynamic']);
+Route::get('/branches/search-dynamic', [\App\Http\Controllers\Api\V1\Admin\BranchController::class, 'searchDynamic']);
+Route::get('/departments/search-dynamic', [\App\Http\Controllers\Api\V1\Admin\DepartmentController::class, 'searchDynamic']);
+Route::get('/designations/search-dynamic', [\App\Http\Controllers\Api\V1\Admin\DesignationController::class, 'searchDynamic']); // 🔥 NAYA
+
+// Naya bulk delete permanent for employees (is resource route ke sath add karein)
+Route::post('employees/bulk-delete-permanent', [\App\Http\Controllers\Api\V1\Admin\EmployeeController::class, 'bulkDeletePermanent']);
+
+
+    Route::post('role-manager/grade-matrix/load', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'loadGradeMatrix']);
+Route::post('role-manager/grade-matrix/save', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'saveGradeMatrix']);
+
+    // 🔥 ROLE MANAGER - EXCEPTION MATRIX ROUTES
+    Route::post('role-manager/matrix/load', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'loadExceptionMatrix']);
+    Route::post('role-manager/matrix/save', [\App\Http\Controllers\Api\V1\Admin\RolePermissionController::class, 'saveExceptions']);
 
         // Security, Device Blocks & Panel Access
         Route::get('panel-access', [AccessControlController::class, 'index']);
@@ -194,8 +265,53 @@ Route::prefix('v1')->group(function () {
         Route::post('employees/{id}/status', [EmployeeController::class, 'updateStatus']);
         Route::apiResource('employees', EmployeeController::class);
 
+        // ✅ SAHI TARIQA (api.php mein):
+
+// 1. Specific static routes hamesha upar rahenge
+Route::get('/customers/generate-id', [CustomerController::class, 'generateCredentials']);
+Route::get('/customers/search-old', [CustomerController::class, 'searchOldCustomer']);
+Route::post('/customers/bulk-delete', [CustomerController::class, 'bulkDelete']);
+
+// 👇 YEH DIRECTORY WALA NAYA ROUTE YAHAN UPAR RAKHEIN 👇
+Route::get('/customers/directory', [CustomerController::class, 'directory']);
+
+// 2. Base resource routes
+Route::get('/customers', [CustomerController::class, 'index']);
+Route::post('/customers', [CustomerController::class, 'store']);
+
+// 3. Wildcard / Dynamic ID wale routes hamesha SABSE NICHE hone chahiye
+Route::get('/customers/{id}', [CustomerController::class, 'show']);
+Route::put('/customers/{id}', [CustomerController::class, 'update']);
+Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
+Route::post('/customers/{id}/restore', [CustomerController::class, 'restore']);
+Route::post('/customers/{id}/status', [CustomerController::class, 'updateStatus']);
+
         Route::apiResource('customers', CustomerController::class);
-        Route::apiResource('members', MemberController::class);
+         Route::get('members/next-id', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'getNextId']);
+         Route::post('members/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'bulkDelete']);
+
+         // routes/api.php में जोड़ें
+Route::get('/members/search-dynamic', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'searchDynamic']);
+
+         Route::post('members/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'approve']);
+Route::post('members/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'reject']);
+
+
+Route::get('members/available-designations', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'getAvailableDesignations']);
+Route::get('members/all-time-records', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'allTimeIndex']);
+        Route::get('members/transferred', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'getTransferredMembers']);
+
+        // 🔥 UNIFIED DEPENDENCY SEARCH ROUTES 🔥
+Route::get('/members/search-companies', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'searchCompanies']);
+Route::get('/members/search-branches', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'searchBranches']);
+Route::get('/members/search-departments', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'searchDepartments']);
+
+// 👇 YEH ROUTE MISSING THA, ISE ADD KAREIN 👇
+Route::get('/members/search-sponsor', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'searchSponsorDynamic']);
+
+
+
+          Route::apiResource('members', MemberController::class);
         Route::apiResource('member-designations', MemberDesignationController::class);
         Route::apiResource('agents', AgentController::class);
         Route::apiResource('landowners', LandownerController::class);
@@ -203,21 +319,45 @@ Route::prefix('v1')->group(function () {
 
         // --- Finance & Vouchers ---
         Route::apiResource('salaries', SalaryController::class);
+        Route::get('/ledgers/generate-code', [LedgerController::class, 'generateCode']);
+Route::post('/ledgers/bulk-delete', [LedgerController::class, 'bulkDelete']);
+Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
+// Plus standard API Resource routes for ledgers...
         Route::apiResource('ledgers', LedgerController::class);
-        Route::apiResource('debit_vouchers', DebitVoucherApiController::class);
-        Route::get('/get-branches', [DebitVoucherApiController::class, 'getBranches']);
-        Route::get('/get-ledgers', [DebitVoucherApiController::class, 'getLedgers']);
-        Route::get('/get-paid-to-list', [DebitVoucherApiController::class, 'getPaidToList']);
+        // =======================================================
+        // 🔥 DEBIT VOUCHER MODULE API ROUTES
+        // =======================================================
+        
+        // 1. Dynamic 3-Letter Search APIs
+        Route::get('/debit_vouchers/search-companies', [DebitVoucherApiController::class, 'searchCompanies']);
+        Route::get('/debit_vouchers/search-branches', [DebitVoucherApiController::class, 'searchBranches']);
+        Route::get('/debit_vouchers/search-ledgers', [DebitVoucherApiController::class, 'searchLedgers']);
+        Route::get('/debit_vouchers/search-paid-to', [DebitVoucherApiController::class, 'searchPaidTo']);
+        
+        // 2. Action Modifiers & Utilities
+        Route::post('/debit_vouchers/{id}/approve', [DebitVoucherApiController::class, 'approve']);
+        Route::post('/debit_vouchers/{id}/reject', [DebitVoucherApiController::class, 'reject']);
+        Route::post('/debit_vouchers/{id}/cancel', [DebitVoucherApiController::class, 'cancel']);
+        Route::post('/debit_vouchers/{id}/restore', [DebitVoucherApiController::class, 'restore']);
+        
+        Route::get('/get-authorized-signatories', [DebitVoucherApiController::class, 'getAuthorizedSignatories']);
         Route::get('/check-dv-no', [DebitVoucherApiController::class, 'checkDvNo']);
+        Route::get('/get-next-dv-no', [DebitVoucherApiController::class, 'getNextDvNo']);
         Route::get('/get-member-bank', [DebitVoucherApiController::class, 'getMemberBankDetails']);
         Route::get('/get-sender-bank', [DebitVoucherApiController::class, 'getSenderBankDetails']);
-        Route::get('/get-next-dv-no', [DebitVoucherApiController::class, 'getNextDvNo']);
-        Route::get('/get-authorized-signatories', [DebitVoucherApiController::class, 'getAuthorizedSignatories']);
+        
+        // 3. Base API Resource (Hamesha last me rakhein)
+        Route::apiResource('debit_vouchers', DebitVoucherApiController::class);
+      
 
         // --- Leads & CRM ---
       Route::post('/phases/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'bulkDelete']);
         Route::get('/phases/form-data', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'create']);
         Route::get('/phases/get-branches/{company_id}', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'getBranches']);
+        Route::get('/phases/search-dynamic-list', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'searchDynamicList']);
+
+
+
         Route::apiResource('phases', \App\Http\Controllers\Api\V1\Admin\PhaseApiController::class);
         Route::post('/interested-customers/report-employees', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'getReportEmployees']);
         Route::post('/interested-customers/generate-report', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'generatePerformanceReport']);
@@ -243,7 +383,13 @@ Route::prefix('v1')->group(function () {
         Route::post('tasks/{id}/reply', [TaskController::class, 'addReply']);
         Route::get('/task-reports-data', [TaskController::class, 'progressReport']);
 
+        // 👇 YAHAN PAR WO DONO ROUTES PASTE KAR DIJIYE 👇
+        Route::post('tasks/logs/{log_id}/edit', [TaskController::class, 'editReply']);
+        Route::post('tasks/logs/{log_id}/delete', [TaskController::class, 'deleteReply']);
+
         Route::apiResource('terms-conditions', \App\Http\Controllers\Api\V1\Admin\TermConditionController::class);
+
+        Route::apiResource('rules-regulations', \App\Http\Controllers\Api\V1\Admin\RulesRegulationController::class);
 
         // Shared Welcome Letter
         Route::get('/welcome-letter/generate', [\App\Http\Controllers\Api\V1\Employee\WelcomeLetterApiController::class, 'getLetter']);
@@ -320,6 +466,113 @@ Route::delete('attendance-time-windows/{id}', [\App\Http\Controllers\Api\V1\Admi
 Route::get('attendance-time-windows/dropdown', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'getDropdownData']);
 Route::post('attendance-time-windows/store', [\App\Http\Controllers\Api\V1\Admin\AttendanceTimeWindowController::class, 'store']);
 
+Route::get('/bank-details/daily', [BankDetailController::class, 'getDailyData']);
+    Route::get('/bank-details/directory', [BankDetailController::class, 'getDirectoryData']);
+    Route::post('/bank-details/{id}/status', [BankDetailController::class, 'updateStatus']);
+    Route::get('/bank-details/search-holder', [BankDetailController::class, 'searchAccountHolder']);
+
+Route::apiResource('bank-details', BankDetailController::class);
+
+// ====================================================================
+        // 🔥 Site Development & Daily Entries API
+        // ====================================================================
+        
+        // --- Site Allocations (Admin Setup) ---
+        Route::apiResource('site-allocations', \App\Http\Controllers\Api\V1\Admin\SiteAllocationController::class);
+        Route::post('site-allocations/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\SiteAllocationController::class, 'bulkDelete']);
+
+        // --- Site Daily Entries (Employee Panel) ---
+        Route::get('site-entries/allowed-categories', [\App\Http\Controllers\Api\V1\Admin\SiteEntryController::class, 'getAllowedCategories']);
+        Route::get('site-entries/shops', [\App\Http\Controllers\Api\V1\Admin\SiteEntryController::class, 'getShops']); // Shop Autofill
+        Route::get('site-entries/history/{id}', [\App\Http\Controllers\Api\V1\Admin\SiteEntryController::class, 'getHistory']); // Edit History
+        Route::post('site-entries/update/{id}', [\App\Http\Controllers\Api\V1\Admin\SiteEntryController::class, 'update']); // Edit Entry with Files
+        Route::post('site-entries/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\SiteEntryController::class, 'bulkDelete']);
+       
+        Route::get('site-entries/export', [\App\Http\Controllers\Api\V1\Admin\SiteEntryController::class, 'exportExcel'])->name('site_entries.export');
+        
+        // Resource route sabse last me rakhte hain taki custom routes conflict na karein
+        Route::apiResource('site-entries', \App\Http\Controllers\Api\V1\Admin\SiteEntryController::class);
+        Route::get('site-entries/{id}', [\App\Http\Controllers\Api\V1\Admin\SiteEntryController::class, 'show']);
+
+        Route::post('/vehicle-trips/store', [\App\Http\Controllers\Api\V1\Admin\VehicleTripController::class, 'store']);
+
+        // Member Print & Export Routes
+Route::get('members/export-excel', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'exportExcel']);
+Route::get('members/print', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'printMembers']);
+
+
+// Member Device Tracking (Strict Security)
+    Route::get('member-devices', [\App\Http\Controllers\Api\V1\Admin\MemberDeviceController::class, 'index']);
+    Route::post('member-devices/{id}/status', [\App\Http\Controllers\Api\V1\Admin\MemberDeviceController::class, 'updateStatus']);
+    Route::post('member-devices/{id}/swap', [\App\Http\Controllers\Api\V1\Admin\MemberDeviceController::class, 'swapType']);
+    Route::get('member-devices/{id}/logs', [\App\Http\Controllers\Api\V1\Admin\MemberDeviceController::class, 'getLogs']);
+Route::post('/profile/update', [\App\Http\Controllers\Api\V1\ProfileController::class, 'updateProfile']);
+
+
+
+   // Existing route ke theek neeche add karein
+Route::get('/telecalling/allocations/summary', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'getSummary']);
+
+// 🔥 NAYA ROUTE: Detailed Summary + Interested Leads ke liye
+Route::get('/telecalling/allocations/detailed-summary', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'getDetailedSummary']);
+
+Route::get('/telecalling/allocations/summary/print', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'printSummary']);
+
+// --- Temp Receipts ---
+        Route::get('/receipts/get-customers', [\App\Http\Controllers\Api\V1\Admin\TempReceiptApiController::class, 'getCustomersData']); // 🔥 NAYA ROUTE
+        Route::get('/receipts/get-employees', [\App\Http\Controllers\Api\V1\Admin\TempReceiptApiController::class, 'getEmployeesData']); // 🔥 NAYA ROUTE
+        
+        Route::get('/receipts/form-data', [\App\Http\Controllers\Api\V1\Admin\TempReceiptApiController::class, 'getFormData']);
+        Route::get('/receipts/get-branches/{company_id}', [\App\Http\Controllers\Api\V1\Admin\TempReceiptApiController::class, 'getBranches']);
+        Route::apiResource('receipts', \App\Http\Controllers\Api\V1\Admin\TempReceiptApiController::class);
+
+
+
+        // Greeting Templates Setup
+        Route::get('/greeting-templates', [\App\Http\Controllers\Api\V1\Admin\GreetingTemplateController::class, 'index']);
+        Route::post('/greeting-templates', [\App\Http\Controllers\Api\V1\Admin\GreetingTemplateController::class, 'store']);
+
+        Route::get('/events-dashboard', [\App\Http\Controllers\Api\V1\Admin\EventDashboardController::class, 'index']);
+
+        Route::get('/my-greetings', [\App\Http\Controllers\Api\V1\MyGreetingController::class, 'getMyGreetings']);
+
+
+         Route::post('salaries/calculate', [\App\Http\Controllers\Api\V1\Admin\SalaryApiController::class, 'calculateData']);
+                Route::post('salaries/store', [\App\Http\Controllers\Api\V1\Admin\SalaryApiController::class, 'store']);
+
+Route::get('salaries', [\App\Http\Controllers\Api\V1\Admin\SalaryApiController::class, 'index']);
+
+// 👇 YEH DONO NAYE ROUTES YAHAN ADD KAREIN 👇
+Route::post('salaries/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\SalaryApiController::class, 'bulkDelete']);
+Route::delete('salaries/{id}', [\App\Http\Controllers\Api\V1\Admin\SalaryApiController::class, 'destroy']);
+
+// Downline Tree API Route
+        Route::get('members/downline/tree', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'getDownline']);
 
     });
+
+    
+// Promotion Templates API
+        Route::get('/promotion-templates/get', [\App\Http\Controllers\Api\V1\Admin\PromotionTemplateController::class, 'getTemplate']);
+        Route::post('/promotion-templates/save', [\App\Http\Controllers\Api\V1\Admin\PromotionTemplateController::class, 'saveTemplate']);
+
+        // Promotion Smart Search API
+        Route::post('/promotions/search', [\App\Http\Controllers\Admin\PromotionController::class, 'searchStaff']);
+
+        // Promotion Core Submit API
+        Route::post('/promotions/submit', [\App\Http\Controllers\Admin\PromotionController::class, 'submitPromotion']);
+
+ 
+// 🔥 ISOLATED ROUTES FOR TASK CASCADING DROPDOWNS (Prevents breaking other pages) 🔥
+        Route::prefix('task-dependencies')->group(function () {
+            Route::get('/companies', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getCompanies']);
+            Route::get('/branches', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getBranches']);
+            Route::get('/departments', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getDepartments']);
+            Route::get('/designations', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getDesignations']);
+            Route::get('/employees', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getEmployees']);
+            Route::get('/members', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getMembers']);
+        });
+
+               
+
 });

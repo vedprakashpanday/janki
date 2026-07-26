@@ -40,6 +40,24 @@
             display: none;
         }
 
+        /* 🔥 Mobile Floating Action Bar */
+        .mobile-floating-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            z-index: 1050;
+            display: none; /* Managed by JS */
+            width: 90%;
+            max-width: 400px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .nav-tabs .nav-link {
             font-weight: 600;
             color: #6b7280;
@@ -60,30 +78,27 @@
             color: #4b5563;
         }
 
-        .file-preview-wrapper {
+        /* 🔥 Bulk Action Floating Bar */
+        #bulkActionDiv {
             display: none;
-            position: relative;
-            margin-top: 10px;
-            padding: 12px;
-            border: 2px dashed #cbd5e1;
+            background: #fff;
+            padding: 10px 20px;
             border-radius: 8px;
-            background: #f8fafc;
-            width: fit-content;
-            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e2e8f0;
+            animation: slideDown 0.3s ease-out forwards;
         }
 
-        .remove-preview-btn {
-            position: absolute;
-            top: -12px;
-            right: -12px;
-            border-radius: 50%;
-            width: 26px;
-            height: 26px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+        @keyframes slideDown {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
     </style>
 
@@ -92,16 +107,29 @@
             <div>
                 <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Member Details</h4>
             </div>
-            <!-- 🔥 ADD BUTTON WITH RBAC ID 🔥 -->
-          <button type="button" id="addMemberBtn" class="btn text-white px-3 py-2 shadow-sm secured-item"
-                data-permission="member_add" style="background-color: var(--brand-primary);" onclick="openModal('add')">
-                <i class="fas fa-plus me-1"></i> Add New Member
-            </button>
+
+            <div class="d-flex gap-2">
+                <!-- NAYA BULK ACTION DIV JISME 2 BUTTONS HAIN -->
+                <!-- NAYA BULK ACTION DIV JISME 2 BUTTONS HAIN -->
+                <div id="bulkActionDiv" class="d-none align-items-center gap-2 me-3">
+                    <span class="fw-bold text-secondary small border-end pe-2"><span id="selectedCount">0</span> Selected</span>
+                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold shadow-sm" id="selectAllDbBtn">
+                        <i class="fas fa-check-double me-1"></i> Select All in DB
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm fw-bold shadow-sm" id="bulkDeleteBtn">
+                        <i class="fas fa-trash-alt me-1"></i> Delete Selected
+                    </button>
+                </div>
+
+              <button type="button" id="addMemberBtn" class="btn text-white px-3 py-2 shadow-sm secured-item"
+                    data-permission="member_add" style="background-color: var(--brand-primary);" onclick="openModal('add')">
+                    <i class="fas fa-plus"></i><span class="d-none d-md-inline ms-1">Add New Member</span>
+                </button>
+            </div>
         </div>
 
         <div class="d-flex d-md-none gap-2 mb-3">
             <input type="text" id="mobileSearch" class="form-control shadow-sm" placeholder="Search Member...">
-            <!-- 🔥 MOBILE EXCEL WITH RBAC ID 🔥 -->
             <button type="button" class="btn text-white shadow-sm" style="background-color: #10b981; display: none;"
                 id="mobileExcelBtn"><i class="fas fa-file-excel"></i></button>
         </div>
@@ -112,11 +140,16 @@
                     <table id="memberTable" class="table table-hover table-custom w-100">
                         <thead>
                             <tr>
+                                <th style="width: 40px;" class="text-center">
+                                    <input type="checkbox" class="form-check-input" id="selectAllCheckbox">
+                                </th>
                                 <th>MEMBER ID</th>
                                 <th>Branch</th>
                                 <th>Name</th>
                                 <th>Sponsor ID</th>
-                                <th>Mobile</th>
+                                {{-- <th>Mobile</th> --}}
+                                <th>Date Of Joining</th>
+                                <th>Status</th> <!-- 🔥 NAYA COLUMN -->
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -127,9 +160,28 @@
         </div>
 
         <div id="mobileCardsContainer" class="d-block d-md-none"></div>
+
+        <!-- 🔥 LOAD MORE BUTTON FOR MOBILE 🔥 -->
+        <div class="text-center d-md-none mt-3 mb-5" id="mobileLoadMoreDiv" style="display:none;">
+            <button class="btn text-white btn-sm px-4 rounded-pill shadow-sm" id="mobileLoadMoreBtn" style="background-color: var(--brand-primary);">
+                <i class="fas fa-sync-alt me-1"></i> Load More
+            </button>
+        </div>
+
+        <!-- 🔥 FLOATING ACTION BAR FOR MOBILE 🔥 -->
+        <div id="mobileBulkActionDiv" class="mobile-floating-bar d-md-none">
+            <span class="fw-bold text-secondary small"><span id="mobileSelectedCount">0</span> Selected</span>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-circle shadow-sm" id="mobileSelectAllDbBtn" title="Select All in DB" style="width: 35px; height: 35px;">
+                    <i class="fas fa-check-double"></i>
+                </button>
+                <button type="button" class="btn btn-danger btn-sm rounded-circle shadow-sm" id="mobileBulkDeleteBtn" title="Delete" style="width: 35px; height: 35px;">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- View Modal (Unchanged) -->
     <div class="modal fade" id="viewModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -171,6 +223,10 @@
                             <h6 class="fw-bold" id="v_designation"></h6>
                         </div>
                         <div class="col-md-4">
+                            <p class="small text-muted mb-0">Grade</p>
+                            <h6 class="fw-bold" id="v_grade"></h6>
+                        </div>
+                        <div class="col-md-4">
                             <p class="small text-muted mb-0">Mobile Number</p>
                             <h6 class="fw-bold" id="v_mobile"></h6>
                         </div>
@@ -186,21 +242,9 @@
                             <p class="small text-muted mb-0">PAN No.</p>
                             <h6 class="fw-bold text-uppercase" id="v_pan"></h6>
                         </div>
-
-                        <div class="col-12 mt-3">
-                            <h6 class="fw-bold text-secondary border-bottom pb-2">Nominee Info</h6>
-                        </div>
                         <div class="col-md-4">
-                            <p class="small text-muted mb-0">Nominee Name</p>
-                            <h6 class="fw-bold" id="v_nom_name"></h6>
-                        </div>
-                        <div class="col-md-4">
-                            <p class="small text-muted mb-0">Relation</p>
-                            <h6 class="fw-bold" id="v_nom_relation"></h6>
-                        </div>
-                        <div class="col-md-4">
-                            <p class="small text-muted mb-0">Nominee Mobile</p>
-                            <h6 class="fw-bold" id="v_nom_mobile"></h6>
+                            <p class="small text-muted mb-0">Employment Status</p>
+                            <h6 class="fw-bold" id="v_mem_status"></h6>
                         </div>
                     </div>
                 </div>
@@ -211,7 +255,6 @@
         </div>
     </div>
 
-    <!-- Add/Edit Modal (Unchanged structurally, kept identical to yours) -->
     <div class="modal fade" id="memberModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
@@ -241,47 +284,83 @@
 
                         <div class="tab-content p-4">
                             <div class="tab-pane fade show active" id="tab-personal">
+
+                                <div class="col-12 mb-4 border-bottom pb-3 bg-white p-3 rounded shadow-sm"
+                                    id="transferred_section">
+                                    <div class="form-check form-switch fs-6">
+                                        <input class="form-check-input" type="checkbox" id="is_transferred">
+                                        <label class="form-check-label fw-bold text-primary" for="is_transferred">Is it a
+                                            Transferred Associate?</label>
+                                    </div>
+                                    <div id="transferred_div" style="display:none;" class="row mt-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label text-secondary small">Select Company (For
+                                                Transfer)</label>
+                                            <input type="text" id="t_company" class="form-control"
+                                                list="tCompanyList" placeholder="Search Company">
+                                            <datalist id="tCompanyList"></datalist>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label text-secondary small">Select Transferred
+                                                Member</label>
+                                            <input type="text" id="t_member" class="form-control" list="tMemberList"
+                                                placeholder="Select Member">
+                                            <datalist id="tMemberList"></datalist>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="row g-3 mb-4 pb-3 border-bottom">
+                                    <!-- Company -->
+<div class="col-md-4" id="wrap_company">
+    <label class="form-label text-secondary small">Company <span class="text-danger">*</span></label>
+    <select name="company_id" id="f_company" class="form-select select2-ajax" style="width: 100%;" required>
+        <option value="">Search Company...</option>
+    </select>
+</div>
 
-                                    <div class="col-md-4" id="wrap_company">
-                                        <label class="form-label text-secondary small">Company <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" id="f_company" class="form-control" list="companyList"
-                                            placeholder="Search Company" autocomplete="off" required>
-                                        <input type="hidden" name="company_id" id="hidden_company_id">
-                                        <datalist id="companyList"></datalist>
-                                    </div>
+                                   <!-- Branch -->
+<div class="col-md-4" id="wrap_branch">
+    <label class="form-label text-secondary small">Branch <span class="text-danger">*</span></label>
+    <select name="branch_id" id="f_branch" class="form-select select2-ajax" style="width: 100%;" required>
+        <option value="">Search Branch...</option>
+    </select>
+</div>
 
-                                    <div class="col-md-4" id="wrap_branch">
-                                        <label class="form-label text-secondary small">Branch <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" id="f_branch" class="form-control" list="branchList"
-                                            placeholder="Search Branch" autocomplete="off" required>
-                                        <input type="hidden" name="branch_id" id="hidden_branch_id">
-                                        <datalist id="branchList"></datalist>
-                                    </div>
+                                    <!-- Department -->
+<div class="col-md-4" id="wrap_dept">
+    <label class="form-label text-secondary small">Department <span class="text-danger">*</span></label>
+    <select name="department_id" id="f_department" class="form-select select2-ajax" style="width: 100%;" required>
+        <option value="">Search Department...</option>
+    </select>
+</div>
 
-                                    <div class="col-md-4" id="wrap_dept">
-                                        <label class="form-label text-secondary small">Department <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" id="f_department" class="form-control" list="deptList"
-                                            placeholder="Search Department" autocomplete="off" required>
-                                        <input type="hidden" name="department_id" id="hidden_department_id">
-                                        <datalist id="deptList"></datalist>
-                                    </div>
-
-                                    <div class="col-md-4">
-                                        <label class="form-label text-secondary small">Sponsor ID</label>
-                                        <input type="text" name="sponsor_id" class="form-control fw-bold"
-                                            id="f_sponsor_id" list="sponsorList" placeholder="Type or select Sponsor ID"
-                                            autocomplete="off">
-                                        <datalist id="sponsorList"></datalist>
-                                    </div>
+                                <!-- Sponsor ID -->
+<div class="col-md-4">
+    <label class="form-label text-secondary small">Sponsor ID</label>
+    <select name="sponsor_id" id="f_sponsor_id" class="form-select select2-ajax fw-bold" style="width: 100%;">
+        <option value="">Search Sponsor...</option>
+    </select>
+</div>
 
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small">Sponsor Name</label>
                                         <input type="text" name="sponsor_name" class="form-control bg-light fw-bold"
                                             id="f_sponsor_name" readonly placeholder="Enter Sponsor Name">
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label text-secondary small">Member ID <span
+                                                class="text-info">(Editable)</span></label>
+                                        <input type="text" name="member_id" id="f_member_id"
+                                            class="form-control fw-bold" placeholder="Auto-generated if left blank">
+                                    </div>
+                                    <div class="col-md-4" id="manual_series_div" style="display:none;">
+                                        <label class="form-label text-secondary small">Manual Series <span
+                                                class="text-warning">(001-007 Only)</span></label>
+                                        <input type="number" name="manual_series" id="f_manual_series"
+                                            class="form-control" min="1" max="7"
+                                            placeholder="Leave blank for 008+ auto">
                                     </div>
 
                                     <div class="col-md-4 password-edit-div" style="display:none;">
@@ -291,11 +370,12 @@
                                             placeholder="Update password">
                                     </div>
                                     <div class="col-md-4 password-gen-div">
-                                        <label class="form-label text-secondary small">Auto Password</label>
-                                        <input type="text" id="mem_pass_gen" class="form-control bg-light" readonly>
+                                        <label class="form-label text-secondary small">Login Password <span
+                                                class="text-info">(Editable)</span></label>
+                                        <input type="text" name="password" id="mem_pass_gen" class="form-control"
+                                            placeholder="Auto generated or Type">
                                     </div>
                                 </div>
-
 
                                 <div class="row g-3">
                                     <div class="col-md-4">
@@ -327,14 +407,23 @@
                                         <label class="form-label text-secondary small">Mother's Name</label>
                                         <input type="text" name="parents_name" class="form-control" id="f_mother">
                                     </div>
+                                   <div class="col-md-4">
+    <label class="form-label small fw-bold">Designation <span class="text-danger">*</span></label>
+    <select name="designation" id="designation" class="form-select" required>
+        <option value="">-- Select Designation --</option>
+    </select>
+</div>
                                     <div class="col-md-4">
-                                        <label class="form-label small fw-bold">Designation <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" name="designation" id="designation" class="form-control"
-                                            list="designationList" placeholder="Type or Select Designation" required
-                                            autocomplete="off">
-                                        <datalist id="designationList"></datalist>
+                                        <label class="form-label small fw-bold">Grade</label>
+                                        <select name="grade" class="form-select">
+    <option value="">-- Select Grade --</option>
+    <option value="Member Grade A">Member Grade A</option>
+    <option value="Member Grade B">Member Grade B</option>
+    <option value="Member Grade C">Member Grade C</option>
+    <option value="Member Grade D">Member Grade D</option>
+</select>
                                     </div>
+
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small d-block">Gender</label>
                                         <div class="form-check form-check-inline mt-2"><input class="form-check-input"
@@ -344,7 +433,6 @@
                                                 type="radio" name="gender" value="Female" id="g_f"><label
                                                 class="form-check-label" for="g_f">Female</label></div>
                                     </div>
-
                                     <div class="col-md-4">
                                         <label class="form-label text-secondary small d-block">Marital Status</label>
                                         <div class="form-check form-check-inline mt-2"><input class="form-check-input"
@@ -363,7 +451,6 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">Date of
                                             Birth</label><input type="date" name="dob" class="form-control"
                                             id="f_dob"></div>
-
                                     <div class="col-md-4"><label class="form-label text-secondary small">Date of Joining
                                             <span class="text-danger">*</span></label><input type="date"
                                             name="doj" class="form-control" id="f_doj" required></div>
@@ -373,7 +460,6 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">Contact No. <span
                                                 class="text-danger">*</span></label><input type="text" name="mobile"
                                             class="form-control" id="f_mobile" maxlength="10" required></div>
-
                                     <div class="col-md-4"><label class="form-label text-secondary small">Alt.
                                             No.</label><input type="text" name="alternate_mobile" class="form-control"
                                             id="f_alt" maxlength="10"></div>
@@ -383,7 +469,6 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">PAN
                                             No.</label><input type="text" name="pan_number"
                                             class="form-control text-uppercase" id="f_pan" maxlength="10"></div>
-
                                     <div class="col-md-4"><label class="form-label text-secondary small">Aadhar Card
                                             No.<span class="text-danger">*</span></label><input type="text"
                                             name="aadhar_number" class="form-control" id="f_aadhar" maxlength="12"
@@ -394,7 +479,6 @@
                                     <div class="col-md-4"><label
                                             class="form-label text-secondary small">City/Town/Village</label><input
                                             type="text" name="city" class="form-control" id="f_city"></div>
-
                                     <div class="col-md-8"><label class="form-label text-secondary small">Communication
                                             Address</label><input type="text" name="address" class="form-control"
                                             id="f_address"></div>
@@ -404,37 +488,15 @@
                                 </div>
                             </div>
 
-                            <div class="tab-pane fade" id="tab-bank">
-                                <div class="row g-3">
-                                    <div class="col-md-4"><label class="form-label text-secondary small">Account Holder
-                                            Name</label><input type="text" name="account_name" class="form-control"
-                                            id="f_acc_name"></div>
-                                    <div class="col-md-4"><label class="form-label text-secondary small">Bank A/c
-                                            No.</label><input type="text" name="account_no" class="form-control"
-                                            id="f_acc_no"></div>
-                                    <div class="col-md-4"><label class="form-label text-secondary small">Select Account
-                                            Type</label>
-                                        <select class="form-select" name="account_type" id="f_acc_type">
-                                            <option value="">-- Select Type --</option>
-                                            <option value="saving">Saving</option>
-                                            <option value="current">Current</option>
-                                            <option value="cc">CC</option>
-                                            <option value="od">OD</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4"><label class="form-label text-secondary small">Bank
-                                            Name</label><input type="text" name="bank_name" class="form-control"
-                                            id="f_bank_name"></div>
-                                    <div class="col-md-4"><label class="form-label text-secondary small">Branch
-                                            Name</label>
-                                        <input type="text" name="branch" class="form-control" id="f_bank_branch">
-                                    </div>
-                                    <div class="col-md-4"><label class="form-label text-secondary small">IFSC
-                                            Code</label><input type="text" name="ifsc_code"
-                                            class="form-control text-uppercase" id="f_ifsc"></div>
+                         <div class="tab-pane fade" id="tab-bank">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="text-primary fw-bold mb-0"><i class="fas fa-university me-1"></i> Multiple Bank Details</h6>
+                                    <button type="button" class="btn btn-sm btn-primary shadow-sm fw-bold" id="addBankBtn">
+                                        <i class="fas fa-plus me-1"></i> Add Another Bank
+                                    </button>
                                 </div>
+                                <div id="bank-container"></div>
                             </div>
-
                             <div class="tab-pane fade" id="tab-nominee">
                                 <div class="row g-3">
                                     <div class="col-md-3"><label class="form-label text-secondary small">Nominee
@@ -449,7 +511,6 @@
                                     <div class="col-md-3"><label class="form-label text-secondary small">Date of
                                             Birth</label><input type="date" name="nominee_dob" class="form-control"
                                             id="f_nom_dob"></div>
-
                                     <div class="col-md-4"><label class="form-label text-secondary small">Mobile
                                             No</label><input type="text" name="nominee_mobile" class="form-control"
                                             id="f_nom_mob" maxlength="10"></div>
@@ -459,7 +520,6 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">Email
                                             Id</label><input type="email" name="nominee_email" class="form-control"
                                             id="f_nom_email"></div>
-
                                     <div class="col-md-4"><label
                                             class="form-label text-secondary small">Aadhar</label><input type="text"
                                             name="nominee_aadhar" class="form-control" id="f_nom_aadhar" maxlength="12">
@@ -470,7 +530,6 @@
                                     <div class="col-md-4"><label class="form-label text-secondary small">PIN
                                             Code</label><input type="text" name="nominee_pincode" class="form-control"
                                             id="f_nom_pin" maxlength="6"></div>
-
                                     <div class="col-md-4"><label
                                             class="form-label text-secondary small">State</label><input type="text"
                                             name="nominee_state" class="form-control" id="f_nom_state"></div>
@@ -562,8 +621,42 @@
                                             Docs</label><input type="file" name="nom_otherdoc"
                                             class="form-control form-control-sm" accept=".pdf"></div>
                                 </div>
-                            </div>
 
+                                <div class="col-12 mt-4 pt-3 border-top">
+                                    <h6 class="text-primary fw-bold mb-3"><i class="fas fa-info-circle me-1"></i>
+                                        Employment Status</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label text-secondary small">Associate Status</label>
+                                            <select name="status" id="f_status" class="form-select fw-bold">
+                                                <option value="active" class="text-success">Active</option>
+                                                <option value="inactive" class="text-danger">Inactive</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label text-secondary small">Associate Employment
+                                                Status</label>
+                                            <select name="mem_status" id="f_mem_status"
+                                                class="form-select fw-bold text-primary">
+                                                <option value="On Board">On Board</option>
+                                                <option value="Probation">Probation</option>
+                                                <option value="Confirmed">Confirmed</option>
+                                                <option value="Notice Period">Notice Period</option>
+                                                <option value="Resigned">Resigned</option>
+                                                <option value="Relieved">Relieved</option>
+                                                <option value="Terminated">Terminated</option>
+                                                <option value="Dismissed">Dismissed</option>
+                                                <option value="Suspended">Suspended</option>
+                                                <option value="Transferred">Transferred</option>
+                                                <option value="Retired">Retired</option>
+                                                <option value="Deceased">Deceased</option>
+                                                <option value="Rehired">Rehired</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
                         </div>
 
                         <div class="modal-footer bg-light border-top-0">
@@ -580,598 +673,886 @@
 @endsection
 
 @push('scripts')
-    <!-- 🔥 SMART RBAC INJECTION 🔥 -->
-    <script>
-        @php
-            $currentUser = auth()->user();
-            $perms = [];
-            $isGod = false;
-
-            if ($currentUser) {
-                // Fetching Live Active Permissions
-                $perms = \App\Http\Controllers\Controller::getLiveActivePermissions($currentUser);
-                $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-
-                if (in_array($currentUser->email, $developerEmails) || (method_exists($currentUser, 'hasRole') && $currentUser->hasRole('Super Admin'))) {
-                    $isGod = true;
-                }
-            }
-        @endphp
-
-        window.userPerms = {!! json_encode($perms) !!};
-        window.userGodMode = {{ $isGod ? 'true' : 'false' }};
-        window.moduleBase = 'member'; // Set Module Base Code
-    </script>
-
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
-    <script>
-        $(document).ready(function() {
-
-
-            // 🔥 FIX: DataTables ka default error popup band karein 🔥
+   <script>
+$(document).ready(function() {
     $.fn.dataTable.ext.errMode = 'none';
 
-    $('#memberTable').on('error.dt', function(e, settings, techNote, message) {
-        console.log('DataTables blocked by RBAC: ', message);
-        $('#memberTable tbody').html('<tr><td colspan="6" class="text-center text-danger fw-bold py-4"><i class="fas fa-lock me-2"></i> Access Expired or Unauthorized</td></tr>');
+    let mode = 'add';
+    let sysContext = null;
+    let isMasterAdmin = false;
+    let isUserAdmin = false;
+
+
+    // ==========================================
+    // 🔥 TRANSFERRED MEMBER SEARCH & AUTO-FILL 🔥
+    // ==========================================
+    let transferredUsersList = [];
+
+    $('#t_company').on('input change', function() {
+        let val = $(this).val().trim();
+        // Backend API search text directly
+        if (val.length >= 3) {
+            $.ajax({
+                url: `/api/v1/members/search-companies?q=${val}`,
+                type: 'GET',
+                success: function(res) {
+                    let topts = '';
+                    res.data.forEach(c => { topts += `<option value="${c.id}">${c.company_name}</option>`; });
+                    $('#tCompanyList').html(topts);
+                }
+            });
+        }
     });
 
-
-            const apiToken = localStorage.getItem('admin_token');
-            let mode = 'add';
-            let allMembers = [];
-            let allDesignations = [];
-
-            let companyMap = {};
-            let branchMap = {};
-            let deptMap = {};
-
-            // ==========================================
-            // 🔥 INITIAL RBAC UI CHECK 🔥
-            // ==========================================
-            let hasAdd = window.userGodMode || window.userPerms.includes(window.moduleBase + '_add_direct') ||
-                window.userPerms.includes(window.moduleBase + '_add_request');
-            if (hasAdd) $('#addMemberBtn').show();
-
-            let hasPrint = window.userGodMode || window.userPerms.includes(window.moduleBase + '_print') || window
-                .userPerms.includes(window.moduleBase + '_export');
-            let dtButtons = [];
-            if (hasPrint) {
-                dtButtons.push({
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel me-1"></i> Export Excel',
-                    className: 'btn btn-success btn-sm shadow-sm rounded-3'
-                });
-                $('#mobileExcelBtn').show();
-            }
-
-            // ==========================================
-            // SPONSOR & UI LOGIC 
-            // ==========================================
-            let userEmail = (localStorage.getItem('user_email') || localStorage.getItem('admin_email') || '')
-                .toLowerCase();
-            let roleLevel = localStorage.getItem('user_role') || '';
-            let loggedInMemberId = localStorage.getItem('member_id') || '';
-            let loggedInMemberName = localStorage.getItem('user_name') || '';
-            let loggedInDesignation = localStorage.getItem('designation') || '';
-
-            if (!roleLevel && localStorage.getItem('admin_token')) {
-                roleLevel = 'ceo';
-                userEmail = userEmail || 'admin@jankivilla.com';
-            } else if (!roleLevel) {
-                roleLevel = 'member';
-            }
-
-            const devEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-            if (devEmails.includes(userEmail) || roleLevel === 'ceo' || roleLevel === 'super_admin' || typeof window
-                .userGodMode !== 'undefined') {
-                roleLevel = 'ceo';
-            }
-
-            const isUserAdmin = (roleLevel === 'ceo' || roleLevel === 'director' || roleLevel === 'branch_manager');
-
-            function applyRoleUI() {
-                if (roleLevel === 'ceo') {
-                    $('#wrap_company, #wrap_branch, #wrap_dept').show();
-                    $('#f_sponsor_id').prop('readonly', false);
-                } else if (roleLevel === 'director') {
-                    $('#wrap_company').hide();
-                    $('#wrap_branch, #wrap_dept').show();
-                    $('#f_sponsor_id').prop('readonly', false);
-                } else if (roleLevel === 'branch_manager') {
-                    $('#wrap_company, #wrap_branch').hide();
-                    $('#wrap_dept').show();
-                    $('#f_sponsor_id').prop('readonly', false);
-                } else {
-                    $('#wrap_company, #wrap_branch, #wrap_dept').hide();
-                    $('#f_sponsor_id').val(loggedInMemberId).prop('readonly', true);
-                    $('#f_sponsor_name').val(loggedInMemberName).prop('readonly', true);
-                    $('#f_sponsor_id').trigger('change');
+    // Company select hone par us company ke transferred members laana
+    $('#t_company').on('change', function() {
+        let cid = $(this).val();
+        if (cid) {
+            $.ajax({
+                url: `/api/v1/members/transferred?company_id=${cid}`,
+                type: 'GET',
+                success: function(res) {
+                    transferredUsersList = res.data; 
+                    let opts = '';
+                    res.data.forEach(m => {
+                        let displayId = m.member_id || m.emp_id || 'N/A';
+                        let displayName = m.member_name || m.name || 'Unknown';
+                        let tag = m.source_type === 'employee' ? '(Employee)' : '(Member)';
+                        opts += `<option value="${displayName} ${tag} - ${displayId}" data-id="${m.id}" data-type="${m.source_type}">`;
+                    });
+                    $('#tMemberList').html(opts);
                 }
-            }
+            });
+        }
+    });
 
-            // ==========================================
-            // CASCADING DATALISTS LOGIC
-            // ==========================================
-            function loadCompanies() {
-                $.ajax({
-                    url: '/api/v1/get-active-companies',
-                    type: 'GET',
-                    success: function(res) {
-                        let opts = '';
-                        companyMap = {};
-                        res.data.forEach(c => {
-                            opts += `<option value="${c.company_name}">`;
-                            companyMap[c.company_name] = c.id;
-                        });
-                        $('#companyList').html(opts);
+    // Transferred Member select hone par form Auto-fill karna (100% Full Map)
+    $('#t_member').on('input change', function() {
+        let val = $(this).val();
+        let selectedOption = $('#tMemberList option').filter(function() { return this.value === val; });
+
+        if (selectedOption.length > 0 && transferredUsersList.length > 0) {
+            let memId = selectedOption.attr('data-id');
+            let sType = selectedOption.attr('data-type');
+            let d = transferredUsersList.find(m => m.id == memId && m.source_type == sType);
+            
+            if (d) {
+                // 1. SELECT2 DROPDOWNS AUTOFILL
+                // if (d.company_id) {
+                //     $('#f_company').empty().append(new Option('Transferred Company', d.company_id, true, true)).trigger('change');
+                // }
+                // if (d.branch_id) {
+                //     $('#f_branch').empty().append(new Option('Transferred Branch', d.branch_id, true, true)).trigger('change');
+                // } else if (d.company_id) {
+                //     $('#f_branch').empty().append(new Option('Head Office', 'HO_' + d.company_id, true, true)).trigger('change');
+                // }
+                // if (d.department_id) {
+                //     $('#f_department').empty().append(new Option('Transferred Dept', d.department_id, true, true)).trigger('change');
+                // }
+                // if (d.sponsor_id) {
+                //     $('#f_sponsor_id').empty().append(new Option(d.sponsor_id, d.sponsor_id, true, true)).trigger('change');
+                //     $('#f_sponsor_name').val(d.sponsor_name || '');
+                // }
+                // if (d.designation) {
+                //     $('#designation').empty().append(new Option(d.designation, d.designation, true, true)).trigger('change');
+                // }
+
+                // 2. NORMAL DROPDOWNS & RADIOS
+                if (d.blood_group) $('#f_blood').val(d.blood_group);
+                if (d.grade) $('select[name="grade"]').val(d.grade);
+                if (d.status) $('#f_status').val(d.status);
+                if (d.mem_status) $('#f_mem_status').val(d.mem_status);
+                if (d.gender) $(`input[name="gender"][value="${d.gender}"]`).prop('checked', true);
+                if (d.marital_status) $(`input[name="marital_status"][value="${d.marital_status}"]`).prop('checked', true);
+
+                // 3. TEXT FIELDS (Personal Details)
+                if (sType === 'employee') {
+                    $('#f_name').val(d.name || d.full_name || '');
+                    $('#f_mobile').val(d.mobile_no || d.phone || '');
+                    $('#f_pan').val(d.pan_no || d.pan || '');
+                    $('#f_aadhar').val(d.aadhar_no || d.aadhar || '');
+                    $('#f_doj').val(d.joining_date || '');
+                } else {
+                    $('#f_name').val(d.member_name || '');
+                    $('#f_mobile').val(d.mobile || '');
+                    $('#f_pan').val(d.pan_number || '');
+                    $('#f_aadhar').val(d.aadhar_number || '');
+                    $('#f_doj').val(d.doj || '');
+                }
+                
+                $('#f_email').val(d.email || '');
+                $('#f_dob').val(d.dob || d.date_of_birth || '');
+                $('#f_sodowo').val(d.so_do_name || d.father_name || d.husband_name || '');
+                $('#f_mother').val(d.parents_name || d.mother_name || '');
+                $('#f_native').val(d.native_place || d.birth_place || '');
+                $('#f_city').val(d.city || d.town || d.village || '');
+                $('#f_address').val(d.address || d.permanent_address || '');
+                $('#f_pincode').val(d.pincode || d.pin_code || '');
+            }
+        }
+    });
+
+    // Fetch Global Context
+    $.ajax({
+        url: '/api/v1/context',
+        type: 'GET',
+        async: false,
+        success: function(res) {
+            sysContext = res;
+            isMasterAdmin = sysContext.is_god || sysContext.role_level === 'ceo';
+            isUserAdmin = isMasterAdmin || ['admin', 'director', 'branch_manager'].includes(sysContext.role_level);
+        }
+    });
+
+    // ==========================================
+    // 🔥 SELECT2 AJAX INITIALIZATIONS 🔥
+    // ==========================================
+    $('#f_company').select2({
+        ajax: {
+            url: '/api/v1/members/search-companies',
+            dataType: 'json',
+            delay: 250,
+            data: function(params) { return { q: params.term }; },
+            processResults: function(data) {
+                return { results: $.map(data.data, function(item) { return { text: item.company_name, id: item.id }; }) };
+            }
+        },
+        minimumInputLength: 3,
+        placeholder: 'Type 3 letters to search...',
+        dropdownParent: $('#memberModal')
+    }).on('select2:select', function(e) {
+        let compId = e.params.data.id;
+        $('#f_branch').empty().append(new Option('Head Office', 'HO_' + compId, true, true)).trigger('change');
+        $('#f_department').empty().trigger('change');
+        $('#designation').empty();
+
+        if (mode === 'add' && !window.isEditLoading) {
+            $.ajax({
+                url: '/api/v1/members/next-id?company_id=' + compId,
+                type: 'GET',
+                success: function(response) { $('#f_member_id').val(response.next_id); }
+            });
+        }
+    });
+
+    $('#f_branch').select2({
+        ajax: {
+            url: '/api/v1/members/search-branches',
+            dataType: 'json',
+            delay: 250,
+            data: function(params) { 
+                return { 
+                    q: params.term, 
+                    company_id: $('#f_company').val() // Dynamically fetch current company
+                }; 
+            },
+            processResults: function(data) {
+                let results = $.map(data.data, function(item) { return { text: item.branch_name, id: item.id }; });
+                let compId = $('#f_company').val();
+                if(compId) results.unshift({ id: 'HO_' + compId, text: 'Head Office' });
+                return { results: results };
+            }
+        },
+        minimumInputLength: 3,
+        placeholder: 'Type 3 letters to search...',
+        dropdownParent: $('#memberModal')
+    }).on('select2:select', function(e) {
+        $('#f_department').empty().trigger('change');
+    });
+
+    $('#f_department').select2({
+        ajax: {
+            url: '/api/v1/members/search-departments',
+            dataType: 'json',
+            delay: 250,
+            data: function(params) { 
+                return { 
+                    q: params.term, 
+                    company_id: $('#f_company').val(), 
+                    branch_id: $('#f_branch').val() 
+                }; 
+            },
+            processResults: function(data) {
+                return { results: $.map(data.data, function(item) { return { text: item.department_name, id: item.id }; }) };
+            }
+        },
+        minimumInputLength: 3,
+        placeholder: 'Search Associate Depts...',
+        dropdownParent: $('#memberModal')
+    }).on('select2:select', function(e) {
+        let sponsorVal = $('#f_sponsor_id').val();
+        if(!sponsorVal && isUserAdmin) {
+            $('#f_sponsor_id').empty().append(new Option('SYSTEM ROOT', 'SYSTEM ROOT', true, true)).trigger('change');
+            $('#f_sponsor_name').val('SYSTEM ROOT');
+            loadDesignationsBySponsor('SYSTEM ROOT');
+        } else {
+            loadDesignationsBySponsor(sponsorVal);
+        }
+    });
+
+    $('#f_sponsor_id').select2({
+        ajax: {
+            url: '/api/v1/members/search-sponsor',
+            dataType: 'json',
+            delay: 250,
+            data: function(params) { return { q: params.term }; },
+            processResults: function(data) {
+                // Ensure id is the member_id
+                return { results: $.map(data.data, function(item) { 
+                    return { text: item.member_id + ' - ' + item.member_name, id: item.member_id, name: item.member_name }; 
+                }) };
+            }
+        },
+        minimumInputLength: 3,
+        placeholder: 'Search by Name or ID...',
+        dropdownParent: $('#memberModal'),
+        tags: true
+    }).on('select2:select', function(e) {
+        let sponsorName = e.params.data.name || 'Unknown';
+        let sponsorId = e.params.data.id;
+        if (sponsorId.includes(' - ')) sponsorId = sponsorId.split(' - ')[0];
+        $('#f_sponsor_name').val(sponsorName);
+        loadDesignationsBySponsor(sponsorId);
+    }).on('select2:clear', function(e) {
+        $('#f_sponsor_name').val('');
+        loadDesignationsBySponsor(null);
+    });
+
+    function loadDesignationsBySponsor(sponsorId = null, overrideDeptId = null) {
+        let deptId = overrideDeptId || $('#f_department').val(); 
+        if (!deptId) return;
+        
+        $.ajax({
+            url: '/api/v1/members/available-designations',
+            type: 'GET',
+            data: { sponsor_id: sponsorId, department_id: deptId },
+            success: function(res) {
+                let options = '<option value="">-- Select Designation --</option>';
+                res.data.forEach(function(item) { 
+                    options += `<option value="${item.designation_name}">${item.designation_name}</option>`; 
+                });
+                $('#designation').html(options); 
+            }
+        });
+    }
+
+   // Helper function for fetching ID
+    function fetchNextMemberId(compId) {
+        if (mode === 'add' && !window.isEditLoading && compId) {
+            $.ajax({
+                url: '/api/v1/members/next-id?company_id=' + compId,
+                type: 'GET',
+                success: function(response) { $('#f_member_id').val(response.next_id); }
+            });
+        }
+    }
+
+    function setLockedOption(selector, url, id, fallbackText) {
+        if(!id) return;
+        if(id.toString().startsWith('HO_')) {
+            $(selector).empty().append(new Option('Head Office', id, true, true)).trigger('change').prop('disabled', true);
+            return;
+        }
+        $.get(url + '/' + id, function(res) {
+            let text = res.data.company_name || res.data.branch_name || res.data.department_name || fallbackText;
+            $(selector).empty().append(new Option(text, id, true, true)).trigger('change').prop('disabled', true);
+        }).fail(function() {
+            $(selector).empty().append(new Option(fallbackText, id, true, true)).trigger('change').prop('disabled', true);
+        });
+    }
+
+
+   function applyRoleUI() {
+        if (!sysContext) return;
+        $('#f_company, #f_branch, #f_department, #f_sponsor_id').prop('disabled', false);
+        $('#manual_series_div').hide();
+        if(isMasterAdmin) $('#manual_series_div').show();
+
+        if (sysContext.is_member || sysContext.role_level === 'member') {
+            setLockedOption('#f_company', '/api/v1/companies', sysContext.company_id, 'Your Company');
+            let branchVal = sysContext.branch_id || 'HO_' + sysContext.company_id;
+            setLockedOption('#f_branch', '/api/v1/branches', branchVal, 'Your Branch');
+            setLockedOption('#f_department', '/api/v1/departments', sysContext.department_id, 'Your Dept');
+            
+            // 🔥 NAYA: ID Auto-generate call yahan karein
+            fetchNextMemberId(sysContext.company_id);
+            
+            if(sysContext.profile_id) {
+                $.get('/api/v1/members/search-sponsor', { q: sysContext.profile_id }, function(res) {
+                    if(res.data && res.data.length > 0) {
+                        let me = res.data[0];
+                        let optionText = me.member_id + ' - ' + me.member_name;
+                        $('#f_sponsor_id').empty().append(new Option(optionText, me.member_id, true, true)).trigger('change').prop('disabled', true);
+                        $('#f_sponsor_name').val(me.member_name).prop('readonly', true);
+                        loadDesignationsBySponsor(me.member_id, sysContext.department_id);
+                    } else {
+                        // Fallback agar API se naam na mile
+                        $('#f_sponsor_id').empty().append(new Option(sysContext.profile_id, sysContext.profile_id, true, true)).trigger('change').prop('disabled', true);
+                        $('#f_sponsor_name').val('Self / Sponsor').prop('readonly', true);
+                        loadDesignationsBySponsor(sysContext.profile_id, sysContext.department_id);
                     }
                 });
             }
-            loadCompanies();
+        }
+        else if (sysContext.is_employee) { // 🔥 FIX: Yahan se '&& sysContext.branch_id' hata diya
+            setLockedOption('#f_company', '/api/v1/companies', sysContext.company_id, 'Company');
+            
+            // 🔥 FIX: Agar branch_id null hai, toh by default Head Office (HO) lock karega
+            let branchVal = sysContext.branch_id || 'HO_' + sysContext.company_id;
+            setLockedOption('#f_branch', '/api/v1/branches', branchVal, 'Branch');
+            
+            // 🔥 NAYA: ID Auto-generate call yahan karein
+            fetchNextMemberId(sysContext.company_id);
+        } 
+        else if (sysContext.is_director) {
+            setLockedOption('#f_company', '/api/v1/companies', sysContext.company_id, 'Company');
+            fetchNextMemberId(sysContext.company_id);
+        }
+    }
 
-            $('#f_company').on('input change', function() {
-                let val = $(this).val();
-                if (companyMap[val]) {
-                    $('#hidden_company_id').val(companyMap[val]);
-                    this.setCustomValidity('');
-                    $.ajax({
-                        url: '/api/v1/branches?company_id=' + companyMap[val],
-                        type: 'GET',
-                        success: function(res) {
-                            let bOpts = '';
-                            branchMap = {};
-                            res.data.forEach(b => {
-                                bOpts += `<option value="${b.branch_name}">`;
-                                branchMap[b.branch_name] = b.id;
-                            });
-                            $('#branchList').html(bOpts);
-                            $('#f_branch').val('');
-                            $('#hidden_branch_id').val('');
-                            $('#f_department').val('');
-                            $('#hidden_department_id').val('');
-                        }
-                    });
-                } else {
-                    $('#hidden_company_id').val('');
-                    if (val !== '') this.setCustomValidity('Please select a valid company');
-                }
-            });
+   // Modal Logic
+    window.openModal = function(type, id = null) {
+        mode = type;
+        
+        // CRASH FIX FOR DIRECTORY PAGE
+        if ($('#memberForm').length === 0) {
+            alert('Please go to the main Member Details page to register or edit members.');
+            return;
+        }
 
-            $('#f_branch').on('input change', function() {
-                let val = $(this).val();
-                if (branchMap[val]) {
-                    $('#hidden_branch_id').val(branchMap[val]);
-                    this.setCustomValidity('');
-                    $.ajax({
-                        url: '/api/v1/get-departments-by-company?company_id=' + $(
-                            '#hidden_company_id').val(),
-                        type: 'GET',
-                        success: function(res) {
-                            let dOpts = '';
-                            deptMap = {};
-                            res.data.forEach(d => {
-                                dOpts += `<option value="${d.department_name}">`;
-                                deptMap[d.department_name] = d.id;
-                            });
-                            $('#deptList').html(dOpts);
-                            $('#f_department').val('');
-                            $('#hidden_department_id').val('');
-                        }
-                    });
-                } else {
-                    $('#hidden_branch_id').val('');
-                    if (val !== '') this.setCustomValidity('Please select a valid branch');
-                }
-            });
+        $('#memberForm')[0].reset();
+        $('#edit_id').val('');
+        $('#form_method').val('POST');
+        
+        $('#f_company, #f_branch, #f_department, #f_sponsor_id').empty().trigger('change');
+        $('#f_sponsor_name').prop('readonly', true).addClass('bg-light').val('');
+        $('#modalTitle').text(type === 'add' ? 'Register Member' : 'Edit Member');
+        $('.file-preview-wrapper').hide().find('.preview-content').empty();
+        $('.nav-tabs button:first').tab('show');
 
-            $('#f_department').on('input change', function() {
-                let val = $(this).val();
-                let deptId = deptMap[val];
-                if (deptId) {
-                    $('#hidden_department_id').val(deptId);
-                    this.setCustomValidity('');
-                    $.ajax({
-                        url: '/api/v1/get-designations-by-dept?department_id=' + deptId,
-                        type: 'GET',
-                        success: function(res) {
-                            allDesignations = res.data;
-                            if (!isUserAdmin) {
-                                $('#f_sponsor_id').trigger('change');
-                            } else {
-                                renderDesignations();
+        $('#is_transferred').prop('checked', false).trigger('change');
+        window.isEditLoading = false;
+
+        if (type === 'add') {
+            $('.password-edit-div').hide();
+            $('.password-gen-div').show();
+            $('#bank-container').empty();
+            bankIndex = 0;
+            appendBankRow();
+            applyRoleUI();
+            
+            // 🔥 FIX: Race Condition Block. Member ke login par explicitly null override nahi hoga
+            if (!sysContext.is_member && sysContext.role_level !== 'member') {
+                loadDesignationsBySponsor(null); 
+            }
+        } else {
+            $('.password-edit-div').show();
+            $('.password-gen-div').hide();
+            $('#manual_series_div').hide();
+
+            $.get({
+                url: `/api/v1/members/${id}`,
+                success: function(res) {
+                    window.isEditLoading = true;
+                    let d = res.data;
+                    $('#edit_id').val(d.id);
+                    $('#form_method').val('PUT');
+                    
+                    if (d.company_id && d.company) $('#f_company').empty().append(new Option(d.company.company_name, d.company_id, true, true)).trigger('change');
+                    if (d.branch_id === null) $('#f_branch').empty().append(new Option('Head Office', 'HO_' + d.company_id, true, true)).trigger('change');
+                    else if (d.branch) $('#f_branch').empty().append(new Option(d.branch.branch_name, d.branch_id, true, true)).trigger('change');
+                    
+                    if (d.department) $('#f_department').empty().append(new Option(d.department.department_name, d.department_id, true, true)).trigger('change');
+                    if (d.sponsor_id) {
+                        $('#f_sponsor_id').empty().append(new Option(d.sponsor_id, d.sponsor_id, true, true)).trigger('change');
+                        $('#f_sponsor_name').val(d.sponsor_name);
+                        loadDesignationsBySponsor(d.sponsor_id);
+                    }
+
+                    // Populate Select designation safely
+                    setTimeout(() => { if (d.designation) $('#designation').val(d.designation); }, 500);
+
+                    $('#bank-container').empty();
+                    bankIndex = 0;
+                    if (d.banks && d.banks.length > 0) d.banks.forEach((bank, i) => { appendBankRow(bank, i); bankIndex = i + 1; });
+                    else appendBankRow();
+
+                 // Populate Standard Inputs Safely
+                    Object.keys(d).forEach(key => {
+                        let input = $(`#memberForm [name="${key}"]`);
+                        
+                        // Sirf real input fields par operate karega, objects/arrays par nahi
+                        if (input.length && typeof d[key] !== 'object') {
+                            if (input.attr('type') !== 'radio' && input.attr('type') !== 'file') {
+                                input.val(d[key]);
                             }
                         }
-                    });
 
-                    if (isUserAdmin) {
-                        let branchId = $('#hidden_branch_id').val();
-                        let membersInBranch = allMembers.filter(m => m.branch_id == branchId);
-                        if (membersInBranch.length === 0) {
-                            let compStr = $('#f_company').val() ? $('#f_company').val().substring(0, 3)
-                                .toUpperCase() : 'CMP';
-                            let brStr = $('#f_branch').val() ? $('#f_branch').val().substring(0, 3)
-                                .toUpperCase() : 'BRN';
-                            $('#f_sponsor_id').val(`${compStr}-${brStr}-0001`).prop('readonly', true);
-                            $('#f_sponsor_name').val('SYSTEM ROOT').prop('readonly', true);
-                        } else {
-                            $('#f_sponsor_id').val('').prop('readonly', false);
-                            $('#f_sponsor_name').val('').prop('readonly', true);
-                        }
-                    }
-                } else {
-                    $('#hidden_department_id').val('');
-                    if (val !== '') this.setCustomValidity('Please select a valid department');
-                }
-            });
-
-            function renderDesignations(maxComm = null) {
-                let options = '';
-                allDesignations.forEach(function(item) {
-                    if (maxComm === null || parseFloat(item.commission_percentage || 0) < parseFloat(
-                            maxComm)) {
-                        options += `<option value="${item.designation_name}">`;
-                    }
-                });
-                $('#designationList').html(options);
-            }
-
-            $('#f_sponsor_id').on('input change', function() {
-                let val = $(this).val();
-                if (!isUserAdmin) {
-                    $('#f_sponsor_name').val(loggedInMemberName);
-                    if (allDesignations.length > 0) {
-                        let myDesigObj = allDesignations.find(d => d.designation_name ===
-                            loggedInDesignation);
-                        if (myDesigObj) {
-                            renderDesignations(myDesigObj.commission_percentage);
-                        } else {
-                            renderDesignations();
-                        }
-                    }
-                    return;
-                }
-
-                if (val === '') {
-                    $('#f_sponsor_name').val('');
-                    renderDesignations();
-                } else {
-                    let found = allMembers.find(m => m.member_id === val);
-                    if (found) {
-                        $('#f_sponsor_name').val(found.member_name);
-                        let sponsorDesigObj = allDesignations.find(d => d.designation_name === found
-                            .designation);
-                        if (sponsorDesigObj) {
-                            renderDesignations(sponsorDesigObj.commission_percentage);
-                        } else {
-                            renderDesignations();
-                        }
-                    } else {
-                        if (!$(this).prop('readonly')) {
-                            $('#f_sponsor_name').val('');
-                            renderDesignations();
-                        }
-                    }
-                }
-            });
-
-            // ==========================================
-            // DataTables
-            // ==========================================
-            let table = $('#memberTable').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: '/api/v1/members'
-                },
-                dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
-                buttons: dtButtons,
-                columns: [{
-                        data: 'member_id',
-                        render: d => `<span class="fw-bold text-primary">${d}</span>`
-                    },
-                    {
-                        data: 'branch_id',
-                        render: (d, t, row) => {
-                            if (!row.branch) return 'N/A';
-                            let compName = row.branch.company ? row.branch.company.company_name :
-                                'Master Company';
-                            return `<div class="small fw-bold text-primary"><i class="fas fa-building me-1"></i> ${compName}</div>
-                                    <div class="small text-muted"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${row.branch.branch_name}</div>`;
-                        }
-                    },
-                    {
-                        data: 'member_name'
-                    },
-                    {
-                        data: 'sponsor_id',
-                        render: d => d ? d : 'N/A'
-                    },
-                    {
-                        data: 'mobile'
-                    },
-
-                    // 🔥 NAYA: DYNAMIC ACTION BUTTONS RENDER (WITH RBAC) 🔥
-                    {
-                        data: 'id',
-                        orderable: false,
-                        className: 'text-end text-nowrap',
-                        render: function(d) {
-                            let isGod = window.userGodMode || false;
-                            let p = window.userPerms || [];
-
-                            let hasView = isGod || p.includes(window.moduleBase + '_view');
-                            let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
-                            let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
-
-                            let btns = '';
-                            if (hasView) btns +=
-                                `<button type="button" class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>`;
-                            if (hasEdit) btns +=
-                                `<button type="button" class="btn btn-sm btn-light text-primary me-1 edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>`;
-                            if (hasDelete) btns +=
-                                `<button type="button" class="btn btn-sm btn-light text-danger delete-btn" data-id="${d}"><i class="fas fa-trash-alt"></i></button>`;
-
-                            if (!btns)
-                            return `<span class="text-muted small"><i class="fas fa-lock"></i> Locked</span>`;
-                            return `<div class="d-flex justify-content-end flex-nowrap">${btns}</div>`;
-                        }
-                    }
-                ],
-                drawCallback: function(settings) {
-                    renderMobileCards(settings.json.data);
-                }
-            });
-
-            // ==========================================
-            // MOBILE CARDS RENDER (WITH RBAC)
-            // ==========================================
-            function renderMobileCards(data) {
-                let html = '';
-                if (!data || data.length === 0) {
-                    html =
-                    '<div class="text-center p-3 text-muted border rounded bg-light">No members found.</div>';
-                } else {
-                    let isGod = window.userGodMode || false;
-                    let p = window.userPerms || [];
-
-                    let hasView = isGod || p.includes(window.moduleBase + '_view');
-                    let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
-                    let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
-
-                    data.forEach(d => {
-                        let branchName = d.branch ? d.branch.branch_name : 'N/A';
-
-                        let actionBtns = '';
-                        if (hasView) actionBtns +=
-                            `<button type="button" class="btn btn-sm btn-light text-info flex-fill view-btn" data-id="${d.id}">View</button>`;
-                        if (hasEdit) actionBtns +=
-                            `<button type="button" class="btn btn-sm btn-light text-primary flex-fill edit-btn" data-id="${d.id}">Edit</button>`;
-                        if (hasDelete) actionBtns +=
-                            `<button type="button" class="btn btn-sm btn-light text-danger flex-fill delete-btn" data-id="${d.id}">Delete</button>`;
-                        if (!actionBtns) actionBtns =
-                            `<span class="small fw-bold text-muted w-100 text-center"><i class="fas fa-lock"></i> No Rights</span>`;
-
-                        html += `<div class="mobile-item">
-                            <h6 class="fw-bold text-dark">${d.member_name} <span class="float-end text-primary small">${d.member_id}</span></h6>
-                            <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${branchName}</div>
-                            <div class="small text-muted"><i class="fas fa-phone me-1"></i> ${d.mobile}</div>
-                            <div class="mt-2 pt-2 border-top d-flex gap-2">
-                                ${actionBtns}
-                            </div>
-                        </div>`;
-                    });
-                }
-                $('#mobileCardsContainer').html(html);
-            }
-
-            $('#mobileSearch').on('keyup', function() {
-                let v = $(this).val().toLowerCase();
-                $('.mobile-item').filter(function() {
-                    $(this).toggle($(this).text().toLowerCase().indexOf(v) > -1)
-                });
-            });
-
-            function loadSponsorsList() {
-                $.ajax({
-                    url: '/api/v1/members',
-                    type: 'GET',
-                    success: function(res) {
-                        allMembers = res.data;
-                        let options = '';
-                        res.data.forEach(m => {
-                            options +=
-                                `<option value="${m.member_id}">${m.member_name} (${m.member_id})</option>`;
-                        });
-                        $('#sponsorList').html(options);
-                    }
-                });
-            }
-            loadSponsorsList();
-
-            window.openModal = function(type, id = null) {
-                mode = type;
-                $('#memberForm')[0].reset();
-                $('#edit_id').val('');
-                $('#form_method').val('POST');
-                $('#hidden_company_id, #hidden_branch_id, #hidden_department_id').val('');
-                $('#f_sponsor_name').prop('readonly', true).addClass('bg-light');
-                $('#modalTitle').text(type === 'add' ? 'Register Member' : 'Edit Member');
-                $('.file-preview-wrapper').hide().find('.preview-content').empty();
-                $('.nav-tabs button:first').tab('show');
-
-                if (type === 'add') {
-                    $('.password-edit-div').hide();
-                    $('.password-gen-div').show();
-                    applyRoleUI();
-                } else {
-                    $('.password-edit-div').show();
-                    $('.password-gen-div').hide();
-
-                    $.get({
-                        url: `/api/v1/members/${id}`,
-                        success: function(res) {
-                            let d = res.data;
-                            $('#edit_id').val(d.id);
-                            $('#form_method').val('PUT');
-                            $('#hidden_company_id').val(d.company_id);
-                            $('#hidden_branch_id').val(d.branch_id);
-                            $('#hidden_department_id').val(d.department_id);
-
-                            if (d.company) $('#f_company').val(d.company.company_name);
-                            if (d.branch) $('#f_branch').val(d.branch.branch_name);
-                            if (d.department) $('#f_department').val(d.department.department_name);
-
-                            Object.keys(d).forEach(key => {
-                                let input = $(`#memberForm [name="${key}"]`);
-                                if (input.length && input.attr('type') !== 'file' && input
-                                    .attr('type') !== 'radio') {
-                                    if (typeof d[key] === 'object' && d[key] !== null)
-                                        return;
-                                    input.val(d[key]);
-                                }
-                            });
-
-                            $('#f_bank_branch').val(d.bank_branch_text);
-
-                            if (d.sponsor_id) $('#f_sponsor_id').trigger('change');
-                            if (d.gender) $(`input[name="gender"][value="${d.gender}"]`).prop(
-                                'checked', true);
-                            if (d.marital_status) $(
-                                    `input[name="marital_status"][value="${d.marital_status}"]`)
-                                .prop('checked', true);
-
-                            applyRoleUI();
-                        }
-                    });
-                }
-                $('#memberModal').modal('show');
-            };
-
-            $(document).on('click', '.edit-btn', function() {
-                openModal('edit', $(this).data('id'));
-            });
-
-            $('#memberForm').submit(function(e) {
-                e.preventDefault();
-                let formData = new FormData(this);
-                let id = $('#edit_id').val();
-                let url = mode === 'add' ? '/api/v1/members' : `/api/v1/members/${id}`;
-                if (mode === 'edit') formData.append('_method', 'PUT');
-
-                $.ajax({
-                    url: url,
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(res) {
-                        alert(res.message);
-                        $('#memberModal').modal('hide');
-                        table.ajax.reload(null, false);
-                        loadSponsorsList();
-                    }
-                });
-            });
-
-            $(document).on('click', '.delete-btn', function() {
-                if (confirm("Delete Member?")) {
-                    $.ajax({
-                        url: `/api/v1/members/${$(this).data('id')}`,
-                        type: 'DELETE',
-                        success: function() {
-                            table.ajax.reload(null, false);
-                            loadSponsorsList();
-                        }
-                    });
-                }
-            });
-
-            function generatePassword() {
-                let fullName = $('#f_name').val().trim();
-                let aadhar = $('#f_aadhar').val().replace(/\D/g, '');
-                if (fullName.length < 1 || aadhar.length < 4) {
-                    $('#mem_pass_gen').val('');
-                    return;
-                }
-                let firstNamePart = fullName.split(' ')[0].substring(0, 3).toLowerCase();
-                let formattedName = firstNamePart.charAt(0).toUpperCase() + firstNamePart.slice(1);
-                let aadharLast4 = aadhar.slice(-4);
-                $('#mem_pass_gen').val(formattedName + '@' + aadharLast4);
-            }
-            $('#f_name, #f_aadhar').on('keyup change', generatePassword);
-
-            $(document).on('click', '.view-btn', function() {
-                $.get({
-                    url: `/api/v1/members/${$(this).data('id')}`,
-                    success: function(res) {
-                        let d = res.data;
-                        $('#v_mem_id').text(d.member_id || 'N/A');
-                        $('#v_password').text(d.password || 'N/A');
-
-                        let branchText = 'N/A';
-                        if (d.branch) {
-                            let compName = d.branch.company ? d.branch.company.company_name :
-                                'Master Company';
-                            branchText = compName + ' - ' + d.branch.branch_name;
-                        }
-                        $('#v_branch').text(branchText);
-
-                        $('#v_sponsor').text(d.sponsor_name ?
-                            `${d.sponsor_name} (${d.sponsor_id})` : (d.sponsor_id || 'N/A'));
-                        $('#v_name').text(d.member_name || 'N/A');
-                        $('#v_designation').text(d.designation || 'N/A');
-                        $('#v_mobile').text(d.mobile || 'N/A');
-                        $('#v_doj').text(d.doj || 'N/A');
-                        $('#v_aadhar').text(d.aadhar_number || 'N/A');
-                        $('#v_pan').text(d.pan_number || 'N/A');
-                        $('#v_nom_name').text(d.nominee_name || 'N/A');
-                        $('#v_nom_relation').text(d.nominee_relation || 'N/A');
-                        $('#v_nom_mobile').text(d.nominee_mobile || 'N/A');
-
-                        $('#viewModal').modal('show');
-                    }
-                });
-            });
-
-            $('input[type="file"]').each(function() {
-                $(this).after(
-                    `<div class="file-preview-wrapper"><button type="button" class="btn btn-danger remove-preview-btn"><i class="fas fa-times"></i></button><div class="preview-content text-center"></div></div>`
-                    );
-            });
-
-            $(document).on('change', 'input[type="file"]', function() {
-                let file = this.files[0];
-                let wrapper = $(this).next('.file-preview-wrapper');
-                let content = wrapper.find('.preview-content');
-                if (file) {
-                    if (file.type.startsWith('image/')) {
-                        let reader = new FileReader();
-                        reader.onload = e => {
-                            content.html(
-                                `<img src="${e.target.result}" style="max-height:80px; border-radius:6px;">`
-                                );
+                        // 🔥 NAYA: Document Preview Logic (Files Only) 🔥
+                        if (input.length && input.attr('type') === 'file' && d[key] && typeof d[key] === 'string') {
+                            let wrapper = input.next('.file-preview-wrapper');
+                            let content = wrapper.find('.preview-content');
+                            let fileUrl = d[key].startsWith('http') ? d[key] : '/' + d[key];
+                            let ext = d[key].split('.').pop().toLowerCase();
+                            
+                            // Agar image hai toh photo dikhao, varna PDF link
+                            if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'].includes(ext)) {
+                                content.html(`<a href="${fileUrl}" target="_blank"><img src="${fileUrl}" style="max-height:80px; border-radius:6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></a>`);
+                            } else {
+                                content.html(`<a href="${fileUrl}" target="_blank" class="p-2 small fw-bold text-primary text-decoration-none"><i class="fas fa-file-pdf me-2 text-danger"></i>View Uploaded File</a>`);
+                            }
                             wrapper.slideDown();
                         }
-                        reader.readAsDataURL(file);
-                    } else {
-                        content.html(
-                            `<div class="p-2 small fw-bold text-dark"><i class="fas fa-file-alt text-primary me-2"></i>${file.name}</div>`
-                            );
-                        wrapper.slideDown();
-                    }
+                    });
+
+                    if (d.gender) $(`input[name="gender"][value="${d.gender}"]`).prop('checked', true);
+                    if (d.marital_status) $(`input[name="marital_status"][value="${d.marital_status}"]`).prop('checked', true);
+
+                    applyRoleUI();
+                    setTimeout(() => { window.isEditLoading = false; }, 800);
                 }
             });
+        }
+        $('#memberModal').modal('show');
+    };
 
-            $(document).on('click', '.remove-preview-btn', function() {
-                $(this).closest('.file-preview-wrapper').prev('input[type="file"]').val('');
-                $(this).closest('.file-preview-wrapper').slideUp();
-            });
+    $(document).on('click', '.edit-btn', function() { openModal('edit', $(this).data('id')); });
+
+    // Rest of UI logic (DataTable init, Submit logic)
+    let p = (sysContext && sysContext.permissions) ? sysContext.permissions : (window.userPerms || []);
+    let hasView = isMasterAdmin || p.includes('member_view') || p.includes('members_view');
+    let table = null;
+
+    if (!hasView) {
+        $('.card.d-none.d-md-block').hide(); 
+        $('#mobileCardsContainer').hide();   
+        $('#mobileSearch').hide();           
+        $('#mobileExcelBtn').hide();         
+    } else {
+        table = $('#memberTable').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: { url: '/api/v1/members' },
+            dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"i><"col-md-6"p>>',
+            buttons: [],
+            order: [[1, 'desc']],
+            columns: [
+                {
+                    data: 'id', orderable: false, searchable: false, className: 'text-center',
+                    render: function(data) {
+                        let hasDelete = isMasterAdmin || p.includes('member_delete') || p.includes('members_delete');
+                        if(!hasDelete) return `<i class="fas fa-lock text-muted small"></i>`; 
+                        return `<input type="checkbox" class="form-check-input member-checkbox" value="${data}">`;
+                    }
+                },
+                { data: 'member_id', render: d => `<span class="fw-bold text-primary">${d}</span>` },
+                {
+                    data: 'branch_id',
+                    render: (d, t, row) => {
+                        let compName = row.company ? row.company.company_name : 'Master Company';
+                        let bName = (row.branch_id === null) ? 'Head Office' : (row.branch ? row.branch.branch_name : 'N/A');
+                        return `<div class="small fw-bold text-primary"><i class="fas fa-building me-1"></i> ${compName}</div><div class="small text-muted"><i class="fas fa-map-marker-alt text-danger me-1"></i> ${bName}</div>`;
+                    }
+                },
+                { data: 'member_name' },
+                { data: 'sponsor_id', render: d => d ? d : 'N/A' },
+                // { data: 'mobile' },
+                { data: 'doj' },
+                {
+                    data: 'status',
+                    render: function(d) {
+                        if (d === 'pending') return `<span class="badge bg-warning text-dark shadow-sm">Pending</span>`;
+                        if (d === 'active') return `<span class="badge bg-success shadow-sm">Active</span>`;
+                        return `<span class="badge bg-danger shadow-sm">Inactive</span>`;
+                    }
+                },
+                {
+                    data: 'id', orderable: false, className: 'text-end text-nowrap',
+                    render: function(d, type, row) {
+                        let hasEdit = isMasterAdmin || p.includes('member_edit') || p.includes('members_edit');
+                        let hasAppr = isMasterAdmin || p.includes('member_appr') || p.includes('members_appr');
+                        let hasRej  = isMasterAdmin || p.includes('member_rej') || p.includes('members_rej');
+
+                        let btns = `<button type="button" class="btn btn-sm btn-light text-info me-1 view-btn" data-id="${d}"><i class="fas fa-eye"></i></button>`;
+                        if (hasEdit) btns += `<button type="button" class="btn btn-sm btn-light text-primary me-1 edit-btn" data-id="${d}"><i class="fas fa-edit"></i></button>`;
+                        if (row.status === 'pending') {
+                            if (hasAppr) btns += `<button type="button" class="btn btn-sm btn-success me-1 appr-btn" data-id="${d}" title="Approve"><i class="fas fa-check"></i></button>`;
+                            if (hasRej) btns += `<button type="button" class="btn btn-sm btn-warning me-1 rej-btn" data-id="${d}" title="Reject"><i class="fas fa-times"></i></button>`;
+                        }
+                        return `<div class="d-flex justify-content-end flex-nowrap">${btns}</div>`;
+                    }
+                }
+            ],
+          // Isko apne memberTable DataTable init ke sabse end me replace karein:
+          // Isko apne DataTable init ke sabse end me replace karein:
+            drawCallback: function(settings) {
+                let api = this.api();
+                let rows = api.rows({page:'current'}).data();
+                let mobileHtml = '';
+                
+                if(rows.length === 0) {
+                    $('#mobileCardsContainer').html('<div class="alert alert-light text-center border mt-3 shadow-sm rounded">No records found</div>');
+                    return;
+                }
+
+                rows.each(function(row) {
+                    let compName = (row.branch_id === null) ? (row.company ? row.company.company_name : 'Master Company') : (row.branch ? row.branch.company.company_name : 'N/A');
+                    let bName = (row.branch_id === null) ? 'Head Office' : (row.branch ? row.branch.branch_name : 'N/A');
+                    
+                    let statusBadge = '';
+                    if (row.status === 'pending') statusBadge = `<span class="badge bg-warning text-dark px-2 py-1">Pending</span>`;
+                    else if (row.status === 'active') statusBadge = `<span class="badge bg-success px-2 py-1">Active</span>`;
+                    else statusBadge = `<span class="badge bg-danger px-2 py-1">Inactive</span>`;
+
+                    // Universal RBAC for both pages
+                    let p = (sysContext && sysContext.permissions) ? sysContext.permissions : (window.userPerms || []);
+                    let hasEdit = isMasterAdmin || p.includes('member_edit') || p.includes('mem_dir_edit');
+                    let hasDelete = isMasterAdmin || p.includes('member_delete') || p.includes('mem_dir_delete');
+
+                    let actionBtns = `<button class="btn btn-sm btn-light text-info view-btn border me-1" data-id="${row.id}"><i class="fas fa-eye"></i> View</button>`;
+                    if(hasEdit) actionBtns += `<button class="btn btn-sm btn-light text-primary edit-btn border" data-id="${row.id}"><i class="fas fa-edit"></i> Edit</button>`;
+
+                    // 🔥 YAHAN CHECKBOX ADD KIYA GAYA HAI 🔥
+                    let checkHtml = hasDelete ? `<input type="checkbox" class="form-check-input member-checkbox me-2" value="${row.id}" style="transform: scale(1.2);">` : `<i class="fas fa-lock text-muted small me-2"></i>`;
+
+                    mobileHtml += `
+                        <div class="mobile-item">
+                            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                <div class="fw-bold text-primary fs-6 d-flex align-items-center">
+                                    ${checkHtml} 
+                                    ${row.member_id}
+                                </div>
+                                <div>${statusBadge}</div>
+                            </div>
+                            <div class="fw-bold mb-2 text-dark">${row.member_name}</div>
+                            <div class="small text-muted mb-1"><i class="fas fa-building me-2 text-warning"></i> ${compName} - ${bName}</div>
+                            <div class="small text-muted mb-1"><i class="fas fa-user-tie me-2 text-primary"></i> ${row.sponsor_id || 'N/A'}</div>
+                            <div class="small text-muted mb-2"><i class="fas fa-phone me-2 text-success"></i> ${row.mobile || 'N/A'}</div>
+                            <div class="d-flex justify-content-end mt-2 pt-2">
+                                ${actionBtns}
+                            </div>
+                        </div>
+                    `;
+                });
+                $('#mobileCardsContainer').html(mobileHtml);
+            }
+               });
+    }
+
+    $('#memberForm').submit(function(e) {
+        e.preventDefault();
+        $('#f_company, #f_branch, #f_department, #f_sponsor_id').prop('disabled', false);
+        let formData = new FormData(this);
+        let id = $('#edit_id').val();
+        let url = mode === 'add' ? '/api/v1/members' : `/api/v1/members/${id}`;
+        if (mode === 'edit') formData.append('_method', 'PUT');
+
+        $.ajax({
+            url: url, type: 'POST', data: formData, processData: false, contentType: false,
+            success: function(res) {
+                alert(res.message);
+                $('#memberModal').modal('hide');
+                if(table) table.ajax.reload(null, false);
+                applyRoleUI();
+            },
+            error: function() { applyRoleUI(); }
         });
-    </script>
+    });
+
+    $('#f_member_id, #f_manual_series').on('input change keyup', function() {
+        if (window.isEditLoading) return;
+        let memIdVal = $('#f_member_id').val().trim().toUpperCase();
+        let manualVal = $('#f_manual_series').val();
+        let isRoot = false; let rootSeries = '001';
+
+        if (manualVal === '1' || memIdVal.endsWith('/001')) { isRoot = true; rootSeries = '001'; }
+        else if (manualVal === '2' || memIdVal.endsWith('/002')) { isRoot = true; rootSeries = '002'; }
+        else if (manualVal === '3' || memIdVal.endsWith('/003')) { isRoot = true; rootSeries = '003'; }
+
+        if (isRoot) {
+            let prefix = 'CMP';
+            if (memIdVal.includes('-M/')) prefix = memIdVal.split('-M/')[0];
+            let defaultSponsor = `${prefix}-M/${rootSeries}`;
+            $('#f_sponsor_id').empty().append(new Option(defaultSponsor, defaultSponsor, true, true)).trigger('change');
+            $('#f_sponsor_name').val('SYSTEM ROOT');
+            loadDesignationsBySponsor(defaultSponsor);
+        }
+    });
+
+    function generatePassword() {
+        let fullName = $('#f_name').val().trim();
+        let aadhar = $('#f_aadhar').val().replace(/\D/g, '');
+        if (fullName.length < 1 || aadhar.length < 4) { $('#mem_pass_gen').val(''); return; }
+        let firstNamePart = fullName.split(' ')[0].substring(0, 3).toLowerCase();
+        let formattedName = firstNamePart.charAt(0).toUpperCase() + firstNamePart.slice(1);
+        let aadharLast4 = aadhar.slice(-4);
+        $('#mem_pass_gen').val(formattedName + '@' + aadharLast4);
+    }
+    $('#f_name, #f_aadhar').on('keyup change', generatePassword);
+
+    $(document).on('click', '.view-btn', function() {
+        $.get({
+            url: `/api/v1/members/${$(this).data('id')}`,
+            success: function(res) {
+                let d = res.data;
+                $('#v_mem_id').text(d.member_id || 'N/A');
+                $('#v_password').text(d.password || 'N/A');
+
+                let branchText = 'N/A';
+                if (d.branch_id === null) {
+                    let compName = d.company ? d.company.company_name : 'Master Company';
+                    branchText = compName + ' - Head Office';
+                } else if (d.branch) {
+                    let compName = d.branch.company ? d.branch.company.company_name : 'Master Company';
+                    branchText = compName + ' - ' + d.branch.branch_name;
+                }
+                $('#v_branch').text(branchText);
+
+                $('#v_sponsor').text(d.sponsor_name ? `${d.sponsor_name} (${d.sponsor_id})` : (d.sponsor_id || 'N/A'));
+                $('#v_name').text(d.member_name || 'N/A');
+                $('#v_designation').text(d.designation || 'N/A');
+                $('#v_grade').text(d.grade || 'N/A');
+                $('#v_mem_status').text(d.mem_status || 'On Board');
+                $('#v_mobile').text(d.mobile || 'N/A');
+                $('#v_doj').text(d.doj || 'N/A');
+                $('#v_aadhar').text(d.aadhar_number || 'N/A');
+                $('#v_pan').text(d.pan_number || 'N/A');
+                $('#v_nom_name').text(d.nominee_name || 'N/A');
+                $('#v_nom_relation').text(d.nominee_relation || 'N/A');
+                $('#v_nom_mobile').text(d.nominee_mobile || 'N/A');
+
+                $('#viewModal').modal('show');
+            }
+        });
+    });
+
+    $('input[type="file"]').each(function() {
+        $(this).after(`<div class="file-preview-wrapper"><button type="button" class="btn btn-danger remove-preview-btn"><i class="fas fa-times"></i></button><div class="preview-content text-center"></div></div>`);
+    });
+
+    $(document).on('change', 'input[type="file"]', function() {
+        let file = this.files[0];
+        let wrapper = $(this).next('.file-preview-wrapper');
+        let content = wrapper.find('.preview-content');
+        if (file) {
+            if (file.type.startsWith('image/')) {
+                let reader = new FileReader();
+                reader.onload = e => {
+                    content.html(`<img src="${e.target.result}" style="max-height:80px; border-radius:6px;">`);
+                    wrapper.slideDown();
+                }
+                reader.readAsDataURL(file);
+            } else {
+                content.html(`<div class="p-2 small fw-bold text-dark"><i class="fas fa-file-alt text-primary me-2"></i>${file.name}</div>`);
+                wrapper.slideDown();
+            }
+        }
+    });
+
+    $(document).on('click', '.remove-preview-btn', function() {
+        $(this).closest('.file-preview-wrapper').prev('input[type="file"]').val('');
+        $(this).closest('.file-preview-wrapper').slideUp();
+    });
+
+    let bankIndex = 0;
+    function appendBankRow(bank = {}, index = null) {
+        let idx = index !== null ? index : bankIndex++;
+        let showBtn = idx > 0 ? '' : 'style="display:none;"'; 
+        let row = `
+            <div class="bank-row border p-3 mb-3 rounded bg-white shadow-sm position-relative">
+                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 remove-bank-btn" ${showBtn} title="Remove Bank"><i class="fas fa-times"></i></button>
+                <div class="row g-3">
+                    <div class="col-md-4"><label class="form-label text-secondary small">Account Holder Name</label><input type="text" name="banks[${idx}][account_name]" class="form-control" value="${bank.account_name || ''}"></div>
+                    <div class="col-md-4"><label class="form-label text-secondary small">Bank A/c No.</label><input type="text" name="banks[${idx}][account_no]" class="form-control" value="${bank.account_no || ''}"></div>
+                    <div class="col-md-4"><label class="form-label text-secondary small">Select Account Type</label>
+                        <select class="form-select" name="banks[${idx}][account_type]">
+                            <option value="">-- Select Type --</option>
+                            <option value="saving" ${bank.account_type === 'saving' ? 'selected' : ''}>Saving</option>
+                            <option value="current" ${bank.account_type === 'current' ? 'selected' : ''}>Current</option>
+                            <option value="cc" ${bank.account_type === 'cc' ? 'selected' : ''}>CC</option>
+                            <option value="od" ${bank.account_type === 'od' ? 'selected' : ''}>OD</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4"><label class="form-label text-secondary small">Bank Name</label><input type="text" name="banks[${idx}][bank_name]" class="form-control" value="${bank.bank_name || ''}"></div>
+                    <div class="col-md-4"><label class="form-label text-secondary small">Branch Name</label><input type="text" name="banks[${idx}][branch]" class="form-control" value="${bank.branch || ''}"></div>
+                    <div class="col-md-4"><label class="form-label text-secondary small">IFSC Code</label><input type="text" name="banks[${idx}][ifsc_code]" class="form-control text-uppercase" value="${bank.ifsc_code || ''}"></div>
+                </div>
+            </div>
+        `;
+        $('#bank-container').append(row);
+    }
+
+    $('#addBankBtn').on('click', function() { appendBankRow(); });
+    $(document).on('click', '.remove-bank-btn', function() { $(this).closest('.bank-row').remove(); });
+
+    $('#btnExportExcel').on('click', function() {
+        let companyId = $('#hidden_company_id').val() || '';
+        let branchId = $('#hidden_branch_id').val() || '';
+        let selectedIds = [];
+        $('.member-checkbox:checked').each(function() { selectedIds.push($(this).val()); });
+        let url = `/api/v1/members/export-excel?company_id=${companyId}&branch_id=${branchId}`;
+        if(selectedIds.length > 0) url += `&ids=${selectedIds.join(',')}`;
+        window.location.href = url;
+    });
+
+    $('#btnPrintMembers').on('click', function() {
+        let companyId = $('#hidden_company_id').val() || '';
+        let branchId = $('#hidden_branch_id').val() || '';
+        let selectedIds = [];
+        $('.member-checkbox:checked').each(function() { selectedIds.push($(this).val()); });
+        let url = `/api/v1/members/print?company_id=${companyId}&branch_id=${branchId}`;
+        if(selectedIds.length > 0) url += `&ids=${selectedIds.join(',')}`;
+        window.open(url, '_blank', 'width=900,height=800');
+    });
+
+    // ==========================================
+    // 🔥 MOBILE SEARCH BOX LOGIC 🔥
+    // ==========================================
+    $('#mobileSearch').on('keyup', function() {
+        if (table) {
+            table.search(this.value).draw(); 
+        }
+    });
+
+    // ==========================================
+    // 🔥 CHECKBOX, COUNT & BULK DELETE LOGIC 🔥
+    // ==========================================
+    let isAllDbSelected = false;
+    let currentMobilePageLen = 10;
+
+   function updateBulkActionUI() {
+        let checkedCount = $('.member-checkbox:checked').length;
+        let totalCheckboxes = $('.member-checkbox').length;
+        
+        let p = (sysContext && sysContext.permissions) ? sysContext.permissions : (window.userPerms || []);
+        let hasDelete = isMasterAdmin || p.includes('member_delete') || p.includes('mem_dir_delete');
+
+        if (checkedCount > 0 && hasDelete) {
+            // Desktop UI: d-none (mobile par hide), d-md-flex (desktop par show)
+            $('#bulkActionDiv').attr('style', '').removeClass('d-none').addClass('d-none d-md-flex');
+            $('#selectedCount').text(isAllDbSelected ? 'All DB' : checkedCount);
+
+            // Mobile Floating UI: d-flex (mobile par show), d-md-none (desktop par hide)
+            $('#mobileBulkActionDiv').attr('style', '').removeClass('d-none').addClass('d-flex d-md-none');
+            $('#mobileSelectedCount').text(isAllDbSelected ? 'All' : checkedCount);
+
+            // Thead Master Checkbox handle
+            if (totalCheckboxes > 0 && checkedCount === totalCheckboxes) {
+                $('#selectAllCheckbox').prop('checked', true);
+            } else {
+                $('#selectAllCheckbox').prop('checked', false);
+            }
+        } else {
+            // Hide Both UIs safely
+            $('#bulkActionDiv').attr('style', '').removeClass('d-md-flex').addClass('d-none');
+            $('#mobileBulkActionDiv').attr('style', '').removeClass('d-flex d-md-none').addClass('d-none');
+            $('#selectAllCheckbox').prop('checked', false);
+            isAllDbSelected = false;
+        }
+    }
+
+    $(document).on('change', '#selectAllCheckbox', function() {
+        let isChecked = $(this).prop('checked');
+        $('.member-checkbox').prop('checked', isChecked);
+        isAllDbSelected = false;
+        updateBulkActionUI();
+    });
+
+    $(document).on('change', '.member-checkbox', function() {
+        isAllDbSelected = false;
+        updateBulkActionUI();
+    });
+
+    $(document).on('click', '#selectAllDbBtn, #mobileSelectAllDbBtn', function() {
+        isAllDbSelected = true;
+        $('.member-checkbox').prop('checked', true); 
+        $('#selectAllCheckbox').prop('checked', true);
+        updateBulkActionUI();
+        let totalDbRecords = table ? table.page.info().recordsDisplay : 0; 
+        alert('All ' + totalDbRecords + ' records have been selected from the database.');
+    });
+
+    // ==========================================
+    // 🔥 BULK DELETE AJAX ACTION 🔥
+    // ==========================================
+    $(document).on('click', '#bulkDeleteBtn, #mobileBulkDeleteBtn', function() {
+        let selectedIds = [];
+        $('.member-checkbox:checked').each(function() {
+            selectedIds.push($(this).val());
+        });
+
+        if (selectedIds.length === 0) {
+            alert('Please select at least one member to delete.');
+            return;
+        }
+
+        if (confirm('Are you sure you want to delete selected records?')) {
+            $.ajax({
+                url: '/api/v1/members/bulk-delete',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    ids: selectedIds
+                },
+                success: function(res) {
+                    alert(res.message);
+                    if (table) table.ajax.reload(null, false);
+                    updateBulkActionUI(); // Reset UI
+                },
+                error: function(err) {
+                    alert('Failed to delete records.');
+                }
+            });
+        }
+    });
+
+    // ==========================================
+    // 🔥 MOBILE LOAD MORE LOGIC 🔥
+    // ==========================================
+    $('#mobileLoadMoreBtn').on('click', function() {
+        currentMobilePageLen += 20;
+        if(table) table.page.len(currentMobilePageLen).draw(false);
+    });
+
+    if(table) {
+        table.on('draw', function () {
+            isAllDbSelected = false;
+            $('#selectAllCheckbox').prop('checked', false);
+            updateBulkActionUI();
+            
+            // Show/Hide Load More Button
+            let info = table.page.info();
+            if(info.recordsDisplay > info.length && $(window).width() < 768) {
+                $('#mobileLoadMoreDiv').show();
+            } else {
+                $('#mobileLoadMoreDiv').hide();
+            }
+        });
+    }
+
+    
+});
+
+// ==========================================
+    // 🔥 TRANSFERRED TOGGLE LOGIC 🔥
+    // ==========================================
+    // Event delegation taaki kabhi disconnect na ho
+    $(document).on('change', '#is_transferred', function() {
+        if ($(this).is(':checked')) {
+            // slideDown ki jagah direct flex lagaya taaki row class na tute
+            $('#transferred_div').attr('style', 'display: flex !important; margin-top: 1rem;');
+        } else { 
+            $('#transferred_div').attr('style', 'display: none !important;');
+            $('#t_company, #t_member').empty().trigger('change'); 
+        }
+    });
+
+   
+</script>
 @endpush

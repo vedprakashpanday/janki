@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Business Card - Amitabh Builders</title>
+    <title>Visiting Card - {{ $data['company_name'] }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -46,8 +46,8 @@
     <div class="d-flex flex-wrap justify-content-center gap-4">
         <div class="biz-card">
             <div class="card-inner">
-                <div class="logo-area text-center"><img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="Amitabh Builders"></div>
-                <div class="iso-text">(An ISO 9001:2015 Certified Company)</div>
+                <div class="logo-area text-center"><img src="{{ $data['company_logo'] }}" alt="Company Logo"></div>
+                <div class="iso-text">(An ISO {{ $data['iso_no'] ?: '9001:2015' }} Certified Company)</div>
                 <div class="projects-title">Our Projects :-</div>
                 <div class="row g-2 mt-1">
                     <div class="col-6">
@@ -60,16 +60,16 @@
                 <div class="flex-grow-1"></div> 
             </div>
             <div class="footer-info">
-                <div class="fw-bold">CIN No. : U43299BR2024PTC072712</div>
-                <div><i class="fas fa-map-marker-alt"></i> 1st Floor, Pappu Yadav Building, NH-27, Kakarghati, Darbhanga, 846007</div>
-                <div>Cont.: 9060218-222/333/666 | <i class="fab fa-whatsapp whatsapp-icon"></i> 9472467007</div>
+                <div class="fw-bold">CIN No. : {{ $data['cin_no'] }}</div>
+                <div><i class="fas fa-map-marker-alt"></i> {{ $data['is_ho'] ? 'Regd. Add.: ' . $data['company_address'] : 'Branch Add.: ' . $data['company_address'] }}</div>
+                <div>Office Contact No: 903107972-1/2/3/4/5/6/7/8/9  <i class="fa-brands fa-whatsapp"></i> {{ $data['company_phone'] }}</div>
             </div>
         </div>
 
         <div class="biz-card">
             <div class="card-inner">
                 <div class="header-split">
-                    <div class="logo-area" style="width: 45%;"><img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="Logo"></div>
+                    <div class="logo-area" style="width: 45%;"><img src="{{ $data['company_logo'] }}" alt="Logo"></div>
                     <div class="person-info">
                         <h3 class="person-name">{{ $data['name'] }}</h3>
                         <div class="person-title">{{ $data['designation'] }}</div>
@@ -86,12 +86,12 @@
                         <li><i class="fas fa-globe"></i> www.jankivilla.com</li>
                     </ul>
                 </div>
-                <div class="company-name-red">AMITABH BUILDERS & DEVELOPERS PVT. LTD.</div>
+                <div class="company-name-red">{{ strtoupper($data['company_name']) }}</div>
             </div>
             <div class="footer-info">
-                <div class="fw-bold">CIN No. : U43299BR2024PTC072712</div>
-                <div><i class="fas fa-map-marker-alt"></i> Regd. Add.: Bhuskaul, Darbhanga, Bihar, India, 846007</div>
-                <div>Office No: 9060218-222 | <i class="fab fa-whatsapp whatsapp-icon"></i> 9472467007</div>
+                <div class="fw-bold">CIN No. : {{ $data['cin_no'] }}</div>
+                <div><i class="fas fa-map-marker-alt"></i> {{ $data['is_ho'] ? 'Regd. Add.: ' . $data['company_address'] : 'Branch Add.: ' . $data['branch_address'] }}</div>
+                <div>Office Contact No: 903107972-1/2/3/4/5/6/7/8/9  <i class="fa-brands fa-whatsapp"></i> {{ $data['company_phone'] }}</div>
             </div>
         </div>
     </div>

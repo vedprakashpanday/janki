@@ -139,11 +139,23 @@ class DepartmentController extends Controller
             }
 
             // Head Office ya Branch logic
-            $finalBranchIds = $request->branch_ids ?? [];
-            if (in_array('all', $finalBranchIds) || empty($finalBranchIds)) {
-                $finalBranchIds = null;
-            }
+$finalBranchIds = $request->branch_ids ?? [];
+$hasHeadOffice = false;
 
+if (is_array($finalBranchIds)) {
+    foreach ($finalBranchIds as $bId) {
+        // Agar selection me 'HO_' ya 'all' hai, to mark true
+        if (str_starts_with($bId, 'HO_') || $bId === 'all') {
+            $hasHeadOffice = true;
+            break;
+        }
+    }
+}
+
+// Agar Head Office mila ya array khali hai, to strictly null set karein
+if ($hasHeadOffice || empty($finalBranchIds)) {
+    $finalBranchIds = null;
+}
             // Status decision (Maker-Checker)
             $deptStatus = $hasDirect ? ($request->status ?? 'active') : 'pending';
 
@@ -151,7 +163,8 @@ class DepartmentController extends Controller
                 'department_name' => $request->department_name,
                 'company_ids'     => empty($finalCompanyIds) ? null : $finalCompanyIds,
                 'branch_ids'      => $finalBranchIds,
-                'status'          => $deptStatus,
+                'status'          => $deptStatus
+             
             ]);
 
             // Save Designations with syncing status
@@ -164,7 +177,11 @@ class DepartmentController extends Controller
                         $department->designations()->create([
                             'designation_name' => $desig['name'],
                             'designation_code' => strtoupper($desig['code']),
-                            'status' => $desigStatus
+                            'status' => $desigStatus,
+                               // Naye columns ko associate fields se map karein (agar available nahi hain to null)
+    'position'                => $desig['position'] ?? null,
+    'plot_commission'         => $desig['plot_commission'] ?? null,
+    'construction_commission' => $desig['construction_commission'] ?? null,
                         ]);
                     }
                 }
@@ -218,10 +235,24 @@ class DepartmentController extends Controller
             $finalCompanyIds = $request->company_ids;
             if (!$context->is_god) $finalCompanyIds = [(string)$context->company_id];
 
-            $finalBranchIds = $request->branch_ids ?? [];
-            if (in_array('all', $finalBranchIds) || empty($finalBranchIds)) {
-                $finalBranchIds = null;
-            }
+          // Head Office ya Branch logic
+$finalBranchIds = $request->branch_ids ?? [];
+$hasHeadOffice = false;
+
+if (is_array($finalBranchIds)) {
+    foreach ($finalBranchIds as $bId) {
+        // Agar selection me 'HO_' ya 'all' hai, to mark true
+        if (str_starts_with($bId, 'HO_') || $bId === 'all') {
+            $hasHeadOffice = true;
+            break;
+        }
+    }
+}
+
+// Agar Head Office mila ya array khali hai, to strictly null set karein
+if ($hasHeadOffice || empty($finalBranchIds)) {
+    $finalBranchIds = null;
+}
 
             // Agar department edit ho raha hai aur already pending hai, to pending hi rakhna padega unless approval route hit ho
             $currentStatus = $request->status ?? $department->status;
@@ -243,24 +274,30 @@ class DepartmentController extends Controller
                         // Priority to incoming status, fallback to active
                         $desigStatus = $desig['status'] ?? 'active';
 
-                        if (isset($desig['id']) && $desig['id'] != '') {
-                            $designation = Designation::find($desig['id']);
-                            if ($designation) {
-                                $designation->update([
-                                    'designation_name' => $desig['name'],
-                                    'designation_code' => strtoupper($desig['code']),
-                                    'status' => $desigStatus
-                                ]);
-                                $existingIds[] = $designation->id;
-                            }
-                        } else {
-                            $newDesig = $department->designations()->create([
-                                'designation_name' => $desig['name'],
-                                'designation_code' => strtoupper($desig['code']),
-                                'status' => $desigStatus
-                            ]);
-                            $existingIds[] = $newDesig->id;
-                        }
+                      if (isset($desig['id']) && $desig['id'] != '') {
+    $designation = Designation::find($desig['id']);
+    if ($designation) {
+        $designation->update([
+            'designation_name'        => $desig['name'],
+            'designation_code'        => strtoupper($desig['code']),
+            'status'                  => $desigStatus,
+            'position'                => $desig['position'] ?? null,
+            'plot_commission'         => $desig['plot_commission'] ?? null,
+            'construction_commission' => $desig['construction_commission'] ?? null,
+        ]);
+        $existingIds[] = $designation->id;
+    }
+} else {
+    $newDesig = $department->designations()->create([
+        'designation_name'        => $desig['name'],
+        'designation_code'        => strtoupper($desig['code']),
+        'status'                  => $desigStatus,
+        'position'                => $desig['position'] ?? null,
+        'plot_commission'         => $desig['plot_commission'] ?? null,
+        'construction_commission' => $desig['construction_commission'] ?? null,
+    ]);
+    $existingIds[] = $newDesig->id;
+}
                     }
                 }
                 $department->designations()->whereNotIn('id', $existingIds)->delete();
@@ -411,14 +448,14 @@ class DepartmentController extends Controller
     // 🔥 FIX: Added Branch Scoping check and Global Context to fix cascading issue
    
     
-    public function getDepartmentsByCompany(Request $request)
+ public function getDepartmentsByCompany(Request $request)
     {
         $companyId = $request->company_id;
         $branchId = $request->branch_id;
 
         $query = Department::where('status', 'active');
 
-        // 1. Company Filter: Global departments (null/'all') ya us specific company ke departments
+        // 1. Company Filter: Specific OR Global ('all' / null)
         if (!empty($companyId)) {
             $query->where(function ($q) use ($companyId) {
                 $q->whereNull('company_ids')
@@ -428,19 +465,20 @@ class DepartmentController extends Controller
             });
         }
 
-        // 2. Branch/HO Filter: STRICT LOGIC
+        // 2. Branch/HO Filter: STRICT LOGIC 🔥
         if (!empty($branchId) && $branchId !== 'null') {
             if ($branchId === 'HO' || str_starts_with($branchId, 'HO_')) {
-                // Agar Head Office hai, toh sirf wahi departments lao jinka branch_ids null hai
+                // Agar Head Office (HO) select kiya hai: Null ya 'all' wale
                 $query->where(function($q) {
                     $q->whereNull('branch_ids')
-                      ->orWhereJsonContains('branch_ids', null);
+                      ->orWhereJsonContains('branch_ids', null)
+                      ->orWhereJsonContains('branch_ids', 'all');
                 });
             } else {
-                // Agar normal branch hai, toh us branch ke departments lao
+                // Agar Specific Branch select ki hai: Sirf 'all' aur Specific Branch ID wale!
+                // (Yahan se galti hatayi gayi hai: pehle yahan whereNull load ho raha tha)
                 $query->where(function ($q) use ($branchId) {
-                    $q->whereNull('branch_ids')
-                      ->orWhereJsonContains('branch_ids', 'all')
+                    $q->whereJsonContains('branch_ids', 'all')
                       ->orWhereJsonContains('branch_ids', (string)$branchId)
                       ->orWhereJsonContains('branch_ids', (int)$branchId);
                 });
@@ -527,4 +565,59 @@ class DepartmentController extends Controller
             "data" => $data
         ]);
     }
+
+  public function searchDynamic(Request $request)
+    {
+        $q = $request->q;
+        $companyId = $request->company_id;
+        $branchId = $request->branch_id;
+        $type = $request->type; // 🔥 NAYA: 'employee' ya 'member' pass karenge
+
+        if (strlen($q) < 3) return response()->json(['status' => 'success', 'data' => []]);
+
+        $query = Department::where('status', 'active')
+            ->where('department_name', 'LIKE', "%{$q}%");
+
+        // 🔥 DYNAMIC ASSOCIATE FILTER LOGIC 🔥
+        if ($type === 'employee') {
+            // Employee ke case me 'associate' wale skip karne hain
+            $query->where('department_name', 'NOT LIKE', "%associate%");
+        } elseif ($type === 'member') {
+            // Member ke case me kewal 'associate' wale dikhane hain
+            $query->where('department_name', 'LIKE', "%associate%"); 
+        }
+
+        // Company Filter Logic
+        if (!empty($companyId)) {
+            $query->where(function ($q) use ($companyId) {
+                $q->whereNull('company_ids')
+                  ->orWhereJsonContains('company_ids', 'all')
+                  ->orWhereJsonContains('company_ids', (string)$companyId)
+                  ->orWhereJsonContains('company_ids', (int)$companyId);
+            });
+        }
+
+        // Branch/HO Filter Logic
+        if (!empty($branchId) && $branchId !== 'null') {
+            if ($branchId === 'HO' || str_starts_with($branchId, 'HO_')) {
+                $query->where(function($q) {
+                    $q->whereNull('branch_ids')
+                      ->orWhereJsonContains('branch_ids', null)
+                      ->orWhereJsonContains('branch_ids', 'all');
+                });
+            } else {
+                $query->where(function ($sq) use ($branchId) {
+                    $sq->whereJsonContains('branch_ids', 'all')
+                      ->orWhereJsonContains('branch_ids', (string)$branchId)
+                      ->orWhereJsonContains('branch_ids', (int)$branchId);
+                });
+            }
+        }
+
+        $departments = $query->orderBy('department_name', 'asc')->limit(20)->get(['id', 'department_name']);
+        return response()->json(['status' => 'success', 'data' => $departments]);
+    }
+
+
+
 }

@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes; // 🔥 NAYA: SoftDeletes Import
 
 class Customer extends Model
 {
-   use HasFactory,Notifiable;
+    use HasFactory, Notifiable, SoftDeletes; // 🔥 NAYA: trait add kiya
     
     protected $guarded = [];
 
@@ -18,10 +19,17 @@ class Customer extends Model
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
-    // 🔥 NAYA: Company Relation 🔥
+    // Company Relation
     public function company()
     {
         return $this->belongsTo(Company::class, 'company_id');
+    }
+
+    // 🔥 NAYA: Master Timeline Relation 🔥
+    // Ek customer_code se uski saari records fetch karne ke liye
+    public function timelineRecords()
+    {
+        return $this->hasMany(CustomerRecord::class, 'customer_code', 'customer_code');
     }
 
     // Virtual attribute for Bank Branch conflict bypass

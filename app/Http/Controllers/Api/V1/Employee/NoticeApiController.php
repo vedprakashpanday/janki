@@ -11,8 +11,8 @@ use Carbon\Carbon;
 
 class NoticeApiController extends Controller
 {
-   
-  public function index(Request $request)
+    // 1. Fetch Notice List for Logged-In User
+    public function index(Request $request)
     {
         $context = $this->getGlobalContext();
         if (!$context) return response()->json(['success' => false], 401);
@@ -28,48 +28,54 @@ class NoticeApiController extends Controller
         $userDeptId = $context->department_id;
 
         $notices = Notice::where('status', 'active')
-            ->where(function($query) use ($userCompanyId) {
+            ->where(function ($query) use ($userCompanyId) {
                 // Lock to User's Company or Global Notices
                 $query->where('target_company_id', $userCompanyId)
-                      ->orWhereNull('target_company_id');
+                    ->orWhereNull('target_company_id');
             })
-            ->where(function($query) use ($userBranchId, $userDeptId, $audienceType, $profileId) {
-                
+            ->where(function ($query) use ($userBranchId, $userDeptId, $audienceType, $profileId) {
+
                 // 1. HIERARCHY MATCHING (Branch & Dept)
-                $query->where(function($hq) use ($userBranchId, $userDeptId) {
-                    $hq->where(function($bq) use ($userBranchId) {
+                $query->where(function ($hq) use ($userBranchId, $userDeptId) {
+                    $hq->where(function ($bq) use ($userBranchId) {
                         $bq->whereNull('target_branch_id')
-                           ->orWhere('target_branch_id', $userBranchId);
+                            ->orWhere('target_branch_id', $userBranchId);
                     });
-                    $hq->where(function($dq) use ($userDeptId) {
+                    $hq->where(function ($dq) use ($userDeptId) {
                         $dq->whereNull('target_department_id')
-                           ->orWhere('target_department_id', $userDeptId);
+                            ->orWhere('target_department_id', $userDeptId);
                     });
                 });
 
-                // 2. AUDIENCE MATCHING & DIRECTOR-ONLY LOGIC
-                $query->where(function($aq) use ($audienceType, $profileId) {
-                    
-                    // Condition A: Individual Specific Person
-                    $aq->where(function($sq) use ($audienceType, $profileId) {
+                // 2. AUDIENCE MATCHING (STRICT SEPARATION)
+                $query->where(function ($aq) use ($audienceType, $profileId) {
+
+                    // CASE A: Strictly for this Specific Individual
+                    $aq->where(function ($sq) use ($audienceType, $profileId) {
                         $sq->where('target_audience', 'other')
-                           ->where('entity_type', $audienceType)
-                           ->where('entity_id', $profileId);
+                            ->where('entity_type', $audienceType)
+                            ->where('entity_id', $profileId);
                     });
 
-                    // Condition B: Explicit Audience Match (e.g., Only Employees)
-                    $aq->orWhere('target_audience', $audienceType);
+                    // CASE B: For General Groups (Excluding 'other')
+                    $aq->orWhere(function ($gq) use ($audienceType) {
 
-                    // Condition C: Target Audience is 'All'
-                   $aq->orWhere(function($allQ) {
-                        $allQ->where('target_audience', 'all')
-                             // 🔥 FIX: Agar company null hai (Global Notice) toh sabko dikhao.
-                             // Agar company di gayi hai par branch/dept null hain, toh hi block karo (Director only)
-                             ->where(function($dirCheck) {
-                                 $dirCheck->whereNull('target_company_id') // Global bypass
-                                          ->orWhereNotNull('target_branch_id')
-                                          ->orWhereNotNull('target_department_id');
-                             });
+                        // IRON-CLAD RULE: 'other' target wale leak nahi hone chahiye yahan
+                        $gq->where('target_audience', '!=', 'other');
+
+                        $gq->where(function ($subGq) use ($audienceType) {
+                            // Explicit Audience Match (e.g., Only Employees)
+                            $subGq->where('target_audience', $audienceType);
+
+                            // Broad Target Categories Logic
+                            if (in_array($audienceType, ['employee', 'member'])) {
+                                $subGq->orWhereIn('target_audience', ['all', 'all_except_customers', 'all_except_management']);
+                            } elseif ($audienceType === 'customer') {
+                                $subGq->orWhere('target_audience', 'all');
+                            }
+                        });
+
+                        // 🔥 Yahan se wo 'MAGIC RULE' hata diya gaya hai jo All Branches walo ko block kar raha tha.
                     });
                 });
             })
@@ -78,25 +84,24 @@ class NoticeApiController extends Controller
 
         return response()->json(['success' => true, 'data' => $notices]);
     }
+
     // 2. Fetch Notice Details (with Header & Watermark like Welcome Letter)
     public function show($id)
     {
         $context = $this->getGlobalContext();
         $user = auth()->user();
-        
+
         $notice = Notice::findOrFail($id);
 
-        $company = $user->company ?? Company::find($context->company_id ?? 1);
-        $branch = $user->branch ?? null;
+        $company = $user->company()->first() ?? Company::find($context->company_id ?? 1);
+        $branch = $user->branch()->first() ?? null;
         $companyName = $company ? strtoupper($company->company_name) : 'AMITABH BUILDERS & DEVELOPERS PVT. LTD.';
 
-        // 🔥 HEADER SERVER SIDE RENDERING 🔥
         $headerHtml = view('components.print-header', [
             'company' => $company,
             'branch'  => $branch
         ])->render();
 
-        // 🔥 WATERMARK SERVER SIDE RENDERING 🔥
         $logoUrl = ($company && !empty($company->company_logo)) ? asset($company->company_logo) : "https://ui-avatars.com/api/?name=" . urlencode($companyName) . "&color=7F9CF5&background=EBF4FF";
 
         $watermarkHtml = '
@@ -112,12 +117,11 @@ class NoticeApiController extends Controller
 
         $finalHtml = $watermarkHtml . $headerHtml . '<div style="position: relative; z-index: 1;" class="mt-4 pt-2 border-top">' . $noticeBody . '</div>';
 
-        // Check if user has already replied
         $hasReplied = false;
         if ($notice->requires_reply == 1) {
             $hasReplied = NoticeReply::where('notice_id', $id)
-                            ->where('sender_id', $context->profile_id)
-                            ->exists();
+                ->where('sender_id', $context->profile_id)
+                ->exists();
         }
 
         return response()->json([
@@ -135,9 +139,8 @@ class NoticeApiController extends Controller
         $context = $this->getGlobalContext();
         $user = auth()->user();
 
-        // Get Name based on who is logged in
         $senderName = $user->full_name ?? $user->employee_name ?? $user->member_name ?? $user->customer_name ?? $user->name ?? 'User';
-        
+
         $senderType = '';
         if ($context->is_employee) $senderType = 'employee';
         elseif ($context->is_member) $senderType = 'member';

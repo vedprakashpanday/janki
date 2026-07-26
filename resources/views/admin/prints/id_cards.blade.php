@@ -26,17 +26,14 @@
         }
 
         .id-card {
-            width: 5cm;
-            height: 8.3cm;
+            width: 5.5cm;
+            height: 8.6cm;
             position: relative;
             overflow: hidden;
             border-radius: 0.25cm;
-            box-shadow: 0 0.25cm 0.5cm rgba(0, 0, 0, 0.3);
+            /* //box-shadow: 0 0.25cm 0.5cm rgba(0, 0, 0, 0.3); */
             transition: transform 0.3s ease;
-        }
-
-        .id-card:hover {
-            transform: scale(1.02);
+            border:#000 solid 0.02cm;
         }
 
         .front,
@@ -73,12 +70,14 @@
             max-height: none;
             object-fit: cover;
             text-align: center;
-            width: 3cm;
+            width: 3.8cm;
+            background: white;
+            margin-bottom: -0.3cm;
         }
 
         .photo {
-            width: 2.5cm;
-            height: 2.5cm;
+            width: 2.7cm;
+            height: 2.7cm;
             border-radius: 50%;
             border: 0.07cm solid white;
             box-shadow: 0 0.13cm 0.33cm rgba(0, 0, 0, 0.4);
@@ -90,9 +89,13 @@
         .info-list {
             list-style: none;
             padding: 0;
-            margin: 0;
+            margin: 3px 0px;
             text-align: center;
         }
+
+        img, svg {
+    vertical-align: top;
+}
 
         .info-list li {
             margin-bottom: 0.14cm;
@@ -100,13 +103,14 @@
         }
 
         .info-list li:nth-child(1) h1 {
-            font-size: 0.37cm;
+            font-size: 0.33cm;
             font-weight: 800;
             margin-bottom: 0.09cm;
+            text-transform: uppercase;
         }
 
         .info-list li:nth-child(2) {
-            font-size: 0.26cm;
+            font-size: 0.25cm;
             font-weight: 700;
         }
 
@@ -119,9 +123,9 @@
 
         .shape.main {
             width: 9.2cm;
-            height: 6.6cm;
+            height: 6.8cm;
             border: 0.09cm solid black;
-            left: -0.42cm;
+            left: -0.5cm;
             top: 4cm;
         }
 
@@ -151,18 +155,24 @@
             border-radius: 50%;
         }
 
+        /* 🔥 MIX BLEND MODE: MULTIPLY ensures white background goes transparent 🔥 */
         .signature-box img {
-            width: 1.8cm;
-            height: 0.8cm;
-            margin-top: 0.1cm;
-            filter: brightness(1.5) contrast(8) saturate(0);
-            border-radius: 50%;
-        }
+    width: 1.8cm;
+    height: 0.8cm;
+    margin-top: 0.1cm;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+    margin-bottom: -0.2cm;
+    filter: brightness(1.11);
+}
 
         .signature-text {
             font-size: 0.16cm;
             color: #000;
             margin-top: 0.05cm;
+            font-weight: bold;
+            border-top: 1px solid #000;
+            padding-top: 0.03cm;
         }
 
         .details-box {
@@ -172,12 +182,12 @@
             border: 0.015cm solid black;
             border-radius: 0.08cm;
             padding: 0.20cm 0.15cm;
-            margin: 1.2cm auto 0.10cm;
+            margin: 0.8cm auto 0.5cm;
             font-size: 0.17cm;
             letter-spacing: 0.0001cm;
             line-height: 2;
             list-style: none;
-            width: 4.37cm;
+            width: 4.8cm;
             text-align: left;
             box-shadow: 0 0.02cm 0.05cm rgba(0, 0, 0, 0.2);
             display: flex;
@@ -193,11 +203,11 @@
         }
 
         .details-box .label {
-            width: 1.25cm;
+            width: 1.5cm;
             display: inline-block;
             text-align: left;
             flex-shrink: 0;
-            font-size: 6px;
+            font-size: 7px;
         }
 
         .details-box .value {
@@ -207,13 +217,10 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            font-size: 7px;
         }
 
         @media print {
-            #backcontact {
-                font-size: 0.16cm !important;
-            }
-
             body {
                 padding: 0;
                 background: transparent !important;
@@ -245,42 +252,76 @@
                 gap: 1cm !important;
             }
 
-            .id-card:hover {
-                transform: none !important;
-            }
-
             button {
                 display: none !important;
             }
         }
     </style>
+    <script>
+        if (window.self !== window.top) { // Agar modal (iframe) me khula hai
+            // 1. Button aur CSS Print ko completely block karo
+            document.write(`
+                <style> 
+                    .print-btn-container, button { display: none !important; } 
+                    @media print { body { display: none !important; } } 
+                </style>
+            `);
+            
+            // 2. Right Click & Shortcuts Block
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            document.addEventListener('keydown', e => {
+                if(e.key === 'PrintScreen' || (e.ctrlKey && (e.key === 'p' || e.key === 'P' || e.key === 's'))) {
+                    e.preventDefault();
+                }
+            });
+        }
+    </script>
 </head>
 
 <body>
     <button onclick="window.print()"
-        style="background: #2610b5; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; margin-top: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(38,16,181,0.3); font-family: 'Segoe UI', sans-serif;">
-        🖨️ Print ID Cards
+        style="background: #2610b5; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: pointer; margin-top: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(38,16,181,0.3);">
+        🖨️ Print ID Card
     </button>
     <div class="card-container">
+        <!-- FRONT SIDE -->
         <div class="id-card front-side">
             <div class="front">
                 <div class="content-layer">
                     <div class="header">
-                        <img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="Company">
+                        <img src="{{ $data['company_logo'] }}" alt="Company Logo"> <br>
+                          <span style="color: red; font-size: 5.5px; font-weight: bold;" >(An ISO {{ $data['iso_no'] }} Certified Company)</span>
                     </div>
+                  
                     <img src="{{ $data['photo_url'] }}" alt="{{ $data['name'] }}" class="photo">
                     <ul class="info-list">
                         <li>
                             <h1 style="color: red;">{{ $data['name'] }}</h1>
                         </li>
+
+                        <!-- 🔥 Dynamic Employee/Member Text 🔥 -->
                         <li style="color: #2610b5;">{{ $data['designation'] }}</li>
+
+                        <!-- 🔥 Dynamic Code Label 🔥 -->
                         <li
                             style="color: #2610b5; border-top: 0.013cm solid #2610b5; border-bottom: 0.013cm solid #2610b5;">
-                            Employee Code - {{ $data['id'] }}</li>
-                        <li style="color: red; margin-bottom: 0;font-weight:700;font-size: 7px;">AMITABH BUILDERS &
-                            DEVELOPERS PVT. LTD.</li>
-                        <li style="color: black;font-weight: 550;font-size: 7px;">CIN NO.: U43299BR2024PTC072712</li>
-                        <li style="color: blue;font-weight: 500;">Contact No. - {{ $data['mobile'] }} & 9031079721</li>
+                            {{ $data['code_label'] }} - {{ $data['id'] }}
+                        </li>
+
+                        <!-- 🔥 Company Name (Auto fit single line) 🔥 -->
+                        <li
+                            style="color: red; margin-bottom: 0; font-weight:800; font-size: 8px; width: 100%; white-space: nowrap; display: block;">
+                            {{ strtoupper($data['company_name']) }}
+                        </li>
+
+                        <li style="color: black; font-weight: 600; font-size: 7px;">CIN NO.: {{ $data['cin_no'] }}</li>
+
+                        <!-- 🔥 Contact: Employee/Member + Company Phone 🔥 -->
+                        <li style="color: blue; font-weight: 600;">
+                            Contact No. - {{ $data['mobile'] }} @if ($data['company_phone'])
+                                {{-- / {{ $data['company_phone'] }} --}} / 9031079721
+                            @endif
+                        </li>
                     </ul>
                 </div>
                 <div class="shape main"></div>
@@ -288,11 +329,14 @@
             </div>
         </div>
 
+        <!-- BACK SIDE -->
         <div class="id-card back-side">
             <div class="back">
                 <div class="content-layer">
                     <div class="header">
-                        <img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="Company">
+                        <img src="{{ $data['company_logo'] }}" alt="Company Logo">
+                        <br>
+                        <span style="color: red; font-size: 5.5px; font-weight: bold;" >(An ISO {{ $data['iso_no'] }} Certified Company)</span>
                     </div>
                     <ul class="details-box">
                         <li><span class="label">Father's Name</span><span class="value">:
@@ -306,38 +350,51 @@
                     </ul>
 
                     <div class="signature-box">
-                        <img src="{{ asset('member_document/sign-removebg-preview.png') }}" alt="Authorised Signature">
+                        @if ($data['signature'])
+                            <img src="{{ $data['signature'] }}" alt="CEO Signature">
+                        @else
+                            <img src="{{ asset('member_document/sign-removebg-preview.png') }}"
+                                alt="Authorised Signature">
+                        @endif
                         <div class="signature-text">Authorised Signatory</div>
                     </div>
 
                     <ul class="info-list">
                         <li
-                            style="text-decoration: underline; color: red; font-size: 0.19cm; font-weight: 700;margin-bottom: 0;">
-                            AMITABH BUILDERS & DEVELOPERS PVT. LTD.</li>
-                        <li style="color: black; font-size: 0.16cm; font-weight: 700;margin-top: 0;">CIN
-                            No.:U43299BR2024PTC072712</li>
+                            style="text-decoration: underline; color: red; font-size: 0.2cm; font-weight: 700; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ strtoupper($data['company_name']) }}
+                        </li>
+                        <li style="color: black; font-size: 0.16cm; font-weight: 700; margin-top: 0;">
+                            CIN No.: {{ $data['cin_no'] }}
+                        </li>
                     </ul>
 
                     <div style="display: flex;">
-                        <div><svg width="0.18cm" height="0.22cm" viewBox="0 0 24 24" fill="#2610b5"
-                                style="margin-right: 0.01cm; margin-top: 0.02cm;color: red;">
+                        <div>
+                            <svg width="0.18cm" height="0.22cm" viewBox="0 0 24 24" fill="#2610b5"
+                                style="margin-right: 0.01cm; margin-top: 0.01cm; color: red;">
                                 <path
                                     d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                            </svg></div>
+                            </svg>
+                        </div>
                         <div>
+                            <!-- 🔥 Address Gap Fixed: Removed extra margins/padding 🔥 -->
                             <ol
-                                style="z-index: 10; position: relative; color: #2610b5; list-style: none; padding: 0; margin: 0.1cm 0 0 0.1cm; font-size: 0.16cm; font-family: 'Segoe UI', Tahoma, Arial, sans-serif;">
+                                style="z-index: 10; position: relative; color: #2610b5; list-style: none; padding: 0; margin: 0 0 0 0; font-size: 0.16cm; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; text-align:center;">
                                 <li
-                                    style="white-space: nowrap; text-overflow: ellipsis; height: 0.25cm; margin-bottom: 0.06cm; font-weight: 500; font-size: 0.19cm;">
-                                    1st. Floor, Pappu Yadav Building</li>
+                                    style="white-space: no-wrap; font-weight: 550; font-size: 0.2cm; line-height:1.2; margin-bottom: 0.03cm;">
+                                    {{ $data['company_address'] }}
+                                </li>
                                 <li
-                                    style="white-space: nowrap; text-overflow: ellipsis; height: 0.25cm; margin-bottom: 0.06cm; font-weight: 500; font-size: 0.19cm;">
-                                    Kakarghati Chowk, Darbhanga (Bihar) - 846007</li>
-                                <li
-                                    style="white-space: nowrap; text-overflow: ellipsis; height: 0.25cm; font-weight: 500; font-size: 0.22cm; margin-bottom: 0.06cm;">
-                                    Email Id: abdeveloperspl@gmail.com</li>
-                                <li style="white-space: nowrap; text-overflow: ellipsis; height: 0.25cm; font-weight: 550; font-size: 0.18cm; margin-bottom: 0.06cm; color:#000;"
-                                    id="backcontact">Contact No.-9060218-222/333/666 & 9472467007</li>
+                                    style="white-space: nowrap; text-overflow: ellipsis; height: 0.25cm; font-weight: 600; font-size: 0.21cm; margin-bottom: 0.02cm;">
+                                    Email: {{ $data['company_email'] }}
+                                </li>
+                                <!-- 🔥 Contact: Employee/Member + Company Phone 🔥 -->
+                        <li style="color: blue; font-weight: 700;    font-size: 8px;">
+                            Contact No. - {{ $data['mobile'] }} @if ($data['company_phone'])
+                                {{-- / {{ $data['company_phone'] }} --}} / 9031079721
+                            @endif
+                        </li>
                             </ol>
                         </div>
                     </div>

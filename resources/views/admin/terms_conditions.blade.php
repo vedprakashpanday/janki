@@ -206,7 +206,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="fw-medium mb-1">Content</label>
-                            <textarea id="contentEditor" class="form-control" name="content"></textarea>
+                            <textarea id="tinymce-editor" class="form-control" name="content"></textarea>
                         </div>
                         <div class="mb-3">
                             <label class="fw-medium mb-1">Status</label>
@@ -227,27 +227,34 @@
 @endsection
 
 @push('scripts')
-    <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.js"></script>
-
+    <script src="https://cdn.tiny.cloud/1/{{ env('TINYMCE_API_KEY', 'no-api-key') }}/tinymce/7/tinymce.min.js"
+        referrerpolicy="origin"></script>
+ 
     <script>
         let isEditing = false;
 
-        $(document).ready(function() {
-            $('#contentEditor').summernote({
-                height: 350,
-                toolbar: [
-                    ['style', ['style']],
-                    ['font', ['bold', 'underline', 'clear']],
-                    ['color', ['color']],
-                    ['para', ['ul', 'ol', 'paragraph']],
-                    ['table', ['table']],
-                    ['insert', ['link', 'picture']],
-                    ['view', ['fullscreen', 'codeview', 'help']]
-                ]
+        let editorReady = false;
+
+            // Initialize TinyMCE
+            tinymce.init({
+                selector: '#tinymce-editor',
+                height: 600,
+                menubar: true,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | blocks | ' +
+                    'bold italic textcolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | help',
+                content_style: 'body { font-family: "Georgia", serif; font-size:15px; line-height:1.6; }',
+               
             });
 
-            // Delay slightly to ensure layout JS auth finishes
+            // 👇 YEH LINES ADD KARNI HAIN 👇
+        $(document).ready(function() {
             setTimeout(loadTerms, 300);
         });
 
@@ -407,7 +414,7 @@
             $('#title').val('');
             $('#target_audience').val('employee');
             $('#status').val('active');
-            $('#contentEditor').summernote('code', '');
+            tinymce.get('tinymce-editor').setContent('');
 
             $('#modalTitle').text('Add Terms & Conditions');
             $('#termModal').modal('show');
@@ -425,7 +432,7 @@
                     $('#target_audience').val(t.target_audience);
                     $('#status').val(t.status);
 
-                    $('#contentEditor').summernote('code', t.content);
+                    tinymce.get('tinymce-editor').setContent(t.content);
 
                     $('#modalTitle').text('Edit Terms & Conditions');
                     $('#termModal').modal('show');
@@ -437,7 +444,7 @@
             let payload = {
                 title: $('#title').val(),
                 target_audience: $('#target_audience').val(),
-                content: $('#contentEditor').summernote('code'),
+                content: tinymce.get('tinymce-editor').getContent(),
                 status: $('#status').val()
             };
 
