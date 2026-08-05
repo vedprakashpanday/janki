@@ -192,11 +192,86 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    let locationPingInterval = null;
+// ==========================================
+    // 🟢 SMART TRACKING VARIABLES (Zomato Logic)
+    // ==========================================
+    let trackingWatchId = null;
+    let lastLat = null;
+    let lastLng = null;
+    let isCurrentlyStopped = false;
 
-    // 🟢 1. Check Today's Status from Server (Page Load Hote Hi)
+    // Distance nikalne ka formula
+    function getDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Earth radius in meters
+        const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+        const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c; 
+    }
+
+    // Ping bhejne ka function
+    function sendPing(lat, lng, isStop) {
+        $.ajax({
+            url: '/api/v1/member/attendance/ping-location',
+            type: 'POST',
+            data: { latitude: lat, longitude: lng, is_stop: isStop },
+            success: function() { console.log('Smart Ping Sent. Stop Status:', isStop); }
+        });
+    }
+
+    // 🟢 TRACKING START KARNE KA FUNCTION
+    function startSmartTracking() {
+        if (navigator.geolocation) {
+            console.log("Started Smart Tracking...");
+            trackingWatchId = navigator.geolocation.watchPosition(function(position) {
+                let currentLat = position.coords.latitude;
+                let currentLng = position.coords.longitude;
+
+                if (lastLat === null) {
+                    sendPing(currentLat, currentLng, false);
+                    lastLat = currentLat; lastLng = currentLng;
+                    return;
+                }
+
+                let distance = getDistance(lastLat, lastLng, currentLat, currentLng);
+
+                if (distance > 20) {
+                    // Member chal raha hai
+                    sendPing(currentLat, currentLng, false);
+                    lastLat = currentLat; lastLng = currentLng;
+                    isCurrentlyStopped = false;
+                } else {
+                    // Member ruk gaya
+                    if (!isCurrentlyStopped) {
+                        sendPing(currentLat, currentLng, true); // Ruka hua marker bhejo
+                        isCurrentlyStopped = true;
+                    }
+                }
+            }, function(error) {
+                console.error("GPS Error:", error);
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 10000 
+            });
+        }
+    }
+
+    // 🔴 TRACKING BAND KARNE KA FUNCTION (Punch Out par)
+    function stopSmartTracking() {
+        if (trackingWatchId !== null) {
+            navigator.geolocation.clearWatch(trackingWatchId);
+            trackingWatchId = null;
+            console.log("Tracking Stopped. Member Punched Out.");
+        }
+    }
+
+
+    // ==========================================
+    // 🟢 EXISTING ATTENDANCE LOGIC (Updated)
+    // ==========================================
+
     function checkStatusOnLoad() {
-        // Shuru me loading text dikhayein
         $('#attendanceStatusText').text('Checking...');
         $('#markAttendanceBtn').hide();
 
@@ -205,32 +280,18 @@ $(document).ready(function() {
             type: 'GET',
             success: function(res) {
                 if (res.status === 'success') {
-                    // Update UI securely from Database
                     updateAttendanceUI(res.action);
-                    
-                    // Naye din ka track rakhne ke liye date aur status store karein
                     localStorage.setItem('member_attendance_status', res.action);
                     localStorage.setItem('member_attendance_date', new Date().toDateString());
-
-                    if (res.action === 'punched_in') {
-                        startLocationPinging();
-                    } else {
-                        stopLocationPinging();
-                    }
                 }
             },
             error: function(err) {
-                console.error('Failed to fetch status', err);
                 $('#attendanceStatusText').text('Network Error');
             }
         });
     }
-
-    // Call check on page load
     checkStatusOnLoad();
 
-
-    // 🟢 2. Punch In / Punch Out Button Click Event
     $('#markAttendanceBtn').on('click', function() {
         if (navigator.geolocation) {
             Swal.fire({
@@ -244,24 +305,15 @@ $(document).ready(function() {
                 let lat = position.coords.latitude;
                 let lng = position.coords.longitude;
 
-                // API Call for Punch In / Out
                 $.ajax({
                     url: '/api/v1/member/attendance/mark',
                     type: 'POST',
                     data: { latitude: lat, longitude: lng },
                     success: function(res) {
                         Swal.fire('Success', res.message, 'success');
-                        
                         localStorage.setItem('member_attendance_status', res.action);
                         localStorage.setItem('member_attendance_date', new Date().toDateString());
-                        
                         updateAttendanceUI(res.action);
-
-                        if (res.action === 'punched_in') {
-                            startLocationPinging();
-                        } else if (res.action === 'completed' || res.action === 'punched_out') {
-                            stopLocationPinging();
-                        }
                     },
                     error: function(err) {
                         Swal.fire('Error', 'Failed to mark attendance. Try again.', 'error');
@@ -269,24 +321,24 @@ $(document).ready(function() {
                 });
             }, function(error) {
                 Swal.fire('Error', 'Please enable Location/GPS to mark attendance.', 'error');
-            }, {
-                enableHighAccuracy: true
-            });
-        } else {
-            Swal.fire('Error', 'Geolocation is not supported by your browser.', 'error');
+            }, { enableHighAccuracy: true });
         }
     });
 
-    // 🟢 3. Helper Function to Update UI
+    // 🔥 MAIN UI UPDATE FUNCTION (Jahan Tracking Trigger Hogi) 🔥
     function updateAttendanceUI(action) {
         if (action === 'punched_in') {
             $('#attendanceStatusText').text('Punched In');
             $('#markAttendanceBtn').html('<i class="fas fa-sign-out-alt"></i> Punch Out')
                                    .removeClass('text-success')
                                    .addClass('text-danger').show();
+            // 🚀 PUNCH IN HOTE HI TRACKING SHURU!
+            startSmartTracking(); 
         } else if (action === 'completed') {
             $('#attendanceStatusText').text('Completed Today');
             $('#markAttendanceBtn').hide(); 
+            // 🛑 PUNCH OUT HOTE HI TRACKING BAND!
+            stopSmartTracking();
         } else { // pending
             $('#attendanceStatusText').text('Not Marked');
             $('#markAttendanceBtn').html('<i class="fas fa-fingerprint"></i> Punch In')
@@ -295,64 +347,7 @@ $(document).ready(function() {
         }
     }
 
-
-    // 🟢 4. Background Tracking (Har 2 Minute Me)
-    function startLocationPinging() {
-        if(!locationPingInterval) {
-            locationPingInterval = setInterval(pingServer, 120000); 
-            console.log("Background location tracking started.");
-        }
-    }
-
-    function stopLocationPinging() {
-        if (locationPingInterval) {
-            clearInterval(locationPingInterval);
-            locationPingInterval = null;
-            console.log("Background location tracking stopped.");
-        }
-    }
-
-    function pingServer() {
-        // 🔥 MIDNIGHT AUTO-KILL LOGIC 🔥
-        let savedDate = localStorage.getItem('member_attendance_date');
-        let todayDate = new Date().toDateString();
-        
-        // Agar date badal gayi hai (matlab 12 baj gaye hain), to ping stop kar do!
-        if (savedDate && savedDate !== todayDate) {
-            console.warn("Day changed! Auto-stopping background ping.");
-            stopLocationPinging();
-            updateAttendanceUI('pending');
-            return;
-        }
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                $.ajax({
-                    url: '/api/v1/member/attendance/ping-location',
-                    type: 'POST',
-                    data: {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    },
-                    success: function() {
-                        console.log("Location pinged successfully.");
-                    },
-                    error: function(xhr) {
-                        // 🔥 SESSION EXPIRED AUTO-KILL 🔥
-                        if (xhr.status === 401 || xhr.status === 403) {
-                            console.error("Session expired or blocked. Stopping pings.");
-                            stopLocationPinging();
-                        }
-                    }
-                });
-            }, function(error) {
-                console.warn("Background tracking failed this time: ", error.message);
-            }, { enableHighAccuracy: true });
-        }
-    }
-
-
-    // 🟢 5. View Calendar Logic
+    // 🟢 4. View Calendar Logic
     const d = new Date();
     let currentMonth = String(d.getMonth() + 1).padStart(2, '0');
     let currentYear = d.getFullYear();
@@ -387,26 +382,24 @@ $(document).ready(function() {
     }
 
     function renderCalendarGrid(year, month, attendanceData, joiningDateStr) {
-        let firstDay = new Date(year, month - 1, 1).getDay(); // Month ka pehla din konsa hai (0-6)
-        let daysInMonth = new Date(year, month, 0).getDate(); // Total days
+        let firstDay = new Date(year, month - 1, 1).getDay();
+        let daysInMonth = new Date(year, month, 0).getDate();
         let joiningDate = joiningDateStr ? new Date(joiningDateStr) : new Date('2000-01-01');
-        joiningDate.setHours(0,0,0,0); // Sirf date compare karne ke liye
+        joiningDate.setHours(0,0,0,0);
 
         let html = '';
 
-        // Khali cells
         for (let i = 0; i < firstDay; i++) {
             html += '<div class="calendar-cell empty"></div>';
         }
 
-        // Days render karein
         for (let day = 1; day <= daysInMonth; day++) {
             let currentDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             let currentDateObj = new Date(year, month - 1, day);
             currentDateObj.setHours(0,0,0,0);
             
             let dayOfWeek = currentDateObj.getDay(); 
-            let isTuesday = (dayOfWeek === 2); // 2 means Tuesday
+            let isTuesday = (dayOfWeek === 2);
 
             if (currentDateObj < joiningDate) {
                 html += `<div class="calendar-cell disabled-date"><span class="date-number">${day}</span><div class="text-center mt-3 text-muted" style="font-size: 20px;">-</div></div>`;
@@ -452,7 +445,7 @@ $(document).ready(function() {
         $('#calendarDaysBody').html(html);
     }
 
-    // 🟢 View Details in SweetAlert (Sleek UI)
+    // 🟢 5. View Details in SweetAlert
     window.showAttendanceDetails = function(recordJsonEncoded) {
         let record = JSON.parse(decodeURIComponent(recordJsonEncoded));
 

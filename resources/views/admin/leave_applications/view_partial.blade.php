@@ -15,9 +15,14 @@
             REJECTED
         </div>
     @elseif ($app->status === 'approved' || $app->status === 'active')
+        @php
+            $isOther = $app->application_type === 'Other';
+            $watermarkText = $isOther ? 'REVIEWED' : 'APPROVED';
+            $watermarkColor = $isOther ? 'rgba(23, 162, 184, 0.15)' : 'rgba(40, 167, 69, 0.15)';
+        @endphp
         <div
-            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); color: rgba(40, 167, 69, 0.15); font-size: 80px; font-weight: 900; border: 8px solid rgba(40, 167, 69, 0.15); padding: 10px 30px; border-radius: 15px; pointer-events: none; z-index: 0; letter-spacing: 10px;">
-            APPROVED
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); color: {{ $watermarkColor }}; font-size: 80px; font-weight: 900; border: 8px solid {{ $watermarkColor }}; padding: 10px 30px; border-radius: 15px; pointer-events: none; z-index: 0; letter-spacing: 10px;">
+            {{ $watermarkText }}
         </div>
     @elseif ($company && !empty($company->company_logo))
         <img src="{{ asset($company->company_logo) }}"
@@ -83,49 +88,71 @@
             @endif
         </p>
 
-        @php
-            $finalStart = $app->approved_start_datetime ?? $app->start_datetime;
-            $finalEnd = $app->approved_end_datetime ?? $app->end_datetime;
-            $finalDuration = $app->approved_duration ?? $app->duration;
-            $finalResume = $app->approved_resume_datetime ?? $app->resume_datetime;
-
-            $resumeTime = $finalResume ? \Carbon\Carbon::parse($finalResume)->format('d/m/Y h:i A') : '__________';
-            $emergContact = $app->emergency_contact ?: '__________';
-            $emergEmail = $app->emergency_email ?: '__________';
-
-            $leaveTypeTxt = $app->application_type === 'Short Leave' ? 'Hours of short leave' : 'days of leave';
-            $paidTxt = $app->is_paid_leave ? ' as a <strong>Paid Leave</strong>' : '';
-        @endphp
-
-        @if ($app->application_type === 'Short Leave')
+   <!-- 🔥 NAYA: "Other" type ke liye beech ka paragraph Hide kiya gaya hai -->
+        @if ($app->application_type !== 'Other')
             @php
-                $startTime = \Carbon\Carbon::parse($finalStart)->format('h:i A');
-                $endTime = \Carbon\Carbon::parse($finalEnd)->format('h:i A');
+                $finalStart = $app->approved_start_datetime ?? $app->start_datetime;
+                $finalEnd = $app->approved_end_datetime ?? $app->end_datetime;
+                $finalDuration = $app->approved_duration ?? $app->duration;
+                $finalResume = $app->approved_resume_datetime ?? $app->resume_datetime;
+
+                $resumeTime = $finalResume ? \Carbon\Carbon::parse($finalResume)->format('d/m/Y h:i A') : '__________';
+                $emergContact = $app->emergency_contact ?: '__________';
+                $emergEmail = $app->emergency_email ?: '__________';
+
+                $leaveTypeTxt = $app->application_type === 'Short Leave' ? 'Hours of short leave' : 'days of leave';
+                $paidTxt = $app->is_paid_leave ? ' as a <strong>Paid Leave</strong>' : '';
             @endphp
-            <p style="font-size: 14px; line-height: 1.6; text-align: justify;">
-                I hereby request your kind approval for <strong>{{ $finalDuration }} {{ $leaveTypeTxt }}</strong>, from
-                <strong>{{ $startTime }}</strong> to <strong>{{ $endTime }}</strong>{{ $paidTxt }}, due
-                to the reason mentioned below. I assure you that I have reviewed my work responsibilities and will
-                ensure smooth coordination during my absence. I will resume duty on
-                <strong>{{ $resumeTime }}</strong> and will remain available on my mobile number
-                <strong>{{ $emergContact }}</strong> and email <strong>{{ $emergEmail }}</strong> in case of urgent
-                communication.
-            </p>
-        @else
-            @php
-                $startDate = \Carbon\Carbon::parse($finalStart)->format('d/m/Y');
-                $endDate = \Carbon\Carbon::parse($finalEnd)->format('d/m/Y');
-            @endphp
-            <p style="font-size: 14px; line-height: 1.6; text-align: justify;">
-                I hereby request your kind approval for <strong>{{ $finalDuration }} {{ $leaveTypeTxt }}</strong>,
-                from <strong>{{ $startDate }}</strong> to <strong>{{ $endDate }}</strong>{{ $paidTxt }},
-                due to the reason mentioned below. I assure you that I have reviewed my work responsibilities and will
-                ensure smooth coordination during my absence. I will resume duty on
-                <strong>{{ $resumeTime }}</strong> and will remain available on my mobile number
-                <strong>{{ $emergContact }}</strong> and email <strong>{{ $emergEmail }}</strong> in case of urgent
-                communication.
-            </p>
+
+            <!-- 🔥 FIX: Yahan Custom Date Check Wapas Joda Gaya Hai -->
+            @if ($app->is_custom_date)
+                @php
+                    $datesArr = ($app->status === 'approved' || $app->status === 'active') ? $app->approved_custom_dates : $app->custom_dates;
+                    $formattedDates = array_map(function($d) { return \Carbon\Carbon::parse($d)->format('d/m/Y'); }, is_array($datesArr) ? $datesArr : []);
+                    $dateString = implode(', ', $formattedDates);
+                @endphp
+                <p style="font-size: 14px; line-height: 1.6; text-align: justify;">
+                    I hereby request your kind approval for <strong>{{ $finalDuration }} {{ $leaveTypeTxt }}</strong>,
+                    on the following dates: <strong style="color: #0d6efd;">{{ $dateString }}</strong>{{ $paidTxt }},
+                    due to the reason mentioned below. I assure you that I have reviewed my work responsibilities and will
+                    ensure smooth coordination during my absence. I will resume duty on
+                    <strong>{{ $resumeTime }}</strong> and will remain available on my mobile number
+                    <strong>{{ $emergContact }}</strong> and email <strong>{{ $emergEmail }}</strong> in case of urgent
+                    communication.
+                </p>
+
+            @elseif ($app->application_type === 'Short Leave')
+                @php
+                    $startTime = \Carbon\Carbon::parse($finalStart)->format('h:i A');
+                    $endTime = \Carbon\Carbon::parse($finalEnd)->format('h:i A');
+                @endphp
+                <p style="font-size: 14px; line-height: 1.6; text-align: justify;">
+                    I hereby request your kind approval for <strong>{{ $finalDuration }} {{ $leaveTypeTxt }}</strong>, from
+                    <strong>{{ $startTime }}</strong> to <strong>{{ $endTime }}</strong>{{ $paidTxt }}, due
+                    to the reason mentioned below. I assure you that I have reviewed my work responsibilities and will
+                    ensure smooth coordination during my absence. I will resume duty on
+                    <strong>{{ $resumeTime }}</strong> and will remain available on my mobile number
+                    <strong>{{ $emergContact }}</strong> and email <strong>{{ $emergEmail }}</strong> in case of urgent
+                    communication.
+                </p>
+
+            @else
+                @php
+                    $startDate = \Carbon\Carbon::parse($finalStart)->format('d/m/Y');
+                    $endDate = \Carbon\Carbon::parse($finalEnd)->format('d/m/Y');
+                @endphp
+                <p style="font-size: 14px; line-height: 1.6; text-align: justify;">
+                    I hereby request your kind approval for <strong>{{ $finalDuration }} {{ $leaveTypeTxt }}</strong>,
+                    from <strong>{{ $startDate }}</strong> to <strong>{{ $endDate }}</strong>{{ $paidTxt }},
+                    due to the reason mentioned below. I assure you that I have reviewed my work responsibilities and will
+                    ensure smooth coordination during my absence. I will resume duty on
+                    <strong>{{ $resumeTime }}</strong> and will remain available on my mobile number
+                    <strong>{{ $emergContact }}</strong> and email <strong>{{ $emergEmail }}</strong> in case of urgent
+                    communication.
+                </p>
+            @endif
         @endif
+        <!-- 🔥 Paragraph section End -->
 
         <div style="margin-top: 20px; font-size: 14px;">
             <p style="font-weight: bold; text-decoration: underline; margin-bottom: 0;">Reason for
@@ -133,7 +160,6 @@
             <div
                 style="padding: 10px; border: 1px solid #000; min-height: 60px; white-space: pre-wrap; margin-bottom: 15px; margin-top: 5px;">
                 {{ $app->reason }}</div>
-
             <p style="margin-bottom: 5px;">I further confirm that:</p>
             <ul style="line-height: 1.6; padding-left: 20px; margin-bottom: 15px;">
                 <li>I have handed over all necessary information/tasks to my colleague/team to avoid disruption of work.
@@ -246,9 +272,14 @@
                 REJECTED
             </div>
         @elseif ($app->status === 'approved' || $app->status === 'active')
+            @php
+                $isOther = $app->application_type === 'Other';
+                $watermarkText = $isOther ? 'REVIEWED' : 'APPROVED';
+                $watermarkColor = $isOther ? 'rgba(23, 162, 184, 0.15)' : 'rgba(40, 167, 69, 0.15)';
+            @endphp
             <div
-                style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); color: rgba(40, 167, 69, 0.15); font-size: 80px; font-weight: 900; border: 8px solid rgba(40, 167, 69, 0.15); padding: 10px 30px; border-radius: 15px; pointer-events: none; z-index: 0; letter-spacing: 10px;">
-                APPROVED
+                style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); color: {{ $watermarkColor }}; font-size: 80px; font-weight: 900; border: 8px solid {{ $watermarkColor }}; padding: 10px 30px; border-radius: 15px; pointer-events: none; z-index: 0; letter-spacing: 10px;">
+                {{ $watermarkText }}
             </div>
         @elseif ($company && !empty($company->company_logo))
             <img src="{{ asset($company->company_logo) }}"

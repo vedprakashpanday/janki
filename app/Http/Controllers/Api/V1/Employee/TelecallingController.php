@@ -280,6 +280,27 @@ class TelecallingController extends Controller
         }
     }
 
+// ==========================================
+    // 🔥 DYNAMIC PROVIDER LIST API (FIXED) 🔥
+    // ==========================================
+    public function getAvailableProviders()
+    {
+        // 🔥 FIX: Eloquent ki jagah seedha DB facade use kiya hai taaki 'Pro_01' 0 na ban jaye
+        $providers = \Illuminate\Support\Facades\DB::table('interested_customers')
+            ->whereIn('status', ['Pending', 'pending', 'Pending status', 'General', 'general'])
+            ->where('entry_status', 'active') 
+            ->whereNotNull('provider_id')
+            ->where('provider_id', '!=', '')
+            ->select('provider_id as id', 'provider_name as name')
+            ->distinct()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $providers
+        ]);
+    }
+
 
     // ==========================================
     // 🔥 PRINT REPORT FUNCTION 🔥

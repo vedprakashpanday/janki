@@ -40,7 +40,6 @@
 
         .nav-tabs::-webkit-scrollbar {
             display: none;
-            /* Scrollbar hide but content swipeable */
         }
 
         .nav-tabs .nav-link {
@@ -49,7 +48,6 @@
             border: none;
             border-bottom: 3px solid transparent;
             white-space: nowrap;
-            /* Taki text break na ho */
         }
 
         .nav-tabs .nav-link.active {
@@ -101,14 +99,10 @@
         }
 
         /* Navbar Hover Bug Fix */
-        .dataTables_wrapper {
+        .dataTables_wrapper,
+        .dataTables_filter {
             position: relative;
-            z-index: 1040;
-        }
-
-        .dataTables_filter input {
-            position: relative;
-            z-index: 1045;
+            z-index: 1;
         }
     </style>
 
@@ -132,7 +126,7 @@
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Customer Details</h4>
+                <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Customer Details (Daily)</h4>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span id="bulkActions" style="display: none;">
@@ -161,7 +155,7 @@
                             <tr>
                                 <th style="width: 40px;">#</th>
                                 <th>CUST ID</th>
-                                <th>Branch</th>
+                                <th>Branch Info</th>
                                 <th>Name</th>
                                 <th>Mobile</th>
                                 <th>Status</th>
@@ -186,6 +180,7 @@
         </div>
     </div>
 
+    <!-- MODALS SECTION -->
     <div class="modal fade" id="customerModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
@@ -226,8 +221,7 @@
                                             <input class="form-check-input" type="checkbox" id="is_old_customer"
                                                 name="is_old_customer" value="true">
                                             <label class="form-check-label fw-bold text-primary" for="is_old_customer">Is
-                                                it
-                                                an Old Customer?</label>
+                                                it an Old Customer?</label>
                                         </div>
                                         <div id="old_customer_sec" style="display:none;" class="row g-2">
                                             <div class="col-md-5">
@@ -296,7 +290,6 @@
                                             class="form-control fw-bold text-danger bg-light" id="f_password" required>
                                     </div>
                                     <div class="col-md-4">
-                                        <!-- 🔥 REGISTRATION DATE UPDATE 🔥 -->
                                         <label class="form-label text-secondary small">Registration Date <span
                                                 class="text-danger">*</span></label>
                                         <input type="date" name="registration_date" class="form-control"
@@ -427,6 +420,7 @@
                                 </div>
                             </div>
 
+                            <!-- BANK TAB -->
                             <div class="tab-pane fade" id="tab-bank">
                                 <div class="row g-3">
                                     <div class="col-md-4">
@@ -467,6 +461,7 @@
                                 </div>
                             </div>
 
+                            <!-- NOMINEE TAB -->
                             <div class="tab-pane fade" id="tab-nominee">
                                 <div class="row g-3">
                                     <div class="col-md-3">
@@ -538,6 +533,7 @@
                                 </div>
                             </div>
 
+                            <!-- DOCUMENTS TAB -->
                             <div class="tab-pane fade" id="tab-docs">
                                 <h6 class="text-primary fw-bold border-bottom pb-2 mb-3"><i
                                         class="fas fa-user-circle me-1"></i> Customer Documents</h6>
@@ -632,6 +628,7 @@
         </div>
     </div>
 
+    <!-- VIEW MODAL -->
     <div class="modal fade" id="viewModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -683,7 +680,6 @@
                             <h6 class="fw-bold text-uppercase" id="v_pan"></h6>
                         </div>
                         <div class="col-md-4">
-                            <!-- 🔥 REGISTRATION DATE UPDATE 🔥 -->
                             <p class="small text-muted mb-0">Registration Date</p>
                             <h6 class="fw-bold" id="v_joining"></h6>
                         </div>
@@ -728,6 +724,7 @@
         </div>
     </div>
 
+    <!-- RESPONSE MODAL -->
     <div class="modal fade" id="responseModal" tabindex="-1" style="z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow">
@@ -754,6 +751,8 @@
         window.userPerms = {!! json_encode($perms) !!};
         window.userGodMode = {{ $isGod ? 'true' : 'false' }};
         window.userContext = {!! json_encode($globalContext) !!};
+
+        // 🔥 CRITICAL: SLUG FOR CUSTOMER (DAILY) PAGE 🔥
         window.moduleBase = 'customer';
         window.canExport = {{ $canExport ? 'true' : 'false' }};
     </script>
@@ -773,11 +772,12 @@
             let companyMap = {};
             let memberMap = {};
 
-            // 🔥 LOAD MORE MOBILE STATE 🔥
             let currentMobileLimit = 20;
 
             let permsArray = window.userPerms || [];
-            let isGod = window.userGodMode || false;
+            let isGod = window.userGodMode === true || window.userGodMode === 'true' || (window.userContext &&
+                window.userContext.is_god);
+
             let hasDirectAdd = isGod || permsArray.includes('customer_add_direct') || permsArray.includes(
                 'customer_add');
             let hasRequestAdd = permsArray.includes('customer_add_request');
@@ -785,36 +785,50 @@
             if (!hasDirectAdd && hasRequestAdd) {
                 $('#addCustomerBtn').html('<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
             }
-            if (window.userGodMode) {
+            if (isGod) {
                 $('.secured-item').css('visibility', 'visible');
             }
 
-            $(document).ajaxSuccess(function(event, xhr, settings) {
+     $(document).ajaxSuccess(function(event, xhr, settings) {
                 if (settings.url.indexOf('/auth/me') !== -1) {
                     if (typeof window.applyPermissions === 'function') window.applyPermissions();
                     if (typeof table !== 'undefined') table.draw(false);
 
                     let user = xhr.responseJSON?.data || xhr.responseJSON?.user || xhr.responseJSON;
                     if (user) {
+                        // 🔥 THE REAL FIX: PHP se aaye hue purane Context ko zinda rakhna hai
+                        let existingCtx = window.userContext || {};
+                        
+                        let profId = user.member_id || user.id || existingCtx.profile_id || '';
+                        
+                        // Check: Agar purane context me member tha YA ID me "-M/" aata hai, toh Member hi maano
+                        let isMem = existingCtx.is_member === true || (typeof profId === 'string' && profId.includes('-M/'));
+                        let rLevel = existingCtx.role_level || (isMem ? 'member' : 'employee');
+
                         window.userContext = {
-                            company_id: user.company_id,
-                            branch_id: user.branch_id,
-                            profile_id: user.member_id || user.id,
-                            name: user.member_name || user.full_name || user.name,
-                            is_member: user.member_id ? true : false,
-                            role_level: user.role_level || (user.member_id ? 'member' : 'employee')
+                            company_id: user.company_id || existingCtx.company_id || null,
+                            branch_id: user.branch_id || existingCtx.branch_id || null,
+                            profile_id: profId,
+                            name: user.employee_name || user.member_name || user.full_name || user.name || existingCtx.name,
+                            is_member: isMem, 
+                            role_level: rLevel,
+                            is_god: user.is_god || existingCtx.is_god || false
                         };
-                        applyAutoLockUI();
+                        
+                        //console.log("--- DEBUG: Updated Context ---", window.userContext);
                     }
 
+                    // Naya updated context banne ke baad Auto Lock chalega
+                    applyAutoLockUI();
+
                     let p = window.userPerms || [];
-                    let isG = window.userGodMode || false;
+                    let isG = window.userGodMode === true || window.userGodMode === 'true' || (window.userContext && window.userContext.is_god);
                     let hasDirect = isG || p.includes('customer_add_direct') || p.includes('customer_add');
                     let hasReq = p.includes('customer_add_request');
-                    if (!hasDirect && hasReq) $('#addCustomerBtn').html(
-                        '<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
+                    if (!hasDirect && hasReq) $('#addCustomerBtn').html('<i class="fas fa-paper-plane me-1"></i> Request Customer Register');
                 }
             });
+
 
             $(document).on('change', '.marital-radio', function() {
                 if ($(this).val() === 'Married') $('#wrap_anniversary').slideDown();
@@ -824,7 +838,6 @@
                 }
             });
 
-            // 🛡️ SECURITY & SCOPING
             let isDir = window.userContext && (window.userContext.is_director || window.userContext.role_level ===
                 'director');
             let showSecureData = isGod || isDir;
@@ -833,72 +846,74 @@
                 $('#wrap_company, #wrap_branch').show();
                 let isDir = window.userContext && (window.userContext.is_director || window.userContext
                     .role_level === 'director');
-                let isGodMode = window.userGodMode === true || window.userGodMode === 'true';
+                let isGodMode = window.userGodMode === true || window.userGodMode === 'true' || (window
+                    .userContext && window.userContext.is_god);
                 let showSecureData = isGodMode || isDir;
 
                 if (!showSecureData) {
-                    $('.secure-view-element').hide(); // View modal me private elements hide
+                    $('.secure-view-element').hide();
                 }
             }
 
-            function applyAutoLockUI() {
-                let isGodMode = window.userGodMode === true || window.userGodMode === 'true';
+         function applyAutoLockUI() {
+                //console.log("--- DEBUG: applyAutoLockUI Called ---");
+                let isGodMode = window.userGodMode === true || window.userGodMode === 'true' || (window.userContext && window.userContext.is_god);
                 let ctx = window.userContext || {};
                 let isMember = ctx.is_member === true || ctx.role_level === 'member';
 
-                $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'auto').removeClass(
-                    'bg-light').prop('readonly', false);
+                //console.log("User Context:", ctx);
 
+                // Sabko pehle unlock aur clear karo
+                $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'auto').removeClass('bg-light').prop('readonly', false);
+                
+                // Agar Employee hai to uski search khali karo
                 if (!isMember) {
-                    $('#member_search_input').val('');
+                    $('#member_search_input').val(''); 
                     $('#f_member_id').val('');
                 }
 
-                if (isGodMode) return;
+                if (isGodMode) {
+                    //console.log("DEBUG: God Mode active, skipping locks");
+                    return; 
+                }
 
                 let compId = ctx.company_id ? parseInt(ctx.company_id) : null;
                 let branchId = ctx.branch_id ? parseInt(ctx.branch_id) : null;
+                //console.log("DEBUG: CompID:", compId, "| BranchID:", branchId);
 
-                if (isMember) {
-                    $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'none').addClass(
-                        'bg-light').prop('readonly', true);
-
-                    if (compId) {
-                        let cName = Object.keys(companyMap).find(key => companyMap[key] == compId) || 'My Company';
+                // 🔥 FIX: Company ko Map se dhoondh kar bharo
+                if (compId && Object.keys(companyMap).length > 0) {
+                    let cName = Object.keys(companyMap).find(key => companyMap[key] == compId);
+                    if (cName) {
+                        //console.log("DEBUG: Found Company Name:", cName);
                         $('#f_company').val(cName);
                         $('#hidden_company_id').val(compId);
                     }
-                    if (branchId) {
-                        $('#f_branch').val('My Branch');
+                }
+
+                // 🔥 FIX: Branch null ya 0 aayi toh "Head Office" set kardo
+                if (!branchId || branchId === 0) {
+                    $('#f_branch').val('Head Office');
+                    $('#branch_id_hidden').val('');
+                } else if (Object.keys(branchMap).length > 0) {
+                    let bName = Object.keys(branchMap).find(key => branchMap[key] == branchId);
+                    if(bName) {
+                        $('#f_branch').val(bName);
                         $('#branch_id_hidden').val(branchId);
                     }
+                }
 
+                // Agar member login hai, toh usko Associate wale dibbe me khudko daal kar lock kardo
+                if (isMember) {
+                    $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'none').addClass('bg-light').prop('readonly', true);
                     let memberName = ctx.name ? `${ctx.name} (${ctx.profile_id})` : ctx.profile_id;
                     $('#member_search_input').val(memberName);
                     $('#f_member_id').val(ctx.profile_id);
-                    return;
+                    return; 
                 }
 
-                if (compId === 1 && !branchId) {} else if (compId === 1 && branchId) {
-                    $('#f_company, #f_branch').css('pointer-events', 'none').addClass('bg-light').prop('readonly',
-                        true);
-                } else if (compId !== 1 && !branchId) {
-                    $('#f_company').css('pointer-events', 'none').addClass('bg-light').prop('readonly', true);
-                } else if (compId !== 1 && branchId) {
-                    $('#f_company, #f_branch').css('pointer-events', 'none').addClass('bg-light').prop('readonly',
-                        true);
-                }
-
-                if (compId) {
-                    let cName = Object.keys(companyMap).find(key => companyMap[key] == compId) || 'My Company';
-                    $('#f_company').val(cName);
-                    $('#hidden_company_id').val(compId);
-                }
-
-                if (branchId) {
-                    $('#f_branch').val('My Branch');
-                    $('#branch_id_hidden').val(branchId);
-                }
+                // Employee ke case me sirf Company aur Branch Lock hoga
+                $('#f_company, #f_branch').css('pointer-events', 'none').addClass('bg-light').prop('readonly', true);
             }
 
             window.showMessage = function(message, type = 'success') {
@@ -936,6 +951,9 @@
                 $.ajax({
                     url: '/api/v1/get-active-companies',
                     type: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
                     success: function(res) {
                         let opts = '';
                         companyMap = {};
@@ -983,22 +1001,52 @@
                 }
             }
 
-            $('#f_company').on('change blur', function() {
+     $('#f_company').on('change blur', function() {
                 let val = $(this).val();
+                //console.log("--- DEBUG: Company Field Changed to:", val, "---");
+                
                 if (companyMap[val]) {
-                    $('#hidden_company_id').val(companyMap[val]);
-                    $('#member_search_input').val('');
-                    $('#f_member_id').val('');
-                    $('#memberListOptions').empty();
+                    let cId = companyMap[val];
+                    $('#hidden_company_id').val(cId);
+                    
+                    let ctx = window.userContext || {};
+                    let isMember = ctx.is_member === true || ctx.role_level === 'member';
+                    
+                    if (!isMember) {
+                        $('#member_search_input').val('');
+                        $('#f_member_id').val('');
+                        $('#memberListOptions').empty();
+                    }
+
+                    // 🔥 CRITICAL FIX: Explicitly company id pass karke ID fetch karein
+                    if (mode === 'add') {
+                        //console.log("DEBUG: Fetching new ID for Company:", cId);
+                        $.ajax({
+                            url: `/api/v1/customers/generate-id?company_id=${cId}`,
+                            type: 'GET',
+                            headers: { 'Authorization': 'Bearer ' + apiToken },
+                            success: function(res) {
+                                if (res && res.customer_id) {
+                                    //console.log("DEBUG: New ID Generated:", res.customer_id);
+                                    $('#f_cust_id').val(res.customer_id);
+                                }
+                            }
+                        });
+                    }
 
                     $.ajax({
-                        url: '/api/v1/branches?company_id=' + companyMap[val],
+                        url: '/api/v1/branches?company_id=' + cId,
                         type: 'GET',
+                        headers: { 'Authorization': 'Bearer ' + apiToken },
                         success: function(res) {
+                            //console.log("DEBUG: Branches Fetched for Company", res.data);
                             let bOpts = '<option value="Head Office">';
-                            branchMap = {
-                                "Head Office": ""
-                            };
+                            branchMap = { "Head Office": "" };
+
+                            // Agar userContext me company nahi mili, toh API result se fallback karo
+                            if(res.data && res.data.length > 0 && res.data[0].company && $('#f_company').val() === '') {
+                                $('#f_company').val(res.data[0].company.company_name);
+                            }
 
                             res.data.forEach(b => {
                                 bOpts += `<option value="${b.branch_name}">`;
@@ -1006,10 +1054,27 @@
                             });
                             $('#branchList').html(bOpts);
                             validateBranchField();
+                            
+                            // Wapas branch set karna zaroori hai
+                            let isGodMode = window.userGodMode === true || window.userGodMode === 'true' || (ctx && ctx.is_god);
+                            if (mode === 'add' && !isGodMode) {
+                                if (ctx.branch_id && ctx.branch_id !== 0) {
+                                    let branchDisp = Object.keys(branchMap).find(key => branchMap[key] == ctx.branch_id);
+                                    if (branchDisp) {
+                                        $('#f_branch').val(branchDisp);
+                                        $('#branch_id_hidden').val(ctx.branch_id);
+                                    }
+                                } else {
+                                    $('#f_branch').val('Head Office');
+                                    $('#branch_id_hidden').val('');
+                                }
+                            }
                         }
                     });
                 }
             });
+
+
             $('#f_branch').on('input change blur', function() {
                 validateBranchField();
             });
@@ -1040,7 +1105,7 @@
             let table = $('#customerTable').DataTable({
                 processing: true,
                 serverSide: true,
-                pageLength: currentMobileLimit, // Start with 20
+                pageLength: currentMobileLimit,
                 lengthMenu: [
                     [20, 50, 100, -1],
                     [20, 50, 100, "All"]
@@ -1085,7 +1150,7 @@
                         data: 'status',
                         render: function(d, t, r) {
                             if (r.deleted_at)
-                                return `<span class="badge bg-danger"><i class="fas fa-trash"></i> Deleted</span>`;
+                            return `<span class="badge bg-danger"><i class="fas fa-trash"></i> Deleted</span>`;
                             let badgeClass = d === 'active' ? 'bg-success' : (d === 'pending' ?
                                 'bg-warning text-dark' : 'bg-danger');
                             return `<span class="badge ${badgeClass}">${d.toUpperCase()}</span>`;
@@ -1104,14 +1169,14 @@
                             let btns = '';
                             let p = window.userPerms || [];
                             let godMode = window.userGodMode === true || window.userGodMode ===
-                                'true';
+                                'true' || (window.userContext && window.userContext.is_god);
 
-                            let hasView = godMode || p.includes('customer_view');
-                            let hasEdit = godMode || p.includes('customer_edit');
-                            let hasDelete = godMode || p.includes('customer_delete');
-                            let hasRestore = godMode || p.includes('customer_restore');
-                            let hasAppr = godMode || p.includes('customer_appr');
-                            let hasRej = godMode || p.includes('customer_rej');
+                            let hasView = godMode || p.includes(window.moduleBase + '_view');
+                            let hasEdit = godMode || p.includes(window.moduleBase + '_edit');
+                            let hasDelete = godMode || p.includes(window.moduleBase + '_delete');
+                            let hasRestore = godMode || p.includes(window.moduleBase + '_restore');
+                            let hasAppr = godMode || p.includes(window.moduleBase + '_appr');
+                            let hasRej = godMode || p.includes(window.moduleBase + '_rej');
 
                             if (r.deleted_at) {
                                 if (hasRestore) {
@@ -1144,10 +1209,13 @@
                         '<div class="text-center p-3 text-muted border rounded bg-light">No customers found.</div>';
                 } else {
                     let p = window.userPerms || [];
-                    let hasView = isGod || p.includes(window.moduleBase + '_view');
-                    let hasEdit = isGod || p.includes(window.moduleBase + '_edit');
-                    let hasDelete = isGod || p.includes(window.moduleBase + '_delete');
-                    let hasRestore = isGod || p.includes(window.moduleBase + '_restore');
+                    let godMode = window.userGodMode === true || window.userGodMode === 'true' || (window
+                        .userContext && window.userContext.is_god);
+
+                    let hasView = godMode || p.includes(window.moduleBase + '_view');
+                    let hasEdit = godMode || p.includes(window.moduleBase + '_edit');
+                    let hasDelete = godMode || p.includes(window.moduleBase + '_delete');
+                    let hasRestore = godMode || p.includes(window.moduleBase + '_restore');
 
                     data.forEach(d => {
                         let compName = d.branch && d.branch.company ? d.branch.company.company_name :
@@ -1208,14 +1276,12 @@
                 $('#mobileCardsContainer').html(html);
             }
 
-            // 🔥 LOAD MORE LOGIC FOR DRAW EVENT 🔥
             table.on('draw', function() {
                 let json = table.ajax.json();
                 if (json && json.data) {
                     renderMobileCards(json.data);
                 }
 
-                // Show/Hide Load More Button based on available records
                 let info = table.page.info();
                 if (info.length < info.recordsDisplay) {
                     $('#btnLoadMore').show();
@@ -1224,13 +1290,11 @@
                 }
             });
 
-            // On Load More Button Click -> Increase limit by 20 and redraw
             $('#btnLoadMore').click(function() {
                 currentMobileLimit += 20;
                 table.page.len(currentMobileLimit).draw(false);
             });
 
-            // On Mobile Search Keyup -> Reset back to 20 to preserve layout
             $('#mobileSearch').on('keyup', function() {
                 let v = $(this).val();
                 table.search(v).draw();
@@ -1251,7 +1315,6 @@
                 `);
             });
 
-            // 🔥 BULK DELETE LOGIC 🔥
             $(document).on('change', '.row-checkbox', toggleBulkActions);
             $('#btnSelectAll').click(function() {
                 let allChecked = $('.row-checkbox').length === $('.row-checkbox:checked').length;
@@ -1367,7 +1430,8 @@
                 }
             });
 
-            window.openModal = function(type, id = null) {
+       window.openModal = function(type, id = null) {
+                //console.log("--- DEBUG: Modal Opened. Mode:", type, "---");
                 mode = type;
                 $('#customerForm')[0].reset();
                 $('#branch_id_hidden, #hidden_company_id, #f_member_id').val('');
@@ -1379,22 +1443,17 @@
 
                 if (type === 'add') {
                     if (isReq) {
-                        $('#modalTitle').html(
-                            '<i class="fas fa-paper-plane me-2 text-warning"></i> Request Customer Registration'
-                            );
+                        $('#modalTitle').html('<i class="fas fa-paper-plane me-2 text-warning"></i> Request Customer Registration');
                         $('#saveBtn').text('Submit Customer Request');
                     } else {
-                        $('#modalTitle').html(
-                            '<i class="fas fa-user-plus me-2 text-primary"></i> Register Customer');
+                        $('#modalTitle').html('<i class="fas fa-user-plus me-2 text-primary"></i> Register Customer');
                         $('#saveBtn').text('Save Customer Details');
                     }
                     $('#old_customer_block').show();
                     $('.password-div').hide();
                     $('.status-div').hide();
-                    fetchNewID();
                 } else {
-                    $('#modalTitle').html(
-                    '<i class="fas fa-edit me-2 text-primary"></i> Edit Customer Details');
+                    $('#modalTitle').html('<i class="fas fa-edit me-2 text-primary"></i> Edit Customer Details');
                     $('#saveBtn').text('Update Customer Details');
                     $('#old_customer_block').hide();
                     $('.password-div').show();
@@ -1404,97 +1463,70 @@
                 $('.nav-tabs button:first').tab('show');
                 $('.file-preview-wrapper').hide().find('.preview-content').empty();
 
-                let isGodMode = window.userGodMode === true || window.userGodMode === 'true';
+                let isGodMode = window.userGodMode === true || window.userGodMode === 'true' || (window.userContext && window.userContext.is_god);
                 let ctx = window.userContext || {};
-                let isMember = ctx.is_member || ctx.role_level === 'member' || localStorage.getItem(
-                    'member_session_id');
 
-                applyScopeUI();
+                applyScopeUI(); 
+                applyAutoLockUI(); 
 
-                if (type === 'add' && !isGodMode) {
-                    if (ctx.company_id) {
+                if (type === 'add') {
+                    if (!isGodMode && ctx.company_id) {
+                        //console.log("DEBUG: Add mode triggered. Setting initial company.");
                         let compName = Object.keys(companyMap).find(key => companyMap[key] == ctx.company_id);
                         if (compName) {
                             $('#f_company').val(compName);
                             $('#hidden_company_id').val(ctx.company_id);
-
-                            $.ajax({
-                                url: '/api/v1/branches?company_id=' + ctx.company_id,
-                                headers: {
-                                    'Authorization': 'Bearer ' + apiToken
-                                },
-                                success: function(res) {
-                                    let options = '';
-                                    branchMap = {};
-                                    res.data.forEach(b => {
-                                        let cName = b.company ? b.company.company_name :
-                                            'Master Company';
-                                        let disp =
-                                            `${cName} - ${b.branch_name} (${b.branch_id})`;
-                                        options += `<option value="${disp}">`;
-                                        branchMap[disp] = b.id;
-                                    });
-                                    $('#branchList').html(options);
-
-                                    if (ctx.branch_id) {
-                                        let branchDisp = Object.keys(branchMap).find(key =>
-                                            branchMap[key] == ctx.branch_id);
-                                        if (branchDisp) {
-                                            $('#f_branch').val(branchDisp);
-                                            $('#branch_id_hidden').val(ctx.branch_id);
-                                        }
-                                    }
+                            // 🔥 TRIGGER SE SABHI ID/BRANCH AUTO LOAD HO JAYENGE 🔥
+                            $('#f_company').trigger('change'); 
+                        } else {
+                            // Agar JS fast chal gaya map load hone se pehle (Fallback)
+                            //console.log("DEBUG: Map delayed. Waiting 500ms for fallback");
+                            setTimeout(() => {
+                                let delayedName = Object.keys(companyMap).find(key => companyMap[key] == ctx.company_id);
+                                if(delayedName) {
+                                    $('#f_company').val(delayedName);
+                                    $('#hidden_company_id').val(ctx.company_id);
+                                    $('#f_company').trigger('change');
+                                } else {
+                                    fetchNewID();
                                 }
-                            });
+                            }, 500);
                         }
-                    }
-
-                    if (isMember && ctx.profile_id) {
-                        let memberDisplayName = window.userContext.name ?
-                            `${window.userContext.name} (${ctx.profile_id})` : ctx.profile_id;
-                        $('#member_search_input').val(memberDisplayName);
-                        $('#f_member_id').val(ctx.profile_id);
+                    } else {
+                        //console.log("DEBUG: God Mode or no company. Triggering blank ID fetch.");
+                        fetchNewID();
                     }
                 }
-
-                applyAutoLockUI();
 
                 if (type === 'edit') {
-                    $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'auto').removeClass(
-                        'bg-light').prop('readonly', false);
-                }
+                    $('#f_company, #f_branch, #member_search_input').css('pointer-events', 'auto').removeClass('bg-light').prop('readonly', false);
+                    
+                    if (window.userGodMode) {
+                        $('#branchList').empty();
+                        $('#f_branch').val('');
+                    } else if (window.userContext && window.userContext.company_id) {
+                        $.ajax({
+                            url: '/api/v1/branches?company_id=' + window.userContext.company_id,
+                            type: 'GET',
+                            headers: { 'Authorization': 'Bearer ' + apiToken },
+                            success: function(res) {
+                                let options = '';
+                                branchMap = {};
+                                res.data.forEach(b => {
+                                    let compName = b.company ? b.company.company_name : 'Master Company';
+                                    let disp = `${compName} - ${b.branch_name} (${b.branch_id})`;
+                                    options += `<option value="${disp}">`;
+                                    branchMap[disp] = b.id;
+                                });
+                                $('#branchList').html(options);
+                            }
+                        });
+                    }
 
-                if (window.userGodMode) {
-                    $('#branchList').empty();
-                    $('#f_branch').val('');
-                } else if (window.userContext && window.userContext.company_id) {
                     $.ajax({
-                        url: '/api/v1/branches?company_id=' + window.userContext.company_id,
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
-                        success: function(res) {
-                            let options = '';
-                            branchMap = {};
-                            res.data.forEach(b => {
-                                let compName = b.company ? b.company.company_name :
-                                    'Master Company';
-                                let disp =
-                                `${compName} - ${b.branch_name} (${b.branch_id})`;
-                                options += `<option value="${disp}">`;
-                                branchMap[disp] = b.id;
-                            });
-                            $('#branchList').html(options);
-                        }
-                    });
-                }
-
-                if (type === 'edit') {
-                    $.get({
                         url: `/api/v1/customers/${id}`,
-                        headers: {
-                            'Authorization': 'Bearer ' + apiToken
-                        },
+                        type: 'GET',
+                        headers: { 'Authorization': 'Bearer ' + apiToken }, 
                         success: function(res) {
                             let cust = res.data;
                             $('#edit_id').val(cust.id);
@@ -1502,9 +1534,8 @@
                             if (cust.status) $('#f_status').val(cust.status);
 
                             if (cust.company_id) {
-                                let cName = Object.keys(companyMap).find(key => companyMap[key] ==
-                                    cust.company_id);
-                                if (!cName && cust.company) cName = cust.company.company_name;
+                                let cName = Object.keys(companyMap).find(key => companyMap[key] == cust.company_id);
+                                if (!cName && cust.company) cName = cust.company.company_name; 
                                 $('#f_company').val(cName || 'Master Company');
                                 $('#hidden_company_id').val(cust.company_id);
                             }
@@ -1513,33 +1544,28 @@
                                 $('#f_branch').val(cust.branch.branch_name);
                                 $('#branch_id_hidden').val(cust.branch_id);
                             } else {
-                                $('#f_branch').val('Head Office');
+                                $('#f_branch').val('Head Office'); 
                                 $('#branch_id_hidden').val('');
                             }
 
                             if (cust.member_id) {
-                                $('#member_search_input').val(cust.member_id);
+                                $('#member_search_input').val(cust.member_id); 
                                 $('#f_member_id').val(cust.member_id);
                             }
 
                             Object.keys(cust).forEach(key => {
                                 let input = $(`#customerForm [name="${key}"]`);
-                                if (input.length && input.attr('type') !== 'file' && input
-                                    .attr('type') !== 'radio') {
-                                    if (typeof cust[key] === 'object' && cust[key] !== null)
-                                        return;
-                                    if (key !== 'branch_id' && key !== 'member_id' &&
-                                        key !== 'status') input.val(cust[key]);
+                                if (input.length && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
+                                    if (typeof cust[key] === 'object' && cust[key] !== null) return;
+                                    if (key !== 'branch_id' && key !== 'member_id' && key !== 'status') input.val(cust[key]);
                                 }
                             });
 
                             $('#f_bank_branch').val(cust.bank_branch_text);
 
-                            if (cust.gender) $(`input[name="gender"][value="${cust.gender}"]`).prop(
-                                'checked', true);
+                            if (cust.gender) $(`input[name="gender"][value="${cust.gender}"]`).prop('checked', true);
                             if (cust.marital_status) {
-                                $(`input[name="marital_status"][value="${cust.marital_status}"]`)
-                                    .prop('checked', true);
+                                $(`input[name="marital_status"][value="${cust.marital_status}"]`).prop('checked', true);
                                 if (cust.marital_status === 'Married') {
                                     $('#wrap_anniversary').show();
                                     $('#f_anniversary').val(cust.date_of_anniversary);
@@ -1547,14 +1573,10 @@
                             }
 
                             let fileFields = [
-                                'aadharcard', 'pancard', 'bank_passbook_pdf', 'drivinglicense',
-                                'passport', 'passport_photo',
-                                'tenthmarksheet', 'twelvethmarksheet', 'graduationcertificate',
-                                'pgcertificate', 'otherdoc',
-                                'nom_aadharcard', 'nom_pancard', 'nom_bankpassbook',
-                                'nom_drivinglicense', 'nom_passport',
-                                'nom_passport_photo', 'nom_tenthmarksheet',
-                                'nom_twelvethmarksheet', 'nom_graduationcertificate',
+                                'aadharcard', 'pancard', 'bank_passbook_pdf', 'drivinglicense', 'passport', 'passport_photo',
+                                'tenthmarksheet', 'twelvethmarksheet', 'graduationcertificate', 'pgcertificate', 'otherdoc',
+                                'nom_aadharcard', 'nom_pancard', 'nom_bankpassbook', 'nom_drivinglicense', 'nom_passport',
+                                'nom_passport_photo', 'nom_tenthmarksheet', 'nom_twelvethmarksheet', 'nom_graduationcertificate',
                                 'nom_pgcertificate', 'nom_otherdoc'
                             ];
 
@@ -1564,22 +1586,15 @@
                                 if (input.length > 0 && filePath) {
                                     let wrapper = input.next('.file-preview-wrapper');
                                     let content = wrapper.find('.preview-content');
-                                    let fullUrl = filePath.startsWith('/') ? filePath :
-                                        '/' + filePath;
+                                    let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
                                     let ext = filePath.split('.').pop().toLowerCase();
                                     let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
-
+                                    
                                     if (imageExts.includes(ext)) {
-                                        content.html(
-                                            `<img src="${fullUrl}" style="max-height:90px; border-radius:6px; object-fit:contain;">`
-                                            );
+                                        content.html(`<img src="${fullUrl}" style="max-height:90px; border-radius:6px; object-fit:contain;">`);
                                     } else {
-                                        let icon = ext === 'pdf' ?
-                                            'fa-file-pdf text-danger' :
-                                            'fa-file-alt text-primary';
-                                        content.html(
-                                            `<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas ${icon} fs-3"></i><a href="${fullUrl}" target="_blank" class="text-decoration-none" style="font-size:12px;">View Document</a></div>`
-                                            );
+                                        let icon = ext === 'pdf' ? 'fa-file-pdf text-danger' : 'fa-file-alt text-primary';
+                                        content.html(`<div class="d-flex align-items-center gap-2 fw-bold text-dark px-2"><i class="fas ${icon} fs-3"></i><a href="${fullUrl}" target="_blank" class="text-decoration-none" style="font-size:12px;">View Document</a></div>`);
                                     }
                                     wrapper.show();
                                 }
@@ -1628,8 +1643,9 @@
 
             $(document).on('click', '.view-btn', function() {
                 let id = $(this).data('id');
-                $.get({
+                $.ajax({
                     url: `/api/v1/customers/${id}`,
+                    type: 'GET',
                     headers: {
                         'Authorization': 'Bearer ' + apiToken
                     },
@@ -1654,7 +1670,6 @@
                         $('#v_aadhar').text(d.aadhar_number || 'N/A');
                         $('#v_pan').text(d.pan_number || 'N/A');
 
-                        // 🔥 REGISTRATION DATE IN VIEW MODAL 🔥
                         $('#v_joining').text(d.registration_date || 'N/A');
 
                         $('#v_father').text(d.father_name || 'N/A');
@@ -1721,14 +1736,14 @@
 
             let oldCustomerDataMap = {};
 
-            $(document).on('change', '#is_old_customer', function() {
+          $(document).on('change', '#is_old_customer', function() {
+                //console.log("--- DEBUG: Old Customer Toggle Triggered ---");
                 if ($(this).is(':checked')) {
                     $('#old_customer_sec').slideDown();
                     let compOpts = '<option value="">-- All Companies --</option>';
                     if (typeof companyMap !== 'undefined' && Object.keys(companyMap).length > 0) {
                         Object.keys(companyMap).forEach(compName => {
-                            compOpts +=
-                                `<option value="${companyMap[compName]}">${compName}</option>`;
+                            compOpts += `<option value="${companyMap[compName]}">${compName}</option>`;
                         });
                     }
                     $('#old_search_company').html(compOpts);
@@ -1736,9 +1751,23 @@
                     $('#old_customer_sec').slideUp();
                     $('#old_search_input').val('');
                     $('#old_customer_code').val('');
+                    
+                    // Reset sab mita deta hai
                     $('#customerForm')[0].reset();
                     $(this).prop('checked', false);
-                    fetchNewID();
+                    
+                    // 🔥 NAYA FIX: Reset hone ke baad wapas applyAutoLockUI chalayen aur Company Change trigger karein!
+                    //console.log("DEBUG: Form Reset Hua, re-applying locks");
+                    applyScopeUI();
+                    applyAutoLockUI();
+                    
+                    let ctx = window.userContext || {};
+                    if (ctx.company_id) {
+                        // Trigger change hone se branch and ID dono theek se wapas load ho jayenge
+                        $('#f_company').trigger('change');
+                    } else {
+                        fetchNewID();
+                    }
                 }
             });
 
@@ -1751,14 +1780,21 @@
                     return;
                 }
 
-                $.get(`/api/v1/customers/search-old?company_id=${compId}`, function(res) {
-                    let options = '';
-                    oldCustomerDataMap = {};
-                    res.data.forEach(c => {
-                        options += `<option value="${c.display_text}">`;
-                        oldCustomerDataMap[c.display_text] = c;
-                    });
-                    $('#oldCustomerList').html(options);
+                $.ajax({
+                    url: `/api/v1/customers/search-old?company_id=${compId}`,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        let options = '';
+                        oldCustomerDataMap = {};
+                        res.data.forEach(c => {
+                            options += `<option value="${c.display_text}">`;
+                            oldCustomerDataMap[c.display_text] = c;
+                        });
+                        $('#oldCustomerList').html(options);
+                    }
                 });
             });
 
@@ -1770,14 +1806,21 @@
                     return;
                 }
                 if (q.length >= 3) {
-                    $.get(`/api/v1/customers/search-old?q=${q}&company_id=${compId}`, function(res) {
-                        let options = '';
-                        oldCustomerDataMap = {};
-                        res.data.forEach(c => {
-                            options += `<option value="${c.display_text}">`;
-                            oldCustomerDataMap[c.display_text] = c;
-                        });
-                        $('#oldCustomerList').html(options);
+                    $.ajax({
+                        url: `/api/v1/customers/search-old?q=${q}&company_id=${compId}`,
+                        type: 'GET',
+                        headers: {
+                            'Authorization': 'Bearer ' + apiToken
+                        },
+                        success: function(res) {
+                            let options = '';
+                            oldCustomerDataMap = {};
+                            res.data.forEach(c => {
+                                options += `<option value="${c.display_text}">`;
+                                oldCustomerDataMap[c.display_text] = c;
+                            });
+                            $('#oldCustomerList').html(options);
+                        }
                     });
                 }
             });
@@ -1808,7 +1851,6 @@
                 $('#old_customer_code').val(data.customer_code);
                 Object.keys(data).forEach(key => {
                     let input = $(`#customerForm [name="${key}"]`);
-                    // 🔥 REGISTRATION DATE INCLUDES FIX 🔥
                     if (input.length && input.attr('type') !== 'file' && !['branch_id', 'company_id',
                             'member_id', 'customer_id', 'password', 'registration_date'
                         ].includes(key)) {
@@ -1823,9 +1865,23 @@
             }
 
             function fetchNewID() {
-                let cId = $('#hidden_company_id').val() || 1;
-                $.get(`/api/v1/customers/generate-id?company_id=${cId}`, function(res) {
-                    $('#f_cust_id').val(res.customer_id);
+                let ctx = window.userContext || {};
+                let cId = $('#hidden_company_id').val() || ctx.company_id || 1;
+
+                $.ajax({
+                    url: `/api/v1/customers/generate-id?company_id=${cId}`,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + apiToken
+                    },
+                    success: function(res) {
+                        if (res && res.customer_id) {
+                            $('#f_cust_id').val(res.customer_id);
+                        }
+                    },
+                    error: function(err) {
+                        //console.error('Failed to generate new ID:', err);
+                    }
                 });
             }
 

@@ -248,6 +248,15 @@
                                 <input type="number" name="daily_target_count" class="form-control shadow-none"
                                     value="0" min="0">
                             </div>
+                  <div class="col-md-3 target-fields d-none mt-2">
+    <label class="form-label small fw-bold text-muted">Lead Provider & %</label>
+    <div class="input-group input-group-sm">
+        <select name="provider_id" id="providerSelect" class="form-select shadow-none border-primary">
+            <option value="">-- Mixed Data --</option>
+        </select>
+        <input type="number" name="provider_percent" class="form-control border-primary shadow-none" value="50" min="1" max="100" style="max-width: 65px;" title="Provider Allocation %">
+    </div>
+</div>
                             <div class="col-md-12 target-fields d-none mt-2">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="carry_forward_pending"
@@ -339,6 +348,15 @@
                                 <input type="number" name="daily_target_count" id="editTargetCount"
                                     class="form-control shadow-none" min="0">
                             </div>
+<div class="col-md-3 edit-target-fields d-none mt-2">
+    <label class="form-label small fw-bold text-muted">Lead Provider & %</label>
+    <div class="input-group input-group-sm">
+        <select name="provider_id" id="editProviderSelect" class="form-select shadow-none border-warning task-provider-dropdown">
+            <option value="">Loading providers...</option>
+        </select>
+        <input type="number" name="provider_percent" id="editProviderPercent" class="form-control shadow-none border-warning" value="50" min="1" max="100" style="max-width: 65px;">
+    </div>
+</div>
                             <div class="col-md-12 edit-target-fields d-none">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="carry_forward_pending"
@@ -382,15 +400,17 @@
             let allPhases = [];
             let globalRulesData = [];
 
-            // --- SELECT2 & CASCADING LOGIC ---
-            function initSelect2(element) {
-                $(element).select2({
-                    theme: 'bootstrap-5',
-                    width: '100%',
-                    dropdownParent: $(element).parent(),
-                    closeOnSelect: false
-                });
-            }
+        function initSelect2(element) {
+    // 🔥 FIX: Dropdown ko parent column ke badle Modal par attach karein taaki UI overlap na ho
+    let modal = $(element).closest('.modal'); 
+    
+    $(element).select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        dropdownParent: modal.length ? modal : $(document.body), 
+        closeOnSelect: false
+    });
+}
             $('.select2-multiple').each(function() {
                 initSelect2(this);
             });
@@ -459,17 +479,16 @@
                 else $('.edit-target-fields').addClass('d-none');
             });
 
-            // Cascading Dependent Dropdowns
-            function loadCompanies() {
-                $.get(apiPrefix + '/companies', function(res) {
-                    let html = '';
-                    res.data.forEach(c => {
-                        html +=
-                            `<option value="${c.id}" data-name="${c.company_name}">${c.company_name}</option>`;
-                    });
-                    $('#companySelect').html(html).val(null).trigger('change.select2');
-                });
-            }
+            // 1. Update loadCompanies
+function loadCompanies() {
+    $.get(apiPrefix + '/task-dependencies/companies', function(res) {
+        let html = '';
+        res.data.forEach(c => {
+            html += `<option value="${c.id}" data-name="${c.company_name}">${c.company_name}</option>`;
+        });
+        $('#companySelect').html(html).val(null).trigger('change.select2');
+    });
+}
 
             $('#addRuleModal').on('shown.bs.modal', function() {
                 if ($('#companySelect option').length === 0) loadCompanies();
@@ -480,106 +499,109 @@
                 loadUsers();
             });
 
-            $('#companySelect').on('change', function() {
-                let compIds = getSelected('companySelect');
-                populatePhaseDropdown(); // Filter phases
-                if (!compIds) {
-                    $('#branchSelect').html('').val(null).trigger('change');
-                    loadUsers();
-                    return;
-                }
+            // 2. Update Branch AJAX call
+$('#companySelect').on('change', function() {
+    let compIds = getSelected('companySelect');
+    populatePhaseDropdown(); 
+    if (!compIds) {
+        $('#branchSelect').html('').val(null).trigger('change');
+        loadUsers();
+        return;
+    }
 
-                let type = $('#assigneeTypeSelect').val() === 'App\\Models\\Employee' ? 'employee' :
-                    'member';
-                let html = '';
-                $('#companySelect option:selected').each(function() {
-                    html +=
-                        `<option value="HO_${$(this).val()}">Head Office (${$(this).data('name')})</option>`;
-                });
-                $.get(apiPrefix + `/branches?company_ids=${compIds}&user_type=${type}&type=${type}`,
-                    function(res) {
-                        res.data.forEach(b => {
-                            html += `<option value="${b.id}">${b.branch_name}</option>`;
-                        });
-                        $('#branchSelect').html(html).val(null).trigger('change.select2');
-                        loadUsers();
-                    });
-            });
+    let type = $('#assigneeTypeSelect').val() === 'App\\Models\\Employee' ? 'employee' : 'member';
+    let html = '';
+    $('#companySelect option:selected').each(function() {
+        html += `<option value="HO_${$(this).val()}">Head Office (${$(this).data('name')})</option>`;
+    });
+    
+    // 🔥 FIX: Added /task-dependencies/ prefix
+    $.get(apiPrefix + `/task-dependencies/branches?company_ids=${compIds}&user_type=${type}&type=${type}`, function(res) {
+        res.data.forEach(b => {
+            html += `<option value="${b.id}">${b.branch_name}</option>`;
+        });
+        $('#branchSelect').html(html).val(null).trigger('change.select2');
+        loadUsers();
+    });
+});
 
-            $('#branchSelect').on('change', function() {
-                let branchIds = getSelected('branchSelect');
-                if (!branchIds) {
-                    $('#deptSelect').html('').val(null).trigger('change');
-                    loadUsers();
-                    return;
-                }
-                let type = $('#assigneeTypeSelect').val() === 'App\\Models\\Employee' ? 'employee' :
-                    'member';
-                $.get(apiPrefix + `/departments?branch_ids=${branchIds}&user_type=${type}&type=${type}`,
-                    function(res) {
-                        let html = '';
-                        res.data.forEach(d => {
-                            html += `<option value="${d.id}">${d.department_name}</option>`;
-                        });
-                        $('#deptSelect').html(html).val(null).trigger('change.select2');
-                        loadUsers();
-                    });
-            });
-
-            $('#deptSelect').on('change', function() {
-                let deptIds = getSelected('deptSelect');
-                if (!deptIds) {
-                    $('#desigSelect').html('').val(null).trigger('change');
-                    loadUsers();
-                    return;
-                }
-                let type = $('#assigneeTypeSelect').val() === 'App\\Models\\Employee' ? 'employee' :
-                    'member';
-                $.get(apiPrefix + `/designations?department_ids=${deptIds}&user_type=${type}&type=${type}`,
-                    function(res) {
-                        let html = '';
-                        res.data.forEach(d => {
-                            html += `<option value="${d.id}">${d.designation_name}</option>`;
-                        });
-                        $('#desigSelect').html(html).val(null).trigger('change.select2');
-                        loadUsers();
-                    });
-            });
-
+           // 3. Update Department AJAX call (and pass assignee_type for isolation logic)
+$('#branchSelect').on('change', function() {
+    let branchIds = getSelected('branchSelect');
+    if (!branchIds) {
+        $('#deptSelect').html('').val(null).trigger('change');
+        loadUsers();
+        return;
+    }
+    
+    // 🔥 FIX: Passed assignee_type directly to trigger backend isolation logic
+    let assigneeType = $('#assigneeTypeSelect').val(); 
+    
+    $.get(apiPrefix + `/task-dependencies/departments?branch_ids=${branchIds}&assignee_type=${assigneeType}`, function(res) {
+        let html = '';
+        res.data.forEach(d => {
+            html += `<option value="${d.id}">${d.department_name}</option>`;
+        });
+        $('#deptSelect').html(html).val(null).trigger('change.select2');
+        loadUsers();
+    });
+});
+          // 4. Update Designation AJAX call
+$('#deptSelect').on('change', function() {
+    let deptIds = getSelected('deptSelect');
+    if (!deptIds) {
+        $('#desigSelect').html('').val(null).trigger('change');
+        loadUsers();
+        return;
+    }
+    
+    // 🔥 FIX: Added /task-dependencies/ prefix
+    $.get(apiPrefix + `/task-dependencies/designations?department_ids=${deptIds}`, function(res) {
+        let html = '';
+        res.data.forEach(d => {
+            html += `<option value="${d.id}">${d.designation_name}</option>`;
+        });
+        $('#desigSelect').html(html).val(null).trigger('change.select2');
+        loadUsers();
+    });
+});
             $('#desigSelect').on('change', function() {
                 loadUsers();
             });
 
             let isFetchingUsers = false;
 
-            function loadUsers() {
-                if (isFetchingUsers) return;
-                let type = $('#assigneeTypeSelect').val();
-                let isStaff = type === 'App\\Models\\Employee';
-                let apiUrl = isStaff ? apiPrefix + '/employees' : apiPrefix + '/members';
+           // 5. Update Employee/Member API URLs inside loadUsers()
+function loadUsers() {
+    if (isFetchingUsers) return;
+    let type = $('#assigneeTypeSelect').val();
+    let isStaff = type === 'App\\Models\\Employee';
+    
+    // 🔥 FIX: Point to task-dependencies routes to get direct arrays instead of paginated objects
+    let apiUrl = isStaff ? apiPrefix + '/task-dependencies/employees' : apiPrefix + '/task-dependencies/members';
 
-                let params = {
-                    length: -1,
-                    company_ids: getSelected('companySelect'),
-                    branch_ids: getSelected('branchSelect'),
-                    department_ids: getSelected('deptSelect'),
-                    designation_ids: getSelected('desigSelect'),
-                    user_type: isStaff ? 'employee' : 'member',
-                    status: 'active'
-                };
+    let params = {
+        length: -1,
+        company_ids: getSelected('companySelect'),
+        branch_ids: getSelected('branchSelect'),
+        department_ids: getSelected('deptSelect'),
+        designation_ids: getSelected('desigSelect'),
+        user_type: isStaff ? 'employee' : 'member',
+        status: 'active'
+    };
 
-                isFetchingUsers = true;
-                $.get(apiUrl, params, function(res) {
-                    let html = '';
-                    res.data.forEach(user => {
-                        let name = user.full_name || user.member_name || user.name || 'Unknown';
-                        let idCode = user.member_id ? user.member_id : 'N/A';
-                        html += `<option value="${user.id}">${name} (${idCode})</option>`;
-                    });
-                    $('#userSelect').html(html).val(null).trigger('change.select2');
-                    isFetchingUsers = false;
-                });
-            }
+    isFetchingUsers = true;
+    $.get(apiUrl, params, function(res) {
+        let html = '';
+        res.data.forEach(user => {
+            let name = user.full_name || user.member_name || user.name || 'Unknown';
+            let idCode = user.member_id ? user.member_id : 'N/A';
+            html += `<option value="${user.id}">${name} (${idCode})</option>`;
+        });
+        $('#userSelect').html(html).val(null).trigger('change.select2');
+        isFetchingUsers = false;
+    });
+}
 
             // --- DATA RENDERING (Table & Cards) ---
             function loadRules() {
@@ -835,9 +857,12 @@
 
                     if (isTarget) {
                         $('#editTrackingModule').val(d.tracking_module_id);
-                        $('#editPhaseSelect').val(d.phase_id);
+                       $('#editPhaseSelect').val(d.phase_id);
                         $('#editTargetCount').val(d.daily_target_count);
                         $('#editCarryForward').prop('checked', d.carry_forward_pending);
+                        
+                        $('#editProviderSelect').val(d.provider_id || '');
+                        $('#editProviderPercent').val(d.provider_percent || 50); // 🔥 YAHAN ADD KAREIN
                     }
                     $('#editRuleModal').modal('show');
                 }).always(function() {
@@ -865,6 +890,34 @@
                     }
                 });
             });
+
+            // ==========================================
+            // 🔥 FETCH DYNAMIC PROVIDERS 🔥
+            // ==========================================
+            function loadAvailableProviders() {
+                $.ajax({
+                    url: apiPrefix + '/available-providers',
+                    type: 'GET',
+                    success: function(res) {
+                        let options = '<option value="">-- Mixed Data (No specific) --</option>';
+                        if (res.success && res.data && res.data.length > 0) {
+                            res.data.forEach(p => {
+                                options += `<option value="${p.id}">${p.name}</option>`;
+                            });
+                        } else {
+                            options = '<option value="">-- No Data Available --</option>';
+                        }
+                        // Ye class dono modals me options bhar degi
+                        $('.task-provider-dropdown').html(options);
+                    },
+                    error: function() {
+                        $('.task-provider-dropdown').html('<option value="">Error loading data</option>');
+                    }
+                });
+            }
+            
+            // Page load hone par api call karein
+            loadAvailableProviders();
 
         });
     </script>

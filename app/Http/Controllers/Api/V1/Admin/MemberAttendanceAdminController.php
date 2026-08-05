@@ -224,12 +224,8 @@ class MemberAttendanceAdminController extends Controller
                                       ->where('date', $date)
                                       ->first();
 
-        // Har 2 minute wali background tracking ka data
-        $locationLogs = \App\Models\MemberLocationLog::where('member_id', $memberId)
-                                      ->where('log_date', $date)
-                                      ->orderBy('tracked_at', 'asc')
-                                      ->get(['latitude', 'longitude', 'tracked_at']);
-
+        
+  // 🔴 Route tracking disabled. Sirf Punch In/Out point return karenge.
         return response()->json([
             'status' => 'success',
             'punch_in' => [
@@ -242,7 +238,7 @@ class MemberAttendanceAdminController extends Controller
                 'lng' => $attendance->punch_out_longitude ?? null,
                 'time' => $attendance->punch_out_time ? Carbon::parse($attendance->punch_out_time)->format('h:i a') : null
             ],
-            'route' => $locationLogs
+            'route' => [] // Khaali array bhej diya taaki map fail na ho
         ]);
     }
 

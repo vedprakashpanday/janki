@@ -38,5 +38,10 @@ class Landowner extends Model
         return array_key_exists('branch', $this->attributes) ? $this->attributes['branch'] : '';
     }
 
+    // 🔥 NAYA: Phase Relation 🔥
+    public function phase()
+    {
+        return $this->belongsTo(Phase::class, 'phase_id');
+    }
 
 }

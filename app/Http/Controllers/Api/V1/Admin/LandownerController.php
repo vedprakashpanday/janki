@@ -61,8 +61,11 @@ class LandownerController extends Controller
     // ==========================================
     public function store(Request $request)
     {
+        // 🔥 NAYA: company_id aur phase_id validation me add kiya 🔥
         $request->validate([
+            'company_id' => 'required|exists:companies,id',
             'branch_id' => 'required|exists:branches,id',
+            'phase_id' => 'required|exists:phases,id',
             'land_owner_name' => 'required',
             'mobile1' => 'required'
         ]);
@@ -161,7 +164,16 @@ class LandownerController extends Controller
 
     public function update(Request $request, $id)
     {
-       $landowner = Landowner::findOrFail($id);
+      $landowner = Landowner::findOrFail($id);
+
+        // 🔥 NAYA: Update karte waqt bhi validation zaroori hai 🔥
+        $request->validate([
+            'company_id' => 'required|exists:companies,id',
+            'branch_id' => 'required|exists:branches,id',
+            'phase_id' => 'required|exists:phases,id',
+            'land_owner_name' => 'required',
+            'mobile1' => 'required'
+        ]);
 
         // 🛡️ OWNERSHIP CHECK
         $user = auth()->user();
@@ -172,6 +184,7 @@ class LandownerController extends Controller
             }
         }
 
+        // $data array me automatic phase_id aa jayega kyunki humne explicitly usko form se bheja hai
         $data = $request->except(['_token', 'land_owner_id', 'land_id', '_method']);
 
         $fileFields = [ /* Same 20 files */
@@ -210,4 +223,50 @@ class LandownerController extends Controller
         }
         return response()->json(['status' => 'success', 'message' => 'Deleted successfully']);
     }
+
+
+    // ==========================================
+    // 🔥 AUTO-FILL SEARCH APIS 🔥
+    // ==========================================
+
+    public function searchCompany(Request $request)
+    {
+        if (strlen($request->q) < 3) return response()->json([]);
+        $companies = \App\Models\Company::where('company_name', 'LIKE', "%{$request->q}%")
+            ->limit(10)->get(['id', 'company_name']);
+        return response()->json($companies);
+    }
+
+    public function searchBranch(Request $request)
+    {
+        if (strlen($request->q) < 3) return response()->json([]);
+        $branches = \App\Models\Branch::where('company_id', $request->company_id)
+            ->where('branch_name', 'LIKE', "%{$request->q}%")
+            ->limit(10)->get(['id', 'branch_name']);
+        return response()->json($branches);
+    }
+
+    public function searchPhase(Request $request)
+    {
+        if (strlen($request->q) < 2) return response()->json([]);
+        $phases = \App\Models\Phase::with('company:id,company_name')
+            ->where('company_id', $request->company_id)
+            ->where('branch_id', $request->branch_id)
+            ->where('phase_name', 'LIKE', "%{$request->q}%")
+            ->limit(10)->get(['id', 'phase_name', 'company_id']);
+        return response()->json($phases);
+    }
+
+    public function searchLandownersList(Request $request)
+    {
+        if (strlen($request->q) < 3) return response()->json([]);
+        $landowners = Landowner::where('company_id', $request->company_id)
+            ->where('branch_id', $request->branch_id)
+            ->where('phase_id', $request->phase_id)
+            ->where('land_owner_name', 'LIKE', "%{$request->q}%")
+            ->limit(10)->get(['id', 'land_owner_name', 'mobile1']);
+        return response()->json($landowners);
+    }
+
+
 }

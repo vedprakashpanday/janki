@@ -164,12 +164,16 @@
                                 <datalist id="company_datalist"></datalist>
                                 <input type="hidden" name="company_id" id="company_id_hidden" required>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label text-secondary small fw-bold">Branch Name <span
-                                        class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="branch_name" required
-                                    placeholder="e.g. South Delhi Office">
-                            </div>
+                            <!-- Inside #addBranchForm -> <div class="row g-3 mb-3"> -->
+<div class="col-md-6">
+    <label class="form-label text-secondary small fw-bold">Branch Name <span class="text-danger">*</span></label>
+    <input type="text" class="form-control" name="branch_name" required placeholder="e.g. South Delhi Office">
+</div>
+<!-- 🔥 NEW: Branch Code Field -->
+<div class="col-md-6">
+    <label class="form-label text-secondary small fw-bold">Branch Code</label>
+    <input type="text" class="form-control" name="branch_code" placeholder="e.g. SD-01 (Optional)">
+</div>
                             <div class="col-md-4">
                                 <label class="form-label text-secondary small fw-bold">State <span
                                         class="text-danger">*</span></label>
@@ -233,12 +237,16 @@
                                 <datalist id="edit_company_datalist"></datalist>
                                 <input type="hidden" name="company_id" id="edit_company_id_hidden" required>
                             </div>
-                            <div class="col-md-12">
-                                <label class="small fw-bold text-secondary">Branch Name <span
-                                        class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="branch_name" id="edit_branch_name"
-                                    required>
-                            </div>
+                            <!-- Inside #editBranchForm -> <div class="row g-3 mb-3"> -->
+<div class="col-md-6">
+    <label class="small fw-bold text-secondary">Branch Name <span class="text-danger">*</span></label>
+    <input type="text" class="form-control" name="branch_name" id="edit_branch_name" required>
+</div>
+<!-- 🔥 NEW: Edit Branch Code Field -->
+<div class="col-md-6">
+    <label class="small fw-bold text-secondary">Branch Code</label>
+    <input type="text" class="form-control" name="branch_code" id="edit_branch_code">
+</div>
                             <div class="col-md-4">
                                 <label class="small fw-bold text-secondary">State <span
                                         class="text-danger">*</span></label>
@@ -297,9 +305,14 @@
                                 <td id="v_branch_id" class="fw-bold text-primary fs-5 text-break"></td>
                             </tr>
                             <tr>
-                                <th>Branch Name</th>
-                                <td id="v_branch_name" class="fw-bold text-dark"></td>
-                            </tr>
+    <th>Branch Name</th>
+    <td id="v_branch_name" class="fw-bold text-dark"></td>
+</tr>
+<!-- 🔥 NEW: View Branch Code -->
+<tr>
+    <th>Branch Code</th>
+    <td id="v_branch_code" class="fw-bold text-dark"></td>
+</tr>
                             <tr>
                                 <th>Assigned Company</th>
                                 <td id="v_company_name"></td>
@@ -725,6 +738,7 @@ $('#add_map_url, #edit_map_url').on('input', function() {
                         let data = res.data;
                         $('#v_branch_id').text(data.branch_id);
                         $('#v_branch_name').text(data.branch_name);
+                        $('#v_branch_code').text(data.branch_code || '-');
                         $('#v_company_name').text(data.company ? data.company.company_name :
                             'Master Branch');
                         $('#v_location').text((data.branch_district || '-') + ', ' + (data
@@ -772,6 +786,7 @@ $('#add_map_url, #edit_map_url').on('input', function() {
                             $('#edit_company_id_hidden').val(branch.company_id);
                         }
                         $('#edit_branch_name').val(branch.branch_name);
+                        $('#edit_branch_code').val(branch.branch_code);
                         $('#edit_branch_state').val(branch.branch_state);
                         $('#edit_branch_district').val(branch.branch_district);
                         $('#edit_opening_date').val(branch.opening_date);

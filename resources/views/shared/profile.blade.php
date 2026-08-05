@@ -163,7 +163,7 @@ function loadUserData() {
                 let photo = u.profile_photo || res.profile_photo || u.passport_photo || '';
                 let idString = u.profile_id_string || res.profile_id_string || u.member_id || '';
                 let designation = u.designation_name || u.designation || u.profile_designation || 'Employee Access';
-$('#displayDesignation').text(designation);
+                $('#displayDesignation').text(designation);
 
                 // Data display karna
                 $('#displayMemberName').text(fullName);
@@ -187,11 +187,11 @@ $('#displayDesignation').text(designation);
                 }
             }
         },
-        error: function(err) {
+            error: function(err) {
             console.error("Profile Fetch Error:", err);
             $('#displayMemberName').text('Error Loading Data');
             $('#displayDesignation').text('-');
-        }
+            }
     });
 }
     loadUserData();

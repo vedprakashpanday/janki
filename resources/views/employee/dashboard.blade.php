@@ -517,12 +517,11 @@
                 $('#statFine').text(stats.fine_amount ? parseFloat(stats.fine_amount).toFixed(2) : "0.00");
             }
 
-      window.showDayDetails = function(dateStr, inTime, outTime, status, remark, workedTime) {
+      window.showDayDetails = function(dateStr, inTime, outTime, status, remark, workedTime, extraTime) {
                 let displayDate = new Date(dateStr).toLocaleString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
+                    day: 'numeric', month: 'short', year: 'numeric'
                 });
+
                 let statusBadgeColor = 'bg-secondary';
                 if (status === 'present') statusBadgeColor = 'bg-success';
                 else if (status === 'absent') statusBadgeColor = 'bg-danger';
@@ -530,7 +529,7 @@
                 else if (status === 'lt') statusBadgeColor = 'bg-warning text-dark'; // Custom for SweetAlert
                 else if (status === 'leave' || status === 'cl') statusBadgeColor = 'bg-info text-dark';
 
-                let cleanStatus = status === 'lt' ? 'LATE IN (LT)' : status.replace('_', ' ').toUpperCase();
+             let cleanStatus = status === 'lt' ? 'LATE IN (LT)' : status.replace('_', ' ').toUpperCase();
 
                 Swal.fire({
                     title: `<strong class="text-primary">${displayDate}</strong>`,
@@ -540,10 +539,12 @@
                                 <span class="fw-bold text-muted">System Status:</span>
                                 <span class="badge ${statusBadgeColor} border">${cleanStatus}</span>
                             </div>
+                            <!-- 🔥 NAYA: 4 Box wala naya Grid -->
                             <div class="row g-2 mb-3">
-                                <div class="col-4"><div class="p-2 border rounded bg-success bg-opacity-10 text-success text-center"><i class="fas fa-sign-in-alt"></i><br><strong>${inTime}</strong></div></div>
-                                <div class="col-4"><div class="p-2 border rounded bg-danger bg-opacity-10 text-danger text-center"><i class="fas fa-sign-out-alt"></i><br><strong>${outTime}</strong></div></div>
-                                <div class="col-4"><div class="p-2 border rounded bg-primary bg-opacity-10 text-primary text-center"><i class="fas fa-hourglass-half"></i><br><strong>${workedTime}</strong></div></div>
+                                <div class="col-6"><div class="p-2 border rounded bg-success bg-opacity-10 text-success text-center"><i class="fas fa-sign-in-alt"></i><br>In: <strong>${inTime}</strong></div></div>
+                                <div class="col-6"><div class="p-2 border rounded bg-danger bg-opacity-10 text-danger text-center"><i class="fas fa-sign-out-alt"></i><br>Out: <strong>${outTime}</strong></div></div>
+                                <div class="col-6"><div class="p-2 border rounded bg-primary bg-opacity-10 text-primary text-center"><i class="fas fa-briefcase"></i><br>Total: <strong>${workedTime}</strong></div></div>
+                                <div class="col-6"><div class="p-2 border rounded bg-info bg-opacity-10 text-info text-center"><i class="fas fa-stopwatch"></i><br>Extra: <strong>${extraTime}</strong></div></div>
                             </div>
                             <div class="p-3 bg-light border rounded">
                                 <p class="mb-1 text-muted small fw-bold"><i class="fas fa-info-circle text-primary"></i> Reason / System Note:</p>
@@ -579,13 +580,13 @@
                     let safeRemark = (record.remark || 'No specific note.').replace(/'/g, "\\'").replace(/"/g,
                         "&quot;");
 
-                  let infoBtn = '';
-                   if (record.remark && record.status !== 'future' && record.status !== 'n_a' && record.status !== 'off' && record.status !== 'holiday') {
-                        infoBtn = `<div class="mt-1 text-center"><button class="btn btn-sm btn-outline-info py-0 px-1 w-100" style="font-size:10px; border-radius:4px;" onclick="showDayDetails('${dateStr}', '${record.login_time || '--:--'}', '${record.logout_time || '--:--'}', '${record.status}', '${safeRemark}', '${record.worked_time || '--:--'}')"><i class="fas fa-eye"></i><span class="d-none d-md-inline"> Details</span></button></div>`;
+                  // 🔥 NAYA: record.extra_time function me pass kiya gaya
+                    let infoBtn = '';
+                    if (record.remark && record.status !== 'future' && record.status !== 'n_a' && record.status !== 'off' && record.status !== 'holiday') {
+                        infoBtn = `<div class="mt-1 text-center"><button class="btn btn-sm btn-outline-info py-0 px-1 w-100" style="font-size:10px; border-radius:4px;" onclick="showDayDetails('${dateStr}', '${record.login_time || '--:--'}', '${record.logout_time || '--:--'}', '${record.status}', '${safeRemark}', '${record.worked_time || '--:--'}', '${record.extra_time || '0h 0m'}')"><i class="fas fa-eye"></i><span class="d-none d-md-inline"> Details</span></button></div>`;
                     } else if (record.status === 'off' || record.status === 'holiday') {
                         infoBtn = `<div class="mt-1 text-center text-muted" style="font-size:9px; font-weight:bold;">${record.remark}</div>`;
                     }
-
                     if (record.status === 'n_a') {
                         boxClass = 'day-off';
                         statusHtml = `<div class="status-box bg-NA border"><span class="d-none d-md-inline">- (Before Join)</span><span class="d-inline d-md-none fw-bold">-</span></div>`;

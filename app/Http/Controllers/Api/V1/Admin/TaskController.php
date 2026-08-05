@@ -149,6 +149,8 @@ class TaskController extends Controller
             'tasks.*.title' => 'required|string|max:255',
             'tasks.*.tracking_module_id' => 'nullable|exists:task_tracking_modules,id',
             'tasks.*.phase_id' => 'nullable|exists:phases,id',
+           'tasks.*.provider_id' => 'nullable|string',
+            'tasks.*.provider_percent' => 'nullable|integer|min:1|max:100', // 🔥 YAHAN ADD KAREIN
             'tasks.*.target_count' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
             'priority' => 'required|in:Low,Medium,High,Urgent',
@@ -216,6 +218,8 @@ class TaskController extends Controller
                         'title' => $taskItem['title'],
                         'tracking_module_id' => $taskItem['tracking_module_id'] ?? null,
                         'phase_id' => $taskItem['phase_id'] ?? null,
+                        'provider_id' => $taskItem['provider_id'] ?? null, // 🔥 YE ADD KAREIN
+                        'provider_percent' => $taskItem['provider_percent'] ?? null, // 🔥 YAHAN ADD KAREIN
                         'target_count' => $taskItem['target_count'] ?? 0,
                         'description' => $request->description,
                         'priority' => $request->priority,
@@ -226,8 +230,19 @@ class TaskController extends Controller
                     // ==========================================
                     // 🔥 YEH NAYA LOGIC YAHAN ADD KARNA HAI 🔥
                     // ==========================================
-                    if ($task->phase_id && $task->target_count > 0) {
-                        $allocationService->allocateFreshCustomers($task, $task->target_count);
+                   if ($task->phase_id && $task->target_count > 0) {
+                        // Agar admin ne override checkbox select kiya hai
+                        if (isset($taskItem['is_member_override']) && $taskItem['is_member_override'] == '1') {
+                            $allocationService->allocateOverrideMemberLeads(
+                                $task, 
+                                $taskItem['override_member_id'], 
+                                $taskItem['override_status'], 
+                                $task->target_count
+                            );
+                        } else {
+                            // Normal fresh leads
+                            $allocationService->allocateFreshCustomers($task, $task->target_count);
+                        }
                     }
                     // ==========================================
 
@@ -503,6 +518,8 @@ class TaskController extends Controller
             'priority' => 'required|in:Low,Medium,High,Urgent',
             'tracking_module_id' => 'nullable|exists:task_tracking_modules,id',
             'phase_id' => 'nullable|exists:phases,id',
+          'provider_id' => 'nullable|string',
+            'provider_percent' => 'nullable|integer|min:1|max:100', // 🔥 YAHAN ADD KAREIN
             'target_count' => 'nullable|integer|min:0',
             'due_datetime' => 'nullable|date',
         ]);
@@ -523,6 +540,8 @@ class TaskController extends Controller
                 'priority' => $request->priority,
                 'tracking_module_id' => $request->tracking_module_id,
                 'phase_id' => $request->phase_id,
+                'provider_id' => $request->provider_id ?? null, // 🔥 YE ADD KAREIN
+                'provider_percent' => $request->provider_percent ?? null, // 🔥 YAHAN ADD KAREIN
                 'target_count' => $request->target_count ?? 0,
                 'due_datetime' => $request->due_datetime,
             ]);

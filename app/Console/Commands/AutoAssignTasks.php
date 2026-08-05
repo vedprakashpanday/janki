@@ -100,6 +100,9 @@ class AutoAssignTasks extends Command
                     'priority'           => $setting->priority,
                     'due_datetime'       => now()->endOfDay(),
                     'status'             => 'Pending',
+                    
+                    // 🔥 NAYI LINE YAHAN ADD KAREIN:
+                    'provider_id'        => $setting->provider_id ?? null,
                 ]);
 
                 // 🔥 FIX: Target vs Non-Target Logic

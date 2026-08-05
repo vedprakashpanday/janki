@@ -72,20 +72,11 @@ class AttendanceController extends Controller
         }
     }
 
-    // 🟢 3. Background Location Ping API (Continuous Tracking)
+ // 🟢 3. Background Location Ping API (DISABLED TO SAVE SERVER COST & IP BAN)
     public function pingLocation(Request $request)
     {
-        $member = $request->user();
-        
-        MemberLocationLog::create([
-            'member_id'  => $member->id,
-            'log_date'   => Carbon::today()->toDateString(),
-            'latitude'   => $request->latitude,
-            'longitude'  => $request->longitude,
-            'tracked_at' => Carbon::now(),
-        ]);
-
-        return response()->json(['status' => 'success']);
+        // 🔴 Database insert band kar diya gaya hai. Sirf empty success bhejein taaki app crash na ho.
+        return response()->json(['status' => 'success', 'message' => 'Ping disabled']);
     }
 
     // 🟢 4. View Calendar / Monthly Attendance API

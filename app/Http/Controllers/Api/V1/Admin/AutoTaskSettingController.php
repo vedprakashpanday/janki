@@ -56,16 +56,20 @@ class AutoTaskSettingController extends Controller
                 'created_by' => $context->profile_id,
             ];
 
-            if ($request->task_type === 'target') {
-                $data['phase_id'] = $request->phase_id;
-                $data['tracking_module_id'] = $request->tracking_module_id; // Tracking module add kiya
-                $data['daily_target_count'] = $request->daily_target_count;
-            } else {
-                $data['phase_id'] = null;
-                $data['tracking_module_id'] = null;
-                $data['daily_target_count'] = 0;
-                $data['carry_forward_pending'] = false;
-            }
+          if ($request->task_type === 'target') {
+            $data['phase_id'] = $request->phase_id;
+            $data['tracking_module_id'] = $request->tracking_module_id;
+            $data['daily_target_count'] = $request->daily_target_count;
+            $data['provider_id'] = $request->provider_id ?? null;
+            $data['provider_percent'] = $request->provider_percent ?? 50; // 🔥 YAHAN ADD KAREIN
+        } else {
+            $data['phase_id'] = null;
+            $data['tracking_module_id'] = null;
+            $data['daily_target_count'] = 0;
+            $data['carry_forward_pending'] = false;
+            $data['provider_id'] = null; 
+            $data['provider_percent'] = 50; // 🔥 YAHAN BHI ADD KAREIN
+        }
 
             AutoTaskSetting::create($data);
             $createdCount++;
@@ -91,6 +95,7 @@ class AutoTaskSettingController extends Controller
             'task_type' => 'required|in:manual,target',
             'run_time' => 'required',
             'priority' => 'required|in:Low,Medium,High,Urgent',
+            
         ]);
 
         $data = [
@@ -101,15 +106,19 @@ class AutoTaskSettingController extends Controller
             'carry_forward_pending' => $request->has('carry_forward_pending') ? true : false,
         ];
 
-        if ($request->task_type === 'target') {
+       if ($request->task_type === 'target') {
             $data['phase_id'] = $request->phase_id;
             $data['tracking_module_id'] = $request->tracking_module_id;
             $data['daily_target_count'] = $request->daily_target_count;
+            $data['provider_id'] = $request->provider_id ?? null;
+            $data['provider_percent'] = $request->provider_percent ?? 50; // 🔥 YAHAN ADD KAREIN
         } else {
             $data['phase_id'] = null;
             $data['tracking_module_id'] = null;
             $data['daily_target_count'] = 0;
             $data['carry_forward_pending'] = false;
+            $data['provider_id'] = null; 
+            $data['provider_percent'] = 50; // 🔥 YAHAN BHI ADD KAREIN
         }
 
         $setting->update($data);

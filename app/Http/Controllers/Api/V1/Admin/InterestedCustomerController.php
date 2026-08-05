@@ -9,9 +9,47 @@ use App\Models\Member;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Facades\Excel;
 
 class InterestedCustomerController extends Controller
 {
+
+
+
+// ==========================================
+    // 1. EXCEL TEMPLATE DOWNLOAD (Naya Function)
+    // ==========================================
+    public function downloadImportTemplate()
+    {
+        // Ye wahi strict columns hain jo user ko fill karne honge
+        $headers = ['cust_name', 'mobile', 'email', 'address', 'remark', 'status', 'assigned_telecaller', 'reference', 'refer_by'];
+        $csv = implode(',', $headers) . "\n";
+        
+        return response($csv)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="Import_Template.csv"');
+    }
+
+    // ==========================================
+    // 2. AUTO-GENERATE PROVIDER ID (Naya Function)
+    // ==========================================
+    public function getNextProviderId()
+    {
+        // Database me se max provider_id nikalna (e.g., Pro_05 me se 5 nikalna)
+        $latest = \App\Models\InterestedCustomer::where('provider_id', 'like', 'Pro_%')
+            ->pluck('provider_id')
+            ->map(function ($id) {
+                return (int) str_replace('Pro_', '', $id);
+            })
+            ->max();
+
+        $nextNumber = $latest ? $latest + 1 : 1;
+        $nextId = 'Pro_' . str_pad($nextNumber, 2, '0', STR_PAD_LEFT);
+
+        return response()->json(['status' => 'success', 'provider_id' => $nextId]);
+    }
+
   public function index(Request $request)
     {
         $context = $this->getGlobalContext();
@@ -497,87 +535,71 @@ class InterestedCustomerController extends Controller
         return response()->json(['status' => true, 'data' => $data]);
     }
 
-  public function import(Request $request)
+// =========================================================
+    // 🔥 NEW SMART IMPORT (Handles JS Chunks & Head Office)
+    // =========================================================
+    public function import(\Illuminate\Http\Request $request)
     {
-        $leads = $request->input('leads', []);
-        
-        if (empty($leads)) {
-            return response()->json(['status' => 'success', 'inserted' => 0, 'db_duplicates' => 0]);
-        }
+        // 1. Validate the incoming chunk request (Physical file is NOT expected here anymore)
+        $request->validate([
+            'leads' => 'required|array',
+            'company_id' => 'required',
+            'branch_id' => 'nullable', // 🔥 Isko nullable kiya taaki Head Office (blank) pass ho sake
+            'provider_name' => 'required',
+            'provider_id' => 'required',
+        ]);
 
-        // 1. Chunk me aaye hue saare mobile numbers ek array me nikal lein
-        $mobiles = array_column($leads, 'mobile');
+        $inserted = 0;
+        $duplicates = 0;
 
-        // 2. Database se ek hi baar me check karein ki inme se kaun se numbers pehle se hain
-        $existingMobiles = \App\Models\InterestedCustomer::whereIn('mobile', $mobiles)
-            ->pluck('mobile')
-            ->toArray();
-
-        $existingMobiles = array_map('strval', $existingMobiles); // Comparison ke liye string me badle
-
-        $inserts = [];
-        $dbDuplicatesCount = 0;
-        $now = now();
-
-        // 3. Data filter karein
-        foreach ($leads as $row) {
-            $mobile = (string) $row['mobile'];
+        foreach ($request->leads as $row) {
+            $mobile = isset($row['mobile']) ? trim($row['mobile']) : null;
             
-            // Agar database me pehle se hai, toh skip karein
-            if (in_array($mobile, $existingMobiles)) {
-                $dbDuplicatesCount++;
+            // Agar mobile number blank hai toh skip karo
+            if (!$mobile) {
                 continue;
             }
 
-            // Agar galti se isi array me double number aa gaya ho, usko bhi rokein
-            if (isset($inserts[$mobile])) {
+            // Database me duplicate check karo
+            if (\App\Models\InterestedCustomer::where('mobile', $mobile)->exists()) {
+                $duplicates++;
                 continue;
             }
 
-            $inserts[$mobile] = [
-                'company_id'          => 1,
-                'branch_id'           => null,
-                'entry_status'        => 'active',
-                'cust_name'           => $row['cust_name'] ?? 'Unknown',
-                'mobile'              => $mobile,
-                'email'               => $row['email'] ?? null,
-                'address'             => $row['address'] ?? null,
-                'remark'              => $row['remark'] ?? 'RAW DATA',
-                'status'              => $row['status'] ?? 'General',
+            // Nayi lead create karo
+            \App\Models\InterestedCustomer::create([
+                'company_id' => $request->company_id,
+                'branch_id' => $request->branch_id, // Head office ke case me ye null jayega
+                'provider_id' => $request->provider_id,
+                'provider_name' => $request->provider_name,
+                'is_member' => $request->is_member ? 1 : 0,
+                'member_id' => $request->is_member ? $request->member_id : null,
+                
+                // Excel columns data
+                'cust_name' => $row['cust_name'] ?? 'Unknown',
+                'mobile' => $mobile,
+                'email' => $row['email'] ?? null,
+                'address' => $row['address'] ?? null,
+                'remark' => $row['remark'] ?? null,
+                // 'status' aur 'required_for' ko update karein
+                'status' => $request->is_member ? 'Pending' : ($row['status'] ?? 'Pending'), // Member ka hamesha Pending rahega
+                'entry_status' => 'active',
+                'required_for' => $row['required_phase'] ?? ($row['required_for'] ?? null), // required_phase column accept karega
                 'assigned_telecaller' => $row['assigned_telecaller'] ?? null,
-                'reference'           => $row['reference'] ?? null,
-                'refer_by'            => $row['refer_by'] ?? null,
-                'created_at'          => $now,
-                'updated_at'          => $now,
-            ];
-        }
+                'reference' => $row['reference'] ?? null,
+                'refer_by' => $row['refer_by'] ?? null,
+                'date' => date('Y-m-d'), // Aaj ki date
+            ]);
 
-        $insertedCount = count($inserts);
-
-        // 4. Bacha hua fresh data ek hi baar me database me daal dein
-        if ($insertedCount > 0) {
-            \App\Models\InterestedCustomer::insert(array_values($inserts));
+            $inserted++;
         }
 
         return response()->json([
             'status' => 'success',
-            'inserted' => $insertedCount,
-            'db_duplicates' => $dbDuplicatesCount
+            'inserted' => $inserted,
+            'db_duplicates' => $duplicates
         ]);
     }
-
-    public function bulkDelete(Request $request)
-{
-    if (!$request->has('ids') || empty($request->ids)) {
-        return response()->json(['success' => false, 'message' => 'No records selected!']);
-    }
-    
-    // Yahan soft-delete ya permanent delete jo bhi model me set hai, wo ho jayega
-    \App\Models\InterestedCustomer::whereIn('id', $request->ids)->delete();
-    
-    return response()->json(['success' => true, 'message' => 'Selected records deleted successfully.']);
-}
-
 public function checkMobile(Request $request)
 {
     $query = \App\Models\InterestedCustomer::where('mobile', $request->mobile);
@@ -648,6 +670,208 @@ public function checkMobile(Request $request)
                         ->get();
 
         return response()->json(['success' => true, 'data' => $report]);
+    }
+
+    public function allocateFreshCustomers(Request $request)
+{
+    $telecallerId = $request->input('telecaller_id');
+    $targetCount = (int) $request->input('target_count', 10);
+    $providerId = $request->input('provider_id'); // Optional: Agar specific provider select kiya ho
+
+    $assignedCount = 0;
+    $allocatedIds = [];
+
+    // 1. Step 1: Agar Provider ID di gayi hai, toh pehle uske fresh leads strict serial (ASC) uthao
+    if (!empty($providerId)) {
+        $providerLeads = \App\Models\InterestedCustomer::where('provider_id', $providerId)
+            ->where('entry_status', 'active')
+            ->whereNull('assigned_telecaller') // ya jo bhi aapka unassigned column check ho
+            ->orderBy('id', 'asc')
+            ->limit($targetCount)
+            ->pluck('id')
+            ->toArray();
+
+        $allocatedIds = array_merge($allocatedIds, $providerLeads);
+    }
+
+   // 2. Step 2: Agar target abhi bhi bacha hai (Fallback Logic), toh bachi hui general/normal leads uthao
+    $remainingCount = $targetCount - count($allocatedIds);
+    if ($remainingCount > 0) {
+        $fallbackLeads = \App\Models\InterestedCustomer::whereNull('assigned_telecaller')
+            ->where('entry_status', 'active')
+            ->when(!empty($providerId), function($query) use ($providerId) {
+                // Agar pehle provider select tha, toh uske alawa ya bachi hui baaki leads
+                return $query->where(function($q) use ($providerId) {
+                    $q->where('provider_id', '!=', $providerId)
+                      ->orWhereNull('provider_id');
+                });
+            })
+            ->orderBy('id', 'asc')
+            ->limit($remainingCount)
+            ->pluck('id')
+            ->toArray();
+
+        $allocatedIds = array_merge($allocatedIds, $fallbackLeads);
+    }
+
+    // 3. Step 3: Final Update / Assignment to Telecaller
+    if (!empty($allocatedIds)) {
+        \App\Models\InterestedCustomer::whereIn('id', $allocatedIds)->update([
+            'assigned_telecaller' => $telecallerId,
+            'updated_at' => now()
+        ]);
+        $assignedCount = count($allocatedIds);
+    }
+
+    return response()->json([
+        'status' => 'success',
+        'message' => "Successfully allocated {$assignedCount} leads!",
+        'allocated_count' => $assignedCount
+    ]);
+}
+
+
+// =======================================================
+    // 🔥 GET MEMBER LEADS SUMMARY (For Admin Override) 🔥
+    // =======================================================
+    public function getMemberLeadsSummary($member_id)
+    {
+        $summary = \App\Models\InterestedCustomer::where('is_member', 1)
+            ->where('member_id', $member_id)
+            ->select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+            ->groupBy('status')
+            ->get();
+
+        return response()->json([
+            'success' => true, 
+            'data' => $summary
+        ]);
+    }
+
+ public function getMemberPortalLeads(Request $request)
+    {
+        // 🔥 STRICT SECURITY LOCK
+        if (empty($request->member_id)) {
+            return response()->json([
+                'success' => true,
+                'current_page' => 1,
+                'last_page' => 1,
+                'data' => []
+            ]);
+        }
+
+        $query = \App\Models\InterestedCustomer::query()
+            ->where('member_id', $request->member_id)
+            ->where('is_member', 1);
+
+        // 🔥 DYNAMIC FILTERS
+        if ($request->filled('mobile')) {
+            $query->where('mobile', 'like', '%' . $request->mobile . '%');
+        }
+        if ($request->filled('address')) {
+            $query->where('address', 'like', '%' . $request->address . '%');
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date); 
+        }
+
+        // ========================================================
+        // 🔥 TELECALLER-STYLE CUMULATIVE PRIORITY SORTING 🔥
+        // ========================================================
+        $today = now()->toDateString();
+        $threeDaysAgo = now()->subDays(3)->toDateString();
+
+        // Ye array 'Rollover' status wala wahi hai jo humne Service file me define kiya tha
+        $rolloverStatuses = "('Busy', 'Switch Off', 'Switched Off', 'DND/Call Rejected', 'DND/Call Restricted', 'Not Reachable', 'Not Reachable call', 'Not Answering', 'Not Answering Call', 'Incoming Call Not Available')";
+        
+        $priorityStatuses = "('Follow Up', 'Interested', 'Highly Interested', 'Connected', 'Connected ', 'Call Back Requested', 'On Hold')";
+
+        $query->orderByRaw("
+            CASE 
+                -- RANK 1: Priority Status (Follow up, Interested, etc) jinka date aaj ya aaj se pehle hai (Ya date set hi na ho)
+                WHEN status IN $priorityStatuses AND (followup_date IS NULL OR followup_date <= ?) THEN 1
+                
+                -- RANK 2: Koi bhi aur Follow-up date jo aaj ya aaj se purani ho (Missed followups)
+                WHEN followup_date IS NOT NULL AND followup_date <= ? THEN 2
+                
+                -- RANK 3: Rollover Statuses jo pichle 3 din mein update hue ho
+                WHEN status IN $rolloverStatuses AND DATE(updated_at) >= ? THEN 3
+                
+                -- RANK 4: Fresh/Pending Leads jo abhi tak touch nahi hui
+                WHEN status IN ('Pending', 'pending', 'Pending status', 'General', 'general') THEN 4
+                
+                -- RANK 5: Baaki sab (Future follow-ups, Blacklist, Closed leads)
+                ELSE 5
+            END ASC
+        ", [$today, $today, $threeDaysAgo])
+        
+        // Agar same rank me data hai, toh date ke hisaab se sort karo
+        ->orderBy('followup_date', 'asc') 
+        ->orderBy('updated_at', 'desc') 
+        ->orderBy('id', 'desc'); 
+
+        // Execute with pagination
+        $leads = $query->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'current_page' => $leads->currentPage(),
+            'last_page' => $leads->lastPage(),
+            'data' => $leads->items()
+        ]);
+    }
+    // =========================================================
+    // 🔥 GENERATE DYNAMIC CSV TEMPLATE FOR MEMBER 🔥
+    // =========================================================
+    public function downloadMemberTemplate()
+    {
+        $context = $this->getGlobalContext();
+        
+        // Member ki company aur branch ke hisaab se Phases nikalein
+        $query = \App\Models\Phase::where('company_id', $context->company_id);
+        if ($context->branch_id) {
+            $query->where('branch_id', $context->branch_id);
+        }
+        $phaseNames = $query->pluck('phase_name')->toArray();
+        
+        // Excel me help text dalne ke liye phases ki list banayein
+        $phaseHelpText = !empty($phaseNames) ? implode(' | ', $phaseNames) : 'Any Phase';
+
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=Member_Leads_Template.csv",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        // Member ke liye simplified columns
+        $columns = ['cust_name', 'mobile', 'email', 'address', 'remark', 'required_phase', 'reference', 'refer_by'];
+
+        $callback = function() use($columns, $phaseHelpText) {
+            $file = fopen('php://output', 'w');
+            
+            // 1. Heading Row
+            fputcsv($file, $columns);
+            
+            // 2. Sample Data Row (Jisse member ko idea lag jaye)
+            fputcsv($file, [
+                'Satyam Singh', 
+                '9999999999', 
+                'satyam@email.com', 
+                'Patna, Bihar', 
+                'Call after 5PM', 
+                $phaseHelpText, // Yahan usko apni company ke saare Phases dikhenge
+                'Facebook Ads', 
+                'Self'
+            ]);
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
 }

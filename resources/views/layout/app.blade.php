@@ -66,17 +66,16 @@
             }
 
             .header-bottom {
-                background-color: var(--sidebar-bg);
-                min-height: 50px;
                 display: flex;
                 align-items: center;
                 position: relative;
+                min-width: 0;
             }
 
             .app-main {
                 margin-left: 0;
                 padding: 30px;
-                min-height: calc(100vh - 120px);
+                min-height: calc(100vh - 70px);
             }
 
             .mobile-bottom-nav,
@@ -89,7 +88,7 @@
                 top: 0;
                 bottom: 0;
                 width: 35px;
-                background-color: var(--sidebar-bg);
+                background-color: var(--sidebar-hover);
                 border: none;
                 color: rgba(255, 255, 255, 0.7);
                 font-size: 14px;
@@ -103,25 +102,41 @@
 
             .nav-scroll-btn:hover {
                 color: #ffffff;
-                background-color: var(--sidebar-hover);
+                background-color: var(--sidebar-active);
             }
 
             .nav-scroll-btn.left-btn {
                 left: 0;
+                border-top-left-radius: 8px;
+                border-bottom-left-radius: 8px;
                 box-shadow: 4px 0 8px rgba(0, 0, 0, 0.1);
             }
 
             .nav-scroll-btn.right-btn {
                 right: 0;
+                border-top-right-radius: 8px;
+                border-bottom-right-radius: 8px;
                 box-shadow: -4px 0 8px rgba(0, 0, 0, 0.1);
             }
 
             .nav-scroll-wrapper {
+                flex: 1;
                 width: 100%;
                 padding: 0 35px;
                 position: relative;
                 overflow-x: clip;
                 overflow-y: visible;
+                background-color: var(--sidebar-bg);
+                border-radius: 8px;
+                min-height: 45px;
+                display: flex;
+                align-items: center;
+                cursor: grab;
+                user-select: none;
+            }
+
+            .nav-scroll-wrapper:active {
+                cursor: grabbing;
             }
 
             .desktop-nav {
@@ -138,21 +153,20 @@
             .desktop-nav>li {
                 position: relative;
                 flex: 0 0 auto;
-                margin-top: 5px;
-                margin-bottom: 5px;
+                margin-top: 3px;
+                margin-bottom: 3px;
             }
 
             .desktop-nav>li>a {
                 color: #E2E8F0;
                 text-decoration: none;
-                font-size: 13.5px;
+                font-size: 13px;
                 font-weight: 500;
-                padding: 10px 16px;
+                padding: 8px 14px;
                 display: block;
                 border-radius: 4px;
                 transition: all 0.2s ease-in-out;
                 white-space: nowrap;
-                user-select: none;
                 border: 1px solid transparent;
             }
 
@@ -624,6 +638,82 @@
                 <img src="{{ asset('uploads/harihomes1-logo.png') }}" alt="Workspace Logo" height="35"
                     class="brand-logo-img">
             </div>
+
+            <div class="header-bottom flex-grow-1 mx-4" id="desktopNavContainer">
+                <button class="nav-scroll-btn left-btn" id="btnScrollLeft"><i class="fas fa-chevron-left"></i></button>
+
+                <div class="nav-scroll-wrapper" id="navScrollWrapper">
+                    <ul class="desktop-nav" id="desktopNavScrollArea">
+                        <li class="secured-item" data-permission="public">
+                            <a href="{{ url($currentPortalPrefix . '/dashboard') }}"
+                                class="dynamic-dashboard-btn text-decoration-none">
+                                <i class="fas fa-home text-warning"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="secured-item" data-permission="public">
+                            <a href="{{ url($currentPortalPrefix . '/welcome-letter') }}">
+                                <i class="fas fa-envelope-open-text text-info"></i> Welcome Letter
+                            </a>
+                        </li>
+
+                        @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'employee')
+                            <li class="secured-item" data-permission="task_view">
+                                <a href="{{ url($currentPortalPrefix . '/tasks/staff') }}"
+                                    class="{{ request()->is('*/tasks/staff') ? 'active' : '' }}">
+                                    <i class="fas fa-user-tie text-success"></i> Staff Tasks
+                                </a>
+                            </li>
+                        @endif
+
+                        @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'member')
+                            <li class="secured-item" data-permission="task_mem_view">
+                                <a href="{{ url($currentPortalPrefix . '/tasks/associates') }}"
+                                    class="{{ request()->is('*/tasks/associates') ? 'active' : '' }}">
+                                    <i class="fas fa-users text-warning"></i> Associate Tasks
+                                </a>
+                            </li>
+                        @endif
+
+                        <li class="secured-item" data-permission="phases_view">
+                            <a href="{{ url($currentPortalPrefix . '/phases') }}"
+                                class="{{ request()->is('*/phases') ? 'active' : '' }}">
+                                <i class="fas fa-building text-warning"></i> Phases
+                            </a>
+                        </li>
+                        <li class="secured-item" data-permission="public">
+                            @if ($currentPortalPrefix === 'employee')
+                                <a href="{{ url($currentPortalPrefix . '/leave-applications') }}">
+                                    <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
+                                </a>
+                            @elseif($currentPortalPrefix === 'customer' || $currentPortalPrefix === 'member')
+                                <a href="{{ url($currentPortalPrefix . '/member-leave-applications') }}">
+                                    <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
+                                </a>
+                            @endif
+                        </li>
+
+                        {!! buildDesktopMenu($rootModules, $allModules, $currentPortalPrefix) !!}
+
+                        <li class="secured-item" data-permission="public">
+                            <a href="{{ url($currentPortalPrefix . '/my-notices') }}"
+                                class="{{ request()->is('*/my-notices') ? 'active' : '' }}">
+                                <i class="fas fa-bell text-danger"></i> My Notices
+                            </a>
+                        </li>
+
+                        <li class="secured-item" data-permission="public">
+                            <a href="{{ url($currentPortalPrefix . '/my-penalties') }}"
+                                class="{{ request()->is('*/my-penalties') ? 'active' : '' }}">
+                                <i class="fa-solid fa-file-invoice-dollar"></i> My Fine/Penalties
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <button class="nav-scroll-btn right-btn" id="btnScrollRight"><i
+                        class="fas fa-chevron-right"></i></button>
+            </div>
+
             <div class="d-flex align-items-center gap-3">
 
                 <button class="btn btn-light rounded-circle border-0 text-secondary shadow-sm"
@@ -655,109 +745,41 @@
                     </ul>
                 </div>
 
+                <!-- 🔥 NAYA: Header Profile Avatar and Dropdown Update 🔥 -->
                 <div class="dropdown">
                     <a href="#" class="text-decoration-none d-flex align-items-center gap-2"
                         data-bs-toggle="dropdown" style="color: var(--text-main);">
+                        <!-- Yahan se text (name display) hata diya gaya hai -->
                         <img src="https://ui-avatars.com/api/?name=User&background=1A365D&color=fff" alt="User"
-                            class="rounded-circle user-avatar-img" width="35" height="35">
-                        <span class="d-none d-md-block fw-medium fs-6 user-name-display">Loading...</span>
+                            class="rounded-circle user-avatar-img shadow-sm border" width="38" height="38"
+                            style="object-fit: cover;">
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3">
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-3 p-2" style="min-width: 200px;">
+                        <!-- 🔥 NAYA: User Greeting Info in Dropdown 🔥 -->
+                        <li class="px-3 py-2 border-bottom mb-2 bg-light rounded text-center">
+                            <span class="d-block text-muted"
+                                style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Hi,</span>
+                            <strong class="user-greeting-name text-dark fs-6 text-truncate d-block"
+                                style="max-width: 100%;">Loading...</strong>
+                        </li>
+
                         <li>
-                            <a class="dropdown-item py-2 fw-medium"
+                            <a class="dropdown-item py-2 fw-medium rounded"
                                 href="{{ url($currentPortalPrefix . '/my-profile') }}">
                                 <i class="fas fa-user-circle me-2 text-success"></i> My Profile
                             </a>
                         </li>
-                        <li><a class="dropdown-item py-2 fw-medium"
+                        <li><a class="dropdown-item py-2 fw-medium rounded"
                                 href="{{ url($currentPortalPrefix . '/terms-conditions') }}"><i
                                     class="fas fa-file-contract me-2 text-primary"></i> Terms & Conditions</a></li>
                         <li>
                             <hr class="dropdown-divider">
                         </li>
-                        <li><a class="dropdown-item py-2 fw-medium handle-logout" href="#"
+                        <li><a class="dropdown-item py-2 fw-medium handle-logout rounded" href="#"
                                 style="color: #E53E3E;"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
                     </ul>
                 </div>
             </div>
-        </div>
-
-        <div class="header-bottom" id="desktopNavContainer">
-            <button class="nav-scroll-btn left-btn" id="btnScrollLeft"><i class="fas fa-chevron-left"></i></button>
-
-            <div class="nav-scroll-wrapper" id="navScrollWrapper">
-                <ul class="desktop-nav" id="desktopNavScrollArea">
-                    <li class="secured-item" data-permission="public">
-                        <a href="{{ url($currentPortalPrefix . '/dashboard') }}"
-                            class="dynamic-dashboard-btn text-decoration-none">
-                            <i class="fas fa-home text-warning"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="secured-item" data-permission="public">
-                        <a href="{{ url($currentPortalPrefix . '/welcome-letter') }}">
-                            <i class="fas fa-envelope-open-text text-info"></i> Welcome Letter
-                        </a>
-                    </li>
-
-                    <!-- 🔥 FIX: Blade Logic for Staff / Associate Tasks 🔥 -->
-                    @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'employee')
-                        <li class="secured-item" data-permission="task_view">
-                            <a href="{{ url($currentPortalPrefix . '/tasks/staff') }}"
-                                class="{{ request()->is('*/tasks/staff') ? 'active' : '' }}">
-                                <i class="fas fa-user-tie text-success"></i> Staff Tasks
-                            </a>
-                        </li>
-                    @endif
-
-                    @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'member')
-                        <li class="secured-item" data-permission="task_mem_view">
-                            <a href="{{ url($currentPortalPrefix . '/tasks/associates') }}"
-                                class="{{ request()->is('*/tasks/associates') ? 'active' : '' }}">
-                                <i class="fas fa-users text-warning"></i> Associate Tasks
-                            </a>
-                        </li>
-                    @endif
-
-                    <li class="secured-item" data-permission="phases_view">
-                        <a href="{{ url($currentPortalPrefix . '/phases') }}"
-                            class="{{ request()->is('*/phases') ? 'active' : '' }}">
-                            <i class="fas fa-building text-warning"></i> Phases
-                        </a>
-                    </li>
-                    <li class="secured-item" data-permission="public">
-                        @if ($currentPortalPrefix === 'employee')
-                            <a href="{{ url($currentPortalPrefix . '/leave-applications') }}">
-                                <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
-                            </a>
-                        @elseif($currentPortalPrefix === 'customer' || $currentPortalPrefix === 'member')
-                            <a href="{{ url($currentPortalPrefix . '/member-leave-applications') }}">
-                                <i class="fas fa-calendar-alt text-primary"></i> Leaves & Apps
-                            </a>
-                        @endif
-                    </li>
-
-
-
-                    {!! buildDesktopMenu($rootModules, $allModules, $currentPortalPrefix) !!}
-
-                    <li class="secured-item" data-permission="public">
-                        <a href="{{ url($currentPortalPrefix . '/my-notices') }}"
-                            class="{{ request()->is('*/my-notices') ? 'active' : '' }}">
-                            <i class="fas fa-bell text-danger"></i> My Notices
-                        </a>
-                    </li>
-
-                    <li class="secured-item" data-permission="public">
-                        <a href="{{ url($currentPortalPrefix . '/my-penalties') }}"
-                            class="{{ request()->is('*/my-penalties') ? 'active' : '' }}">
-                            <i class="fa-solid fa-file-invoice-dollar"></i> My Fine/Penalties
-                        </a>
-                    </li>
-                </ul>
-            </div>
-
-            <button class="nav-scroll-btn right-btn" id="btnScrollRight"><i
-                    class="fas fa-chevron-right"></i></button>
         </div>
     </header>
 
@@ -783,7 +805,6 @@
                     <div><i class="fas fa-envelope-open-text text-info menu-icon"></i> Welcome Letter</div>
                 </a>
 
-                <!-- 🔥 FIX: Blade Logic for Staff / Associate Tasks (Mobile Sidebar) 🔥 -->
                 @if ($currentPortalPrefix === 'admin' || $currentPortalPrefix === 'employee')
                     <a href="{{ url($currentPortalPrefix . '/tasks/staff') }}"
                         class="nav-item-custom secured-item border-bottom mb-2 {{ request()->is('*/tasks/staff') ? 'active' : '' }}"
@@ -828,8 +849,6 @@
                     <div><i class="fas fa-file-contract text-info menu-icon"></i> Terms & Conditions</div>
                 </a>
 
-
-
                 {!! buildMobileMenu($rootModules, $allModules, $currentPortalPrefix) !!}
 
                 <a href="{{ url($currentPortalPrefix . '/my-notices') }}"
@@ -848,7 +867,8 @@
             <div class="sidebar-user-card mt-auto">
                 <div class="d-flex align-items-center mb-3">
                     <img src="https://ui-avatars.com/api/?name=User&background=D69E2E&color=fff"
-                        class="rounded-circle me-3 user-avatar-img" width="40" height="40">
+                        class="rounded-circle me-3 user-avatar-img" width="40" height="40"
+                        style="object-fit: cover;">
                     <div>
                         <div class="fw-bold fs-6 text-white user-name-display">Loading...</div>
                         <div class="small user-role-display" style="color: #A0AEC0;">Authenticating...</div>
@@ -873,7 +893,6 @@
             class="secured-item {{ request()->is('*/welcome-letter') ? 'active' : '' }}" data-permission="public"><i
                 class="fas fa-envelope-open-text"></i>Letter</a>
 
-        <!-- 🔥 FIX: Blade Logic for Staff / Associate Tasks (Bottom Nav) 🔥 -->
         @if ($currentPortalPrefix === 'member')
             <a href="{{ url($currentPortalPrefix . '/tasks/associates') }}"
                 class="secured-item {{ request()->is('*/tasks/*') ? 'active' : '' }}"
@@ -897,7 +916,6 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 
     <script>
         (function() {
@@ -969,24 +987,37 @@
                     };
                 }
 
-                function executeLogout() {
+               function executeLogout() {
                     Swal.fire({
-                        title: 'Logging out...',
+                        title: 'Recording Logout Location...',
+                        text: 'Please wait...',
                         allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
+                        didOpen: () => { Swal.showLoading(); }
                     });
+
+                    // Pehle location nikalenge, fir logout hit karenge
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(function(position) {
+                            payload.logout_lat = position.coords.latitude;
+                            payload.logout_lng = position.coords.longitude;
+                            sendLogoutRequest(payload);
+                        }, function(error) {
+                            console.warn("Location off hai, direct logout kar rahe hain.");
+                            sendLogoutRequest(payload); // Agar GPS off ho toh bina location logout ho jaye
+                        }, { enableHighAccuracy: true });
+                    } else {
+                        sendLogoutRequest(payload);
+                    }
+                }
+
+                // Naya Helper Function
+                function sendLogoutRequest(finalPayload) {
                     $.ajax({
                         url: logoutApiUrl,
                         type: 'POST',
-                        data: payload,
-                        success: function() {
-                            clearLocalDataAndRedirect();
-                        },
-                        error: function() {
-                            clearLocalDataAndRedirect();
-                        }
+                        data: finalPayload,
+                        success: function() { clearLocalDataAndRedirect(); },
+                        error: function() { clearLocalDataAndRedirect(); }
                     });
                 }
 
@@ -1009,24 +1040,19 @@
                 }
             };
 
-          // NAYA: Timestamp based inactivity tracker
             let lastActivityTime = Date.now();
             let idleInterval;
-            const maxIdleTime = 15 * 60 * 1000; // 15 minutes ko milliseconds me convert kiya
+            const maxIdleTime = 15 * 60 * 1000;
 
             function resetIdleTime() {
-                lastActivityTime = Date.now(); // Jab bhi hilega, time update hoga
+                lastActivityTime = Date.now();
             }
-            
-            // 🔥 'touchmove' aur 'touchend' add kiya gaya hai behtar mobile support ke liye
+
             $(document).on('mousemove keydown scroll click touchstart touchmove', resetIdleTime);
 
             function startInactivityTracker() {
-                // Har 10 second me check karega, taaki browser background se aate hi turant pakad le
                 idleInterval = setInterval(function() {
                     let currentTime = Date.now();
-                    
-                    // Agar Current Time aur Last Activity Time ka difference 15 min se zyada hai
                     if (currentTime - lastActivityTime >= maxIdleTime) {
                         clearInterval(idleInterval);
                         Swal.fire({
@@ -1040,7 +1066,7 @@
                             window.performNormalLogout(true);
                         });
                     }
-                }, 10000); 
+                }, 10000);
             }
 
             if (layoutToken) {
@@ -1058,12 +1084,15 @@
 
                 if (navArea && wrapper && btnLeft && btnRight) {
                     const updateScrollButtons = () => {
-                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
+                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth;
                         if (maxScroll <= 0) {
                             btnLeft.style.display = 'none';
                             btnRight.style.display = 'none';
+                            currentNavScroll = 0;
+                            navArea.style.transform = `translateX(0px)`;
                             return;
                         }
+
                         btnLeft.style.display = currentNavScroll > 0 ? 'flex' : 'none';
                         btnRight.style.display = currentNavScroll < maxScroll ? 'flex' : 'none';
                     };
@@ -1074,18 +1103,70 @@
                         navArea.style.transform = `translateX(-${currentNavScroll}px)`;
                         updateScrollButtons();
                     });
+
                     btnRight.addEventListener('click', () => {
-                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
+                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth;
                         currentNavScroll += 300;
                         if (currentNavScroll > maxScroll) currentNavScroll = maxScroll;
                         navArea.style.transform = `translateX(-${currentNavScroll}px)`;
                         updateScrollButtons();
                     });
 
+                    let isDragging = false;
+                    let didDrag = false;
+                    let startX;
+                    let initialTransform = 0;
+
+                    wrapper.addEventListener('mousedown', (e) => {
+                        isDragging = true;
+                        didDrag = false;
+                        startX = e.pageX;
+                        initialTransform = currentNavScroll;
+                        navArea.style.transition = 'none';
+                    });
+
+                    window.addEventListener('mouseup', () => {
+                        if (isDragging) {
+                            isDragging = false;
+                            navArea.style.transition = 'transform 0.3s ease-in-out';
+                        }
+                    });
+
+                    window.addEventListener('mousemove', (e) => {
+                        if (!isDragging) return;
+                        e.preventDefault();
+                        const x = e.pageX;
+
+                        if (Math.abs(startX - x) > 5) {
+                            didDrag = true;
+                        }
+
+                        const walk = (startX - x);
+                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth;
+                        if (maxScroll < 0) maxScroll = 0;
+
+                        currentNavScroll = initialTransform + walk;
+
+                        if (currentNavScroll < 0) currentNavScroll = 0;
+                        if (currentNavScroll > maxScroll) currentNavScroll = maxScroll;
+
+                        navArea.style.transform = `translateX(-${currentNavScroll}px)`;
+                        updateScrollButtons();
+                    });
+
+                    navArea.querySelectorAll('a').forEach(link => {
+                        link.addEventListener('click', (e) => {
+                            if (didDrag) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }
+                        });
+                    });
+
                     wrapper.addEventListener('wheel', function(e) {
                         if (e.deltaY !== 0) {
                             e.preventDefault();
-                            let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
+                            let maxScroll = navArea.scrollWidth - wrapper.clientWidth;
                             currentNavScroll += e.deltaY > 0 ? 150 : -150;
                             if (currentNavScroll < 0) currentNavScroll = 0;
                             if (currentNavScroll > maxScroll) currentNavScroll = maxScroll;
@@ -1096,15 +1177,56 @@
                         passive: false
                     });
 
-                    window.addEventListener('resize', () => {
-                        let maxScroll = navArea.scrollWidth - wrapper.clientWidth + 70;
-                        if (currentNavScroll > maxScroll) currentNavScroll = Math.max(0, maxScroll);
-                        navArea.style.transform = `translateX(-${currentNavScroll}px)`;
-                        updateScrollButtons();
+                    if (window.ResizeObserver) {
+                        const resizeObserver = new ResizeObserver(() => {
+                            let maxScroll = navArea.scrollWidth - wrapper.clientWidth;
+                            if (currentNavScroll > maxScroll && maxScroll >= 0) {
+                                currentNavScroll = maxScroll;
+                                navArea.style.transform = `translateX(-${currentNavScroll}px)`;
+                            }
+                            updateScrollButtons();
+                        });
+                        resizeObserver.observe(navArea);
+                        resizeObserver.observe(wrapper);
+                    }
+
+                    setTimeout(updateScrollButtons, 500);
+                }
+
+                $('.desktop-nav li.has-sub').on('mouseenter', function() {
+                    let $item = $(this);
+                    let $dropdown = $item.children('.desktop-dropdown');
+
+                    $dropdown.css({
+                        'left': '0',
+                        'right': 'auto'
+                    });
+                    $item.find('li.has-sub > .desktop-dropdown').css({
+                        'left': '100%',
+                        'right': 'auto',
+                        'margin-left': '1px',
+                        'margin-right': '0'
                     });
 
-                    setTimeout(updateScrollButtons, 300);
-                }
+                    let wrapperEl = document.getElementById('navScrollWrapper');
+                    if (wrapperEl && $dropdown.length > 0) {
+                        let wrapperRect = wrapperEl.getBoundingClientRect();
+                        let dropdownRect = $dropdown[0].getBoundingClientRect();
+
+                        if (dropdownRect.right > wrapperRect.right) {
+                            $dropdown.css({
+                                'left': 'auto',
+                                'right': '0'
+                            });
+                            $item.find('li.has-sub > .desktop-dropdown').css({
+                                'left': 'auto',
+                                'right': '100%',
+                                'margin-left': '0',
+                                'margin-right': '1px'
+                            });
+                        }
+                    }
+                });
 
                 if (typeof $.fn.dataTable !== 'undefined') {
                     $.fn.dataTable.ext.errMode = 'none';
@@ -1133,11 +1255,34 @@
                             perms = Object.values(u.permissions).map(p => p.name || p);
                         }
 
-                        $('.user-name-display').text(u.name || u.full_name || u.employee_name || u
-                            .member_name || 'User');
+                        // 🔥 NAYA: Update Names and Avatars with passport_photo logic 🔥
+                        let displayUserName = u.name || u.full_name || u.employee_name || u
+                            .member_name || 'User';
+
+                        $('.user-name-display').text(displayUserName); // Mobile side menu name
+                        $('.user-greeting-name').text(
+                        displayUserName); // Desktop Dropdown greeting name
+
                         $('.user-role-display').text(isGodMode ? 'Master Access' : (u
                             .designation_name || u.designation || currentPortal
                             .toUpperCase()));
+
+                        // Handle Profile Image fetch from passport_photo (Employees[cite: 5], Members[cite: 6], SuperAdmins[cite: 7], Customers[cite: 3])
+                        let profileImageUrl =
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(displayUserName)}&background=1A365D&color=fff`;
+
+                        if (u.passport_photo) {
+                            // Prepend root slash directly to load from public root if it's not an absolute URL
+                            profileImageUrl = u.passport_photo.startsWith('http') ? u
+                                .passport_photo : '/' + u.passport_photo;
+                        }
+
+                        $('.user-avatar-img').attr('src', profileImageUrl).on('error', function() {
+                            // Fallback if image path is broken
+                            $(this).attr('src',
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(displayUserName)}&background=1A365D&color=fff`
+                                );
+                        });
 
                         if (u.company_logo) {
                             $('.brand-logo-img').attr('src', u.company_logo);
@@ -1147,32 +1292,29 @@
                         window.userGodMode = isGodMode;
                         window.userPerms = perms;
 
-                 window.applyPermissions = function() {
+                        window.applyPermissions = function() {
                             $('.secured-item').each(function() {
                                 let reqPerm = $(this).data('permission');
                                 let isPermitted = false;
-                                
+
                                 if (reqPerm === 'public' || window.userGodMode) {
                                     isPermitted = true;
                                 } else if (reqPerm && reqPerm !== 'node_parent') {
                                     let base = reqPerm.replace('_view', '');
-                                    
+
                                     isPermitted = window.userPerms.some(p => {
-                                        // 1. Exact match (For Action Buttons like Add, Edit, Delete)
                                         if (p === reqPerm) return true;
-                                        
-                                        // 2. Parent matching (For Menus)
                                         if (p.startsWith(base + '_')) {
-                                            // 🔥 SURGICAL FIX: Prevent 'task_mem' (Associate) from unlocking 'task' (Staff) Menu 🔥
-                                            if (base === 'task' && p.startsWith('task_mem')) {
-                                                return false; 
+                                            if (base === 'task' && p.startsWith(
+                                                    'task_mem')) {
+                                                return false;
                                             }
                                             return true;
                                         }
                                         return false;
                                     });
                                 }
-                                
+
                                 if (isPermitted) {
                                     $(this).addClass('is-visible-node');
                                 } else {
@@ -1180,17 +1322,18 @@
                                 }
                             });
 
-                            // Bubbling for parent folders (Dropdowns)
                             let bubbling = true;
                             while (bubbling) {
                                 bubbling = false;
                                 $('.secured-item.is-visible-node').each(function() {
                                     let pId = $(this).data('parent-id');
                                     if (pId) {
-                                        $('.secured-item[data-id="' + pId + '"]:not(.is-visible-node)').each(function() {
-                                            $(this).addClass('is-visible-node');
-                                            bubbling = true;
-                                        });
+                                        $('.secured-item[data-id="' + pId +
+                                            '"]:not(.is-visible-node)').each(
+                                            function() {
+                                                $(this).addClass('is-visible-node');
+                                                bubbling = true;
+                                            });
                                     }
                                 });
                             }
@@ -1235,7 +1378,6 @@
                                     let iconClass = e.icon || 'fa-bell';
                                     let colorClass = e.colorClass || 'text-primary';
 
-                                    // 🔥 SMART URL FIX (Realtime Notifications) 🔥
                                     if (targetUrl.match(/\/tasks\/?$/)) {
                                         if (currentPortal === 'member') {
                                             targetUrl = targetUrl.replace(/\/tasks\/?$/,
@@ -1256,7 +1398,7 @@
                                     }
 
                                     let currentCount = parseInt($('#globalUnreadCount')
-                                    .text()) || 0;
+                                        .text()) || 0;
                                     $('#globalUnreadCount').text(currentCount + 1).removeClass(
                                         'd-none');
                                     $('#noNotifMessage').addClass('d-none');
@@ -1279,14 +1421,6 @@
                                         </li>
                                     `;
                                     $('#notificationList').prepend(notifHtml);
-                                } else if (e.logData) {
-                                    if (typeof window.markTaskAsUnread === 'function' && e
-                                        .taskId) {
-                                        if (!$('#taskDetailsModal').hasClass('show') || $(
-                                                '#replyTaskId').val() != e.taskId) {
-                                            window.markTaskAsUnread(e.taskId);
-                                        }
-                                    }
                                 }
                             };
 
@@ -1306,7 +1440,6 @@
                                             let payload = notif.data;
                                             let targetUrl = payload.url || '#';
 
-                                            // 🔥 SMART URL FIX (Database Notifications) 🔥
                                             if (targetUrl.match(/\/tasks\/?$/)) {
                                                 if (currentPortal === 'member') {
                                                     targetUrl = targetUrl.replace(
@@ -1321,13 +1454,14 @@
                                                     if (payload.message && (payload
                                                             .message.toLowerCase()
                                                             .includes(
-                                                            'associate') || payload
+                                                                'associate') ||
+                                                            payload
                                                             .message.toLowerCase()
                                                             .includes('member'))) {
                                                         targetUrl = targetUrl
                                                             .replace(/\/tasks\/?$/,
                                                                 '/tasks/associates'
-                                                                );
+                                                            );
                                                     } else {
                                                         targetUrl = targetUrl
                                                             .replace(/\/tasks\/?$/,
@@ -1400,65 +1534,6 @@
         })();
     </script>
     @stack('scripts')
-
-    <script>
-        $(document).ready(function() {
-            let empToken = localStorage.getItem('emp_token');
-
-            if (empToken && empToken.includes('_S_')) {
-                console.warn("🚨 SECONDARY DEVICE: DATA LISTINGS DISABLED 🚨");
-
-                $(document).on('xhr.dt', function(e, settings, json, xhr) {
-                    if (json && json.data) {
-                        json.data = [];
-                        json.recordsTotal = 0;
-                        json.recordsFiltered = 0;
-                    }
-                });
-
-                $('<style>').prop('type', 'text/css').html(`
-            .dataTables_wrapper, table.dataTable, .table-responsive,
-            #mobileCardsContainer, #requestsMobileContainer, .mobile-item { 
-                display: none !important; opacity: 0 !important; visibility: hidden !important; 
-            }
-        `).appendTo('head');
-
-                const enforceActionRules = function() {
-                    $('button, a, .btn, .dropdown-item').each(function() {
-                        let text = $(this).text().trim().toLowerCase();
-                        let html = $(this).html().toLowerCase();
-
-                        if (
-                            text.includes('export') || text.includes('excel') || html.includes(
-                                'fa-file-excel') ||
-                            text.includes('print') || html.includes('fa-print') ||
-                            text.includes('delete') || html.includes('fa-trash') || text.includes(
-                                'bulk delete')
-                        ) {
-                            $(this).remove();
-                        }
-                    });
-
-                    $('.card').each(function() {
-                        let cardHtml = $(this).html().toLowerCase();
-                        if (cardHtml.includes('tele:') || $(this).find(
-                                'button:contains("Edit"), a:contains("Edit")').length > 0) {
-                            $(this).remove();
-                        }
-                    });
-                };
-
-                enforceActionRules();
-
-                const observer = new MutationObserver(enforceActionRules);
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
-            }
-        });
-    </script>
-
 </body>
 
 </html>

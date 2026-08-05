@@ -236,22 +236,78 @@
 
                             <div class="tab-pane fade show active" id="tab-personal">
 
-                                <div class="row g-3 mb-4 pb-3 border-bottom">
-                                    <div class="col-md-6">
-                                        <label class="form-label text-secondary small">Select Branch <span
-                                                class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="f_branch" list="branchList"
-                                            placeholder="Search Branch..." required autocomplete="off">
-                                        <input type="hidden" name="branch_id" id="branch_id_hidden" required>
-                                        <datalist id="branchList"></datalist>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label text-secondary small">Select Agent (Optional)</label>
-                                        <input type="text" name="agent_id" class="form-control" id="f_agent"
-                                            list="agentList" placeholder="Search Agent ID..." autocomplete="off">
-                                        <datalist id="agentList"></datalist>
-                                    </div>
-                                </div>
+                                <!-- ALREADY REGISTERED TOGGLE -->
+<div class="form-check form-switch mb-3 p-3 bg-light border rounded">
+    <input class="form-check-input" type="checkbox" id="alreadyRegisteredToggle" style="margin-left: 0; width: 2.5em; height: 1.25em; cursor: pointer;">
+    <label class="form-check-label ms-3 fw-bold text-primary" for="alreadyRegisteredToggle" style="cursor: pointer; margin-top: 2px;">
+        Already Registered? (Auto-fill Data)
+    </label>
+</div>
+
+<!-- AUTO-FILL SEARCH SECTION (Hidden by default) -->
+<div id="alreadyRegisteredSection" class="row g-3 mb-4 p-3 bg-white border border-primary rounded shadow-sm" style="display: none;">
+    <h6 class="text-primary fw-bold mb-1"><i class="fas fa-search me-1"></i> Search Existing Record</h6>
+    
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Search Company</label>
+        <input type="text" class="form-control" id="search_reg_company" placeholder="Type 3 letters...">
+        <input type="hidden" id="search_reg_company_id">
+        <ul class="list-group position-absolute w-100 shadow-sm" id="s_reg_company_list" style="z-index: 1000; display: none;"></ul>
+    </div>
+    
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Search Branch</label>
+        <input type="text" class="form-control" id="search_reg_branch" placeholder="Type 3 letters..." disabled>
+        <input type="hidden" id="search_reg_branch_id">
+        <ul class="list-group position-absolute w-100 shadow-sm" id="s_reg_branch_list" style="z-index: 1000; display: none;"></ul>
+    </div>
+    
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Search Phase</label>
+        <input type="text" class="form-control" id="search_reg_phase" placeholder="Type 2 letters..." disabled>
+        <input type="hidden" id="search_reg_phase_id">
+        <ul class="list-group position-absolute w-100 shadow-sm" id="s_reg_phase_list" style="z-index: 1000; display: none;"></ul>
+    </div>
+
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Search Landowner</label>
+        <input type="text" class="form-control" id="search_reg_landowner" placeholder="Type name..." disabled>
+        <input type="hidden" id="search_reg_landowner_id">
+        <ul class="list-group position-absolute w-100 shadow-sm" id="s_reg_landowner_list" style="z-index: 1000; display: none;"></ul>
+    </div>
+</div>
+
+<!-- STANDARD FORM FIELDS (Company -> Branch -> Phase -> Agent) -->
+<div class="row g-3 mb-4 pb-3 border-bottom" id="standardFormFields">
+    
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Select Company <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="f_company" placeholder="Type 3 letters..." required autocomplete="off">
+        <input type="hidden" name="company_id" id="company_id_hidden" required>
+        <ul class="list-group position-absolute w-100 shadow-sm" id="f_company_list" style="z-index: 1000; display: none;"></ul>
+    </div>
+
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Select Branch <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="f_branch" placeholder="Type 3 letters..." required autocomplete="off" disabled>
+        <input type="hidden" name="branch_id" id="branch_id_hidden" required>
+        <ul class="list-group position-absolute w-100 shadow-sm" id="f_branch_list" style="z-index: 1000; display: none;"></ul>
+    </div>
+
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Select Phase <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="f_phase" placeholder="Type 2 letters..." required autocomplete="off" disabled>
+        <input type="hidden" name="phase_id" id="phase_id_hidden" required>
+        <ul class="list-group position-absolute w-100 shadow-sm" id="f_phase_list" style="z-index: 1000; display: none;"></ul>
+    </div>
+
+    <div class="col-md-3 position-relative">
+        <label class="form-label text-secondary small">Select Agent (Optional)</label>
+        <!-- Purana datalist wala agent as it is rakha hai jaisa aapne bola -->
+        <input type="text" name="agent_id" class="form-control" id="f_agent" list="agentList" placeholder="Search Agent ID..." autocomplete="off">
+        <datalist id="agentList"></datalist>
+    </div>
+</div>
 
                                 <div class="row g-3">
                                     <div class="col-md-4"><label class="form-label text-secondary small">Land Owner Name
@@ -608,6 +664,205 @@
             const apiToken = localStorage.getItem('admin_token');
             let mode = 'add';
             let branchMap = {}; // Datalist map ke liye
+
+            // ========================================================
+// 🔥 NAYA: AUTO-FILL & DEBOUNCING LOGIC 🔥
+// ========================================================
+
+// 1. Debounce Function
+function debounce(func, delay) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+// 2. Toggle "Already Registered" Section
+$('#alreadyRegisteredToggle').change(function() {
+    if ($(this).is(':checked')) {
+        $('#alreadyRegisteredSection').slideDown();
+        $('#standardFormFields').slideUp();
+    } else {
+        $('#alreadyRegisteredSection').slideUp();
+        $('#standardFormFields').slideDown();
+        // Reset Search Fields
+        $('#search_reg_company, #search_reg_branch, #search_reg_phase, #search_reg_landowner').val('');
+        $('#search_reg_company_id, #search_reg_branch_id, #search_reg_phase_id, #search_reg_landowner_id').val('');
+        $('#search_reg_branch, #search_reg_phase, #search_reg_landowner').prop('disabled', true);
+    }
+});
+
+// 3. Search Company (Already Registered)
+$('#search_reg_company').on('input', debounce(function() {
+    let q = $(this).val();
+    let list = $('#s_reg_company_list');
+    if (q.length >= 3) {
+        $.get(`/api/v1/search-company?q=${q}`, function(data) {
+            list.empty().show();
+            if(data.length === 0) list.append('<li class="list-group-item text-muted">No company found</li>');
+            data.forEach(item => {
+                list.append(`<li class="list-group-item list-group-item-action c-pointer" data-id="${item.id}">${item.company_name}</li>`);
+            });
+        });
+    } else {
+        list.hide();
+    }
+}, 400));
+
+// Select Company
+$(document).on('click', '#s_reg_company_list li[data-id]', function() {
+    $('#search_reg_company').val($(this).text());
+    $('#search_reg_company_id').val($(this).data('id'));
+    $('#s_reg_company_list').hide();
+    // Enable Next
+    $('#search_reg_branch').prop('disabled', false).focus();
+    $('#search_reg_branch, #search_reg_phase, #search_reg_landowner').val('');
+});
+
+// 4. Search Branch (Already Registered)
+$('#search_reg_branch').on('input', debounce(function() {
+    let q = $(this).val();
+    let c_id = $('#search_reg_company_id').val();
+    let list = $('#s_reg_branch_list');
+    if (q.length >= 3) {
+        $.get(`/api/v1/search-branch?q=${q}&company_id=${c_id}`, function(data) {
+            list.empty().show();
+            if(data.length === 0) list.append('<li class="list-group-item text-muted">No branch found</li>');
+            data.forEach(item => {
+                list.append(`<li class="list-group-item list-group-item-action c-pointer" data-id="${item.id}">${item.branch_name}</li>`);
+            });
+        });
+    } else {
+        list.hide();
+    }
+}, 400));
+
+// Select Branch
+$(document).on('click', '#s_reg_branch_list li[data-id]', function() {
+    $('#search_reg_branch').val($(this).text());
+    $('#search_reg_branch_id').val($(this).data('id'));
+    $('#s_reg_branch_list').hide();
+    // Enable Next
+    $('#search_reg_phase').prop('disabled', false).focus();
+    $('#search_reg_phase, #search_reg_landowner').val('');
+});
+
+// 5. Search Phase (Already Registered)
+$('#search_reg_phase').on('input', debounce(function() {
+    let q = $(this).val();
+    let c_id = $('#search_reg_company_id').val();
+    let b_id = $('#search_reg_branch_id').val();
+    let list = $('#s_reg_phase_list');
+    
+    if (q.length >= 2) {
+        $.get(`/api/v1/search-phase?q=${q}&company_id=${c_id}&branch_id=${b_id}`, function(data) {
+            list.empty().show();
+            if(data.length === 0) list.append('<li class="list-group-item text-muted">No phase found</li>');
+            data.forEach(item => {
+                let c_name = item.company ? item.company.company_name : 'N/A';
+                list.append(`<li class="list-group-item list-group-item-action c-pointer" data-id="${item.id}">${item.phase_name} <small class="text-info fw-bold">(${c_name})</small></li>`);
+            });
+        });
+    } else {
+        list.hide();
+    }
+}, 400));
+
+// Select Phase
+$(document).on('click', '#s_reg_phase_list li[data-id]', function() {
+    $('#search_reg_phase').val($(this).text());
+    $('#search_reg_phase_id').val($(this).data('id'));
+    $('#s_reg_phase_list').hide();
+    // Enable Next
+    $('#search_reg_landowner').prop('disabled', false).focus();
+    $('#search_reg_landowner').val('');
+});
+
+// 6. Search Landowner & AUTO-FILL
+$('#search_reg_landowner').on('input', debounce(function() {
+    let q = $(this).val();
+    let c_id = $('#search_reg_company_id').val();
+    let b_id = $('#search_reg_branch_id').val();
+    let p_id = $('#search_reg_phase_id').val();
+    let list = $('#s_reg_landowner_list');
+    
+    if (q.length >= 3) {
+        $.get(`/api/v1/search-landowners-list?q=${q}&company_id=${c_id}&branch_id=${b_id}&phase_id=${p_id}`, function(data) {
+            list.empty().show();
+            if(data.length === 0) list.append('<li class="list-group-item text-muted">No landowner found</li>');
+            data.forEach(item => {
+                list.append(`<li class="list-group-item list-group-item-action c-pointer" data-id="${item.id}">${item.land_owner_name} <small class="text-danger">(${item.mobile1})</small></li>`);
+            });
+        });
+    } else {
+        list.hide();
+    }
+}, 400));
+
+// Select Landowner & Trigger Form Fill
+$(document).on('click', '#s_reg_landowner_list li[data-id]', function() {
+    let id = $(this).data('id');
+    $('#search_reg_landowner').val($(this).text());
+    $('#s_reg_landowner_list').hide();
+    
+    // API se pura data fetch karna
+    $.get(`/api/v1/landowners/${id}`, function(res) {
+        let d = res.data;
+        
+        // 1. Inputs Auto-fill (except files)
+        Object.keys(d).forEach(key => {
+            let input = $(`#loForm [name="${key}"]`);
+            if (input.length && input.attr('type') !== 'file' && input.attr('type') !== 'radio') {
+                if (typeof d[key] !== 'object') {
+                    input.val(d[key]);
+                }
+            }
+        });
+
+        // Bank Branch Name mapping
+        $('#f_b_branch').val(d.bank_branch_text);
+
+        // Standard dropdowns hidden values set karna taaki form submit hone pe sahi data jaye
+        $('#company_id_hidden').val(d.company_id);
+        $('#branch_id_hidden').val(d.branch_id);
+        $('#phase_id_hidden').val(d.phase_id);
+
+        // 2. Existing File Previews Render
+        const autoFillDocs = [
+            'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'passport_photo', 'sign',
+            'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_passport_pdf', 'nom_passport_photo'
+        ];
+        
+        autoFillDocs.forEach(field => {
+            let filePath = d[field];
+            let input = $(`#loForm [name="${field}"]`);
+            if (input.length && filePath) {
+                let wrapper = input.next('.file-preview-wrapper');
+                let content = wrapper.find('.preview-content');
+                let fullUrl = filePath.startsWith('/') ? filePath : '/' + filePath;
+                let ext = filePath.split('.').pop().toLowerCase();
+                let imageExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp'];
+
+                if (imageExts.includes(ext)) {
+                    content.html(`<img src="${fullUrl}" style="max-height:80px; border-radius:6px;">`);
+                } else {
+                    content.html(`<div class="p-2 small"><i class="fas fa-file-pdf text-danger me-2"></i><a href="${fullUrl}" target="_blank">View File</a></div>`);
+                }
+                wrapper.show();
+            }
+        });
+
+        showMessage("Landowner Data Auto-Filled Successfully!", "success");
+    });
+});
+
+// Hide dropdowns when clicked outside
+$(document).click(function(e) {
+    if (!$(e.target).closest('.position-relative').length) {
+        $('.list-group').hide();
+    }
+});
 
 
             // ========================================================

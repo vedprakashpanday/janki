@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\DebitVoucherWebController;
 use App\Http\Controllers\Admin\CompanyWebController;
 use App\Http\Controllers\Admin\CustomerWebController;
+use App\Http\Controllers\Api\V1\Admin\InterestedCustomerController;
 
 
 
@@ -21,7 +22,7 @@ use App\Http\Controllers\Admin\CustomerWebController;
 // ==========================================
 Route::get('/', function () {
   return view('coming_soon');
-     //return view('welcome');
+    // return view('welcome');
 });
 
 Route::get('/employee-print', [\App\Http\Controllers\Api\V1\Admin\EmployeeController::class, 'printPage'])->name('employee.print');
@@ -110,6 +111,10 @@ $sharedWebRoutes = function () {
     Route::get('/ledgers', function () {
         return view('admin.ledgers');
     })->name('ledgers');
+
+        Route::get('/member_leads', function () {
+        return view('admin.member_leads');
+    })->name('member_leads');
     
     // 🔥 NAYA: Debit Vouchers - Current Date (Slug: dv_*)
     Route::get('/debit-vouchers', [\App\Http\Controllers\Admin\DebitVoucherWebController::class, 'index'])->name('debit_vouchers.index');
@@ -405,6 +410,30 @@ Route::get('/salaries/print', [\App\Http\Controllers\Api\V1\Admin\SalaryApiContr
     Route::get('/my-downline', function () {
         return view('shared.my_downline'); // Ye blade file hum next step me banayenge
     })->name('my_downline');
+
+
+    // ==========================================
+    // 🔥 INCENTIVE MODULE ROUTES 🔥
+    // ==========================================
+    
+    // Daily Incentives Page (Slug: incentive_*)
+    Route::get('/incentives', function () {
+        return view('admin.incentives.index');
+    })->name('incentives.index');
+
+    // All-Time Directory Page (Slug: incentive_dir_*)
+    Route::get('/incentives-directory', function () {
+        return view('admin.incentives.directory');
+    })->name('incentives.directory');
+
+    // Print Route (ID ya filters pass karne ke liye)
+    Route::get('/incentives/print', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'printPreview'])->name('incentives.print');
+// Individual Receipt Print
+    Route::get('/incentives/receipt/{id}', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'printReceipt'])->name('incentives.receipt');
+    Route::get('/salaries/{id}/print-slip', [\App\Http\Controllers\Api\V1\Admin\SalaryApiController::class, 'printSlip'])->name('salaries.print_slip');
+
+    Route::get('/interested-customers/import-template', [InterestedCustomerController::class, 'downloadImportTemplate']);
+Route::get('/interested-customers/next-provider-id', [InterestedCustomerController::class, 'getNextProviderId']);
 
 };
 

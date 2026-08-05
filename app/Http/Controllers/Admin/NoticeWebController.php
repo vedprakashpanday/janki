@@ -13,7 +13,8 @@ class NoticeWebController extends Controller
 {
     public function printNotice(Request $request, $id)
     {
-        $notice = Notice::findOrFail($id);
+      // 🔥 FIX: Added 'replies' relation here
+        $notice = Notice::with('replies')->findOrFail($id);
 
         $company = null;
         if ($request->company_id === 'all' || empty($request->company_id)) {

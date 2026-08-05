@@ -57,9 +57,20 @@ class AttendanceAdminController extends Controller
             $dts = []; foreach ($period as $dt) { $dts[] = $dt->format('Y-m-d'); } return $dts;
         })->toArray();
 
-        $leaves = LeaveApplication::whereIn('user_id', $empDbIds)->where('status', 'approved')->whereNotNull('approved_start_datetime')
-            ->where('approved_start_datetime', '<=', $endDate->format('Y-m-d 23:59:59'))
-            ->where('approved_end_datetime', '>=', $startDate->format('Y-m-d 00:00:00'))
+        // 🔥 NAYA: Custom Dates support in Leave query
+        $leaves = LeaveApplication::whereIn('user_id', $empDbIds)
+            ->where('status', 'approved')
+            ->where(function($q) use ($startDate, $endDate) {
+                $q->where(function($subQ) use ($startDate, $endDate) {
+                    $subQ->where('is_custom_date', 0)
+                         ->whereNotNull('approved_start_datetime')
+                         ->where('approved_start_datetime', '<=', $endDate->format('Y-m-d 23:59:59'))
+                         ->where('approved_end_datetime', '>=', $startDate->format('Y-m-d 00:00:00'));
+                })->orWhere(function($subQ) {
+                    $subQ->where('is_custom_date', 1)
+                         ->whereNotNull('approved_custom_dates');
+                });
+            })
             ->get()->groupBy('user_id');
 
         $matrix = []; $todayStr = Carbon::today()->format('Y-m-d');
@@ -83,11 +94,27 @@ class AttendanceAdminController extends Controller
                     $outTime = $tempAtt->logout_time ? date('h:i A', strtotime($tempAtt->logout_time)) : null;
                 }
 
+                // 🔥 NAYA: Custom Date Loop Logic
                 $onLeave = false; $leaveType = 'L';
                 if ($empLeaves->isNotEmpty()) {
                     foreach ($empLeaves as $leave) {
-                        $lStart = Carbon::parse($leave->approved_start_datetime)->format('Y-m-d'); $lEnd = Carbon::parse($leave->approved_end_datetime)->format('Y-m-d');
-                        if ($dStr >= $lStart && $dStr <= $lEnd) { $onLeave = true; if ($leave->application_type === 'Short Leave') $leaveType = 'SL'; break; }
+                        if ($leave->is_custom_date) {
+                            $customDates = is_array($leave->approved_custom_dates) ? $leave->approved_custom_dates : [];
+                            if (in_array($dStr, $customDates)) {
+                                $onLeave = true;
+                                if ($leave->application_type === 'Short Leave') $leaveType = 'SL';
+                                break;
+                            }
+                        } else {
+                            if (!$leave->approved_start_datetime || !$leave->approved_end_datetime) continue;
+                            $lStart = Carbon::parse($leave->approved_start_datetime)->format('Y-m-d'); 
+                            $lEnd = Carbon::parse($leave->approved_end_datetime)->format('Y-m-d');
+                            if ($dStr >= $lStart && $dStr <= $lEnd) { 
+                                $onLeave = true; 
+                                if ($leave->application_type === 'Short Leave') $leaveType = 'SL'; 
+                                break; 
+                            }
+                        }
                     }
                 }
 
@@ -101,7 +128,7 @@ class AttendanceAdminController extends Controller
 
                     if ($isTuesday || $isHoliday) { $status = 'ED'; $remark = 'Worked on ' . ($isTuesday ? 'Weekly Off' : 'Holiday'); $stats['extra_day']++; }
                     elseif (!empty($att->login_time) && empty($att->logout_time)) {
-                        // 🔥 FIX 3: Shivam Pandey In-Office Logic 🔥
+                        
                         if ($dStr === $todayStr) {
                             $isLateToday = false;
                             if ($empWindow) {
@@ -110,8 +137,6 @@ class AttendanceAdminController extends Controller
                             } elseif ($att->is_late_punch) { $isLateToday = true; }
 
                             if ($isLateToday) $lateCount++;
-
-                            
 
                             if ($onLeave && $leaveType === 'SL') { $status = 'SL'; $remark = 'Short Leave (In-Office)'; }
                             elseif ($isLateToday) { $status = 'LT'; $remark = 'Late In-Office (Active)'; $stats['late']++; $stats['present']++; }
@@ -131,18 +156,26 @@ class AttendanceAdminController extends Controller
 
                         if ($isLateToday) $lateCount++;
 
-                        $minHoursRaw = $empWindow ? $empWindow->min_working_hours : 8.25;
+                       $minHoursRaw = $empWindow ? $empWindow->min_working_hours : 8.25;
                         $minHours = (strpos((string)$minHoursRaw, ':') !== false) ? (int)explode(':', $minHoursRaw)[0] + ((int)explode(':', $minHoursRaw)[1] / 60) : (float)$minHoursRaw;
 
                         $in = Carbon::parse($dStr . ' ' . $att->login_time); $out = Carbon::parse($dStr . ' ' . $att->logout_time);
                         $diffSeconds = $out->timestamp - $in->timestamp; if ($diffSeconds < 0) { $out->addDay(); $diffSeconds = $out->timestamp - $in->timestamp; }
-                        $workedHours = $diffSeconds / 3600;
                         
-                        $isShortHours = ($workedHours < $minHours);
+                        $workedMins = round($diffSeconds / 60);
+                        $workedHours = $workedMins / 60;
+                        
+                        // 🔥 NAYA: Daily Extra Minutes Calculation
+                        if ($workedMins > ($minHours * 60) && (!$onLeave || $leaveType !== 'SL')) {
+                            $stats['extra_minutes'] = ($stats['extra_minutes'] ?? 0) + ($workedMins - ($minHours * 60));
+                        }
+
+                        $isShortHours = ($workedMins < ($minHours * 60));
                         if ($onLeave && $leaveType === 'SL') $isShortHours = false;
 
                         if ($isLateToday && $lateCount > 0 && ($lateCount % 3 == 0)) { $status = 'A'; $remark = 'Absent (Penalty for 3 Late Punches)'; $stats['absent']++; }
                         elseif ($isShortHours) { $status = 'HD'; $wHours = floor($workedHours); $wMins = round(($workedHours - $wHours) * 60); $remark = 'Short Working Hours (' . $wHours . 'h ' . $wMins . 'm)'; $stats['half_day']++; }
+                       
                         elseif ($onLeave && $leaveType === 'SL') { $status = 'SL'; $remark = 'Worked on Short Leave'; $stats['leave']++; }
                         elseif ($isLateToday) { $status = 'LT'; $remark = 'Late Punch In'; $stats['late']++; $stats['present']++; }
                         else { $status = 'P'; $remark = 'On Time'; $stats['present']++; }
@@ -168,7 +201,6 @@ class AttendanceAdminController extends Controller
             for ($i = 0; $i < count($dates); $i++) {
                 $dStr = $dates[$i]->format('Y-m-d'); $currRecord = $rawRecords[$dStr];
                 
-                // 🔥 FIX: HR Matrix Smarter Sandwich Logic
                 if ($currRecord['status'] === 'WO' || $currRecord['status'] === 'HO') {
                     $prevStatus = 'P';
                     for ($p = $i - 1; $p >= 0; $p--) {
@@ -192,7 +224,6 @@ class AttendanceAdminController extends Controller
                         $currRecord['status'] = 'A'; 
                         $currRecord['remark'] = 'Sandwich Rule Applied'; 
                         $stats['absent']++; 
-                        // Note: extra_day minus karne ka ghalat logic yahan se hata diya gaya hai
                     }
                 }
                 $finalDatesRecord[$dStr] = $currRecord;
@@ -202,7 +233,6 @@ class AttendanceAdminController extends Controller
             $exactDept = !empty($emp->department_id) ? (DB::table('departments')->where('id', $emp->department_id)->value('department_name') ?? 'N/A') : 'N/A';
            $exactDesig = !empty($emp->designation_id) ? (DB::table('designations')->where('id', $emp->designation_id)->value('designation_name') ?? 'N/A') : 'N/A';
 
-            // 🔥 NAYA: Format Extra Hours for Matrix
             $totalExtMins = $stats['extra_minutes'] ?? 0;
             $extH = floor($totalExtMins / 60); $extM = $totalExtMins % 60;
             $stats['extra_hours_str'] = "{$extH}h {$extM}m";
@@ -218,7 +248,6 @@ class AttendanceAdminController extends Controller
         $request->validate([
             'employee_id' => 'required|exists:adm_regist,id',
             'date' => 'required|date',
-            // 🔥 FIX: 'SL' (Short Leave) ko yahan allow kar diya gaya hai
             'corrected_status' => 'required|in:P,A,HD,L,WO,LT,SL', 
             'reason' => 'required|string'
         ]);
@@ -234,12 +263,12 @@ class AttendanceAdminController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Attendance manually corrected and locked!']);
     }
-  public function verifyPendingPunch(Request $request)
+    
+    public function verifyPendingPunch(Request $request)
     {
         $request->validate([
             'attendance_id' => 'required|exists:attendances,id',
             'action_status' => 'required|in:approved,rejected',
-            // 🔥 NAYA: 'SL' ko verification allow kiya gaya hai
             'final_attendance_status' => 'required|in:P,HD,A,L,LT,SL', 
             'hr_remark' => 'required|string|min:2'
         ]);

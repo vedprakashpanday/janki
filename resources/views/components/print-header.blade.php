@@ -3,178 +3,177 @@
     .header-wrap {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         border-bottom: 2px solid #000;
-        padding-bottom: 5px;
-        margin-bottom: 8px;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
     }
 
     .header-logo {
         width: 20%;
-        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
     .logo-image {
-        width: 195px;
-        max-width: 200px;
-        height: 70px;
-        display: block;
-        margin: 0 auto;
+        width: 100%;
+        max-height: 70px;
+        object-fit: contain;
     }
 
     .iso {
-        font-size: 7px;
+        font-size: 8px;
         font-weight: bold;
         margin-top: 4px;
+        color: #dc3545;
+        text-align: center;
     }
 
     .header-text {
         width: 80%;
-        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
 
     .company-title {
         font-size: 24px;
         font-weight: 900;
         color: #000;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
         line-height: 1.1;
+        text-align: center;
     }
 
     .cin-text {
         font-size: 10px;
         font-weight: bold;
-        margin-bottom: 3px;
+        margin-bottom: 5px;
     }
 
     .small-text {
-        font-size: 10px;
+        font-size: 11px;
         line-height: 1.4;
         color: #000;
+        text-align: center;
     }
 
-    /* 🌟 MOBILE VIEW FIXES (Responsive Magic) 🌟 */
+    /* 🌟 MOBILE VIEW FIXES 🌟 */
     @media (max-width: 767.98px) {
-        .header-wrap {
-            flex-direction: column;
-            padding-bottom: 8px;
-            margin-bottom: 8px;
-        }
-
-        .logo-image {
-            display: none !important;
-        }
-
-        .header-logo {
-            width: 100%;
-            margin-bottom: 0px;
-        }
-
-        .iso {
-            font-size: 6px;
-            margin-top: 0;
-            margin-bottom: 5px;
-            display: none !important;
-            text-align: center;
-            /* Mobile me hide kiya hai */
-        }
-
-        .header-text {
-            width: 100%;
-        }
-
-        .company-title {
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-
-        .cin-text {
-            font-size: 9px;
-            padding: 2px 6px !important;
-            margin-bottom: 5px;
-        }
-
-        .small-text {
-            font-size: 6.5px;
-            line-height: 1.3;
-            letter-spacing: -0.1px;
-        }
+        .header-wrap { flex-direction: column; padding-bottom: 8px; }
+        .header-logo { width: 100%; }
+        .logo-image, .iso { display: none !important; }
+        .header-text { width: 100%; }
+        .company-title { font-size: 16px; }
+        .small-text { font-size: 9px; }
     }
 
-    /* 🌟 THE MAGIC: FORCE ROW & COLORS IN PRINT 🌟 */
+    /* 🌟 BASE PRINT FIXES & PORTRAIT (DEFAULT) 🌟 */
     @media print {
         * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
 
-        .bg-danger {
-            background-color: #dc3545 !important;
-            color: #fff !important;
-        }
-
-        .text-danger,
-        .iso {
-            color: #dc3545 !important;
-        }
+        .bg-danger { background-color: #dc3545 !important; color: #fff !important; }
+        .text-danger { color: #dc3545 !important; }
 
         .header-wrap {
-            flex-direction: row !important;
-            padding-bottom: 2px !important;
-            margin-bottom: 2px !important;
-            gap: 0 !important;
             display: flex !important;
-            /* Force flex in print */
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            padding-bottom: 6px !important;
+            margin-bottom: 10px !important;
+            border-bottom: 2px solid #000 !important;
+            width: 100% !important;
         }
 
+        /* Portrait Ratio (20-80) */
         .header-logo {
             width: 20% !important;
-            display: block !important;
-            /* border: 1px solid #000 !important; */
-        }
-
-        .logo-image {
-            display: block !important;
-            margin: 0 0 0 -10px !important;
-            /* z-index: -1 !important; */
-        }
-
-        /* 🔥 FIX: Force ISO to display and reset its styling in Print 🔥 */
-        .iso {
-            font-size: 8px !important;
-            display: block !important;
-            margin-top: 5px !important;
-            text-align: center !important;
-            /* border: 1px solid #dc3545 !important; */
-            margin-left: 25px !important;
+            flex: 0 0 20% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
         }
 
         .header-text {
             width: 80% !important;
+            flex: 0 0 80% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .logo-image {
+            display: block !important;
+            width: 100% !important;
+            max-height: 65px !important; 
+            object-fit: contain !important;
+            margin: 0 !important;
+        }
+
+        .iso {
+            font-size: 8px !important;
+            display: block !important;
+            margin-top: 4px !important;
             text-align: center !important;
         }
 
         .company-title {
-            font-size: 20px !important;
-            margin-bottom: 2px !important;
+            font-size: 21px !important; 
+            margin-bottom: 3px !important;
+            text-align: center !important;
         }
 
-        /* 🔥 FIX: Force CIN to be inline-block so it doesn't stretch 🔥 */
         .cin-text {
             font-size: 10px !important;
-            display: inline-block !important;
-            margin-bottom: 2px !important;
-            padding: 2px 8px !important;
-            border-radius: 4px !important;
+            margin-bottom: 3px !important;
         }
 
         .small-text {
-            font-size: 10px !important;
+            font-size: 10px !important; 
             line-height: 1.3 !important;
+            text-align: center !important;
+        }
+    }
+
+    /* 🔥 PRINT: LANDSCAPE MODE (Forced via Class) 🔥 */
+    @media print {
+        .landscape-mode .header-logo {
+            width: 30% !important;
+            flex: 0 0 30% !important;
+        }
+        .landscape-mode .header-text {
+            width: 70% !important;
+            flex: 0 0 70% !important;
+        }
+
+        /* Landscape me font, image size, aur proper text border */
+        .landscape-mode .logo-image {
+            max-height: 85px !important; 
+        }
+        .landscape-mode .company-title {
+            font-size: 28px !important; 
+           
+            
+            padding: 4px 12px !important;
+        }
+        .landscape-mode .small-text {
+            font-size: 12px !important; 
+        }
+        .landscape-mode .cin-text {
+            font-size: 11px !important;
+        }
+        .landscape-mode .iso {
+            font-size: 9px !important;
         }
     }
 </style>
-
 <div class="header-wrap">
     <div class="header-logo">
         @if ($company && !empty($company->company_logo))
@@ -207,10 +206,10 @@
             @endif
 
             <br>
-            <strong><i class="fa-solid fa-phone"></i> - </strong>
+            <strong>Contact No. (<i class="fa-solid fa-phone"></i>) - </strong>
             {{ $branch->phone ?? ($company->phone ?? '9031079721') }}
-            | <strong><i class="fa-brands fa-whatsapp"></i> - </strong>
-            {{ $branch->whatsapp ?? ($company->whatsapp ?? '9472467007') }}
+            | <strong>Whatsapp(<i class="fa-brands fa-whatsapp"></i>) - </strong>
+            {{ $branch->whatsapp ?? ($company->whatsapp_no ?? '94724670') }}
             | <strong>Website(<i class="fa-solid fa-globe"></i>) - </strong>
             {{ $company->website ?? 'www.jankivilla.com' }}
         </div>

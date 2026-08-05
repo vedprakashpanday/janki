@@ -68,6 +68,82 @@
             </button>
         </div>
 
+        <!-- 🔥 TOP FILTERS SECTION (Autocomplete Mode) 🔥 -->
+        <div class="card border-0 shadow-sm mb-4 bg-white" id="filterSection">
+            <div class="card-body p-3">
+                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-filter"></i> Advanced Filters (Type min 3 letters)</h6>
+                <div class="row g-2 align-items-end">
+                    
+                    <div class="col-md-2 position-relative">
+                        <label class="small text-muted fw-bold">Company</label>
+                        <input type="text" class="form-control form-control-sm search-input" id="search_company" placeholder="Type Company...">
+                        <input type="hidden" id="filter_company_id">
+                        <ul class="dropdown-menu w-100 autocomplete-dropdown shadow-sm" id="suggest_company"></ul>
+                    </div>
+
+                    <div class="col-md-2 position-relative">
+                        <label class="small text-muted fw-bold">Branch</label>
+                        <input type="text" class="form-control form-control-sm search-input" id="search_branch" placeholder="Type Branch...">
+                        <input type="hidden" id="filter_branch_id">
+                        <ul class="dropdown-menu w-100 autocomplete-dropdown shadow-sm" id="suggest_branch"></ul>
+                    </div>
+
+                    <div class="col-md-2 position-relative">
+                        <label class="small text-muted fw-bold">Department</label>
+                        <input type="text" class="form-control form-control-sm search-input" id="search_department" placeholder="Type Dept...">
+                        <input type="hidden" id="filter_department_id">
+                        <ul class="dropdown-menu w-100 autocomplete-dropdown shadow-sm" id="suggest_department"></ul>
+                    </div>
+
+                    <div class="col-md-2 position-relative">
+                        <label class="small text-muted fw-bold">Designation</label>
+                        <input type="text" class="form-control form-control-sm search-input" id="search_designation" placeholder="Type Desig...">
+                        <input type="hidden" id="filter_designation_id">
+                        <ul class="dropdown-menu w-100 autocomplete-dropdown shadow-sm" id="suggest_designation"></ul>
+                    </div>
+
+                    <div class="col-md-2 position-relative">
+                        <label class="small text-muted fw-bold">Employee</label>
+                        <input type="text" class="form-control form-control-sm search-input" id="search_employee" placeholder="Type Emp Name/ID...">
+                        <input type="hidden" id="filter_employee_id">
+                        <ul class="dropdown-menu w-100 autocomplete-dropdown shadow-sm" id="suggest_employee"></ul>
+                    </div>
+
+                    <div class="col-md-1">
+                        <label class="small text-muted fw-bold">Month</label>
+                        <input type="month" class="form-control form-control-sm" id="filter_month">
+                    </div>
+
+                    <div class="col-md-1">
+                        <button class="btn btn-primary btn-sm w-100 fw-bold" id="applyFilterBtn">
+                            <i class="fas fa-check"></i> Apply
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- 🔥 DYNAMIC SUMMARY SECTION (Hidden by default) 🔥 -->
+        <div class="row mb-4" id="summarySection" style="display: none;">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm bg-light-primary" style="border-left: 4px solid #1A365D !important;">
+                    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+                        <div class="fw-bold text-muted small">Total Requested Amount (This Month)</div>
+                        <h5 class="mb-0 fw-bold text-primary" id="sumApplied">₹0.00</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mt-2 mt-md-0">
+                <div class="card border-0 shadow-sm bg-light-success" style="border-left: 4px solid #28a745 !important;">
+                    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+                        <div class="fw-bold text-muted small">Total Approved Amount (This Month)</div>
+                        <h5 class="mb-0 fw-bold text-success" id="sumApproved">₹0.00</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm d-none d-md-block mb-3">
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -238,7 +314,6 @@
         </div>
     </div>
 @endsection
-
 @push('scripts')
     <script>
         const portal = window.location.pathname.split('/')[1];
@@ -253,15 +328,18 @@
         $(document).ready(function() {
             loadData(1);
             setupDropdowns();
+            setupTopFilters();
 
             $('#taForm').on('submit', function(e) {
                 e.preventDefault();
                 saveTA();
             });
+
             $('#selectAllDesktop').on('change', function() {
                 $('#taTableBody .row-checkbox').prop('checked', this.checked);
                 toggleBulkActionBar();
             });
+
             $(document).on('change', '.row-checkbox', toggleBulkActionBar);
 
             // Live Search Debounce
@@ -273,7 +351,7 @@
                 }, 500);
             });
 
-            // 🔥 NAYA: Live character counter for Purpose
+            // Live character counter for Purpose
             $('#purpose').on('input', function() {
                 let len = $(this).val().trim().length;
                 $('#purposeCount').text(`${len} / 200 minimum characters`);
@@ -283,9 +361,106 @@
                     $('#purposeCount').removeClass('text-danger').addClass('text-success');
                 }
             });
-
-
         });
+
+        // ===============================
+        // 🔥 SMART AUTOCOMPLETE FILTERS 🔥
+        // ===============================
+        function setupTopFilters() {
+            // 1. Reusable Autocomplete Binder Function
+            function bindAutocomplete(type, inputId, hiddenId, suggestId, getDependencies, resetNext) {
+                let timer;
+                
+                $(inputId).on('keyup', function() {
+                    clearTimeout(timer);
+                    let q = $(this).val();
+                    let suggestBox = $(suggestId);
+                    
+                    if(q.trim() === '') {
+                        $(hiddenId).val('');
+                        suggestBox.removeClass('show');
+                        if(resetNext) resetNext();
+                        return;
+                    }
+
+                    if (q.length < 3) {
+                        suggestBox.removeClass('show');
+                        return;
+                    }
+
+                    let deps = getDependencies();
+                    timer = setTimeout(() => {
+                        $.get(`/api/v1/travel-allowances/search-filters`, { type: type, q: q, ...deps }, function(res) {
+                            let html = '';
+                            if (res.length > 0) {
+                                res.forEach(item => {
+                                    html += `<li><a class="dropdown-item small select-item py-1" href="#" data-id="${item.id}" data-text="${item.text}">${item.text}</a></li>`;
+                                });
+                            } else {
+                                html = `<li><span class="dropdown-item small text-muted">No matching record</span></li>`;
+                            }
+                            suggestBox.html(html).addClass('show');
+                        });
+                    }, 400); 
+                });
+
+                $(suggestId).on('click', '.select-item', function(e) {
+                    e.preventDefault();
+                    $(inputId).val($(this).data('text'));
+                    $(hiddenId).val($(this).data('id'));
+                    $(suggestId).removeClass('show');
+                    if(resetNext) resetNext(); 
+                });
+            }
+
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.position-relative').length) {
+                    $('.autocomplete-dropdown').removeClass('show');
+                }
+            });
+
+            bindAutocomplete('company', '#search_company', '#filter_company_id', '#suggest_company', 
+                () => ({}), 
+                () => { $('#search_branch, #search_department, #search_designation, #search_employee').val(''); $('#filter_branch_id, #filter_department_id, #filter_designation_id, #filter_employee_id').val(''); }
+            );
+
+            bindAutocomplete('branch', '#search_branch', '#filter_branch_id', '#suggest_branch', 
+                () => ({ company_id: $('#filter_company_id').val() }), 
+                () => { $('#search_department, #search_designation, #search_employee').val(''); $('#filter_department_id, #filter_designation_id, #filter_employee_id').val(''); }
+            );
+
+            bindAutocomplete('department', '#search_department', '#filter_department_id', '#suggest_department', 
+                () => ({ company_id: $('#filter_company_id').val(), branch_id: $('#filter_branch_id').val() }), 
+                () => { $('#search_designation, #search_employee').val(''); $('#filter_designation_id, #filter_employee_id').val(''); }
+            );
+
+            bindAutocomplete('designation', '#search_designation', '#filter_designation_id', '#suggest_designation', 
+                () => ({ department_id: $('#filter_department_id').val() }), 
+                () => { $('#search_employee').val(''); $('#filter_employee_id').val(''); }
+            );
+
+            bindAutocomplete('employee', '#search_employee', '#filter_employee_id', '#suggest_employee', 
+                () => ({ 
+                    company_id: $('#filter_company_id').val(), 
+                    branch_id: $('#filter_branch_id').val(),
+                    department_id: $('#filter_department_id').val(),
+                    designation_id: $('#filter_designation_id').val()
+                })
+            );
+
+            $('#applyFilterBtn').on('click', function(e) {
+                e.preventDefault();
+                let btn = $(this);
+                let originalHtml = btn.html();
+                btn.html('<i class="fas fa-spinner fa-spin"></i> Loading...').prop('disabled', true);
+                
+                loadData(1);
+
+                setTimeout(() => {
+                    btn.html(originalHtml).prop('disabled', false);
+                }, 800);
+            });
+        }
 
         // ===============================
         // 1. DATA LOADING (PAGINATION)
@@ -293,10 +468,26 @@
         function loadData(page) {
             currentPage = page;
             let search = $('#searchInput').val();
+            let f_company = $('#filter_company_id').val() || '';
+            let f_branch = $('#filter_branch_id').val() || '';
+            let f_dept = $('#filter_department_id').val() || '';
+            let f_desig = $('#filter_designation_id').val() || '';
+            let f_emp = $('#filter_employee_id').val() || '';
+            let f_month = $('#filter_month').val() || '';
 
-            $.get(`${apiUrl}?page=${page}&search=${search}`, function(res) {
-                let records = res.data; // Laravel pagination object holds items in .data
+            let queryParams = `?page=${page}&search=${search}&company_id=${f_company}&branch_id=${f_branch}&department_id=${f_dept}&designation_id=${f_desig}&employee_id=${f_emp}&month=${f_month}`;
+
+            $.get(`${apiUrl}${queryParams}`, function(res) {
+                let records = res.data; 
                 window.taDataList = records;
+
+                if (f_month !== '') {
+                    $('#sumApplied').text(`₹${parseFloat(res.summary.total_applied || 0).toFixed(2)}`);
+                    $('#sumApproved').text(`₹${parseFloat(res.summary.total_approved || 0).toFixed(2)}`);
+                    $('#summarySection').slideDown();
+                } else {
+                    $('#summarySection').slideUp();
+                }
 
                 totalPages = res.last_page || 1;
                 $('#paginationInfo').text(`Showing Page ${currentPage} of ${totalPages}`);
@@ -304,12 +495,8 @@
                 $('#btnNextPage').prop('disabled', currentPage >= totalPages);
 
                 if (records.length === 0) {
-                    $('#taTableBody').html(
-                        '<tr><td colspan="7" class="text-center text-muted py-4 fw-bold">No Records Found</td></tr>'
-                    );
-                    $('#taMobileContainer').html(
-                        '<div class="text-center text-muted py-4 bg-white border rounded shadow-sm fw-bold">No Records Found</div>'
-                    );
+                    $('#taTableBody').html('<tr><td colspan="7" class="text-center text-muted py-4 fw-bold">No Records Found</td></tr>');
+                    $('#taMobileContainer').html('<div class="text-center text-muted py-4 bg-white border rounded shadow-sm fw-bold">No Records Found</div>');
                     return;
                 }
 
@@ -317,23 +504,17 @@
                 let mobileHtml = '';
 
                 records.forEach(item => {
-                    let statusLabel = item.status === 'active' ? 'APPROVED' : (item.status === 'rejected' ?
-                        'REJECTED' : 'PENDING');
-                    let badgeClass = item.status === 'active' ? 'bg-success' : (item.status === 'rejected' ?
-                        'bg-danger' : 'bg-warning text-dark');
-                    let employeeName = item.employee ?
-                        `${item.employee.full_name} (${item.employee.member_id})` : 'N/A';
+                    let statusLabel = item.status === 'active' ? 'APPROVED' : (item.status === 'rejected' ? 'REJECTED' : 'PENDING');
+                    let badgeClass = item.status === 'active' ? 'bg-success' : (item.status === 'rejected' ? 'bg-danger' : 'bg-warning text-dark');
+                    let employeeName = item.employee ? `${item.employee.full_name} (${item.employee.member_id})` : 'N/A';
                     let isOwnTA = (item.employee_id == window.userId);
 
-                    // 🔥 AMOUNT DISPLAY LOGIC (Strikerthrough requested amount if changed)
                     let amountDisplay = `<span class="fw-bold">₹${item.amount}</span>`;
                     if (item.status === 'active' && item.approved_amount) {
                         if (parseFloat(item.amount) !== parseFloat(item.approved_amount)) {
-                            amountDisplay =
-                                `<del class="text-muted small">₹${item.amount}</del> <br> <span class="fw-bold text-success">₹${item.approved_amount}</span>`;
+                            amountDisplay = `<del class="text-muted small">₹${item.amount}</del> <br> <span class="fw-bold text-success">₹${item.approved_amount}</span>`;
                         } else {
-                            amountDisplay =
-                                `<span class="fw-bold text-success">₹${item.approved_amount}</span>`;
+                            amountDisplay = `<span class="fw-bold text-success">₹${item.approved_amount}</span>`;
                         }
                     }
 
@@ -345,27 +526,16 @@
                     if (item.status === 'pending') {
                         let hasEditPerm = (window.userPerms || []).includes('ta_edit');
                         if (isOwnTA || hasEditPerm || window.userGodMode) {
-                            actions +=
-                                `<button class="btn btn-sm btn-primary" onclick="editTA(${item.id})" title="Edit Details"><i class="fas fa-pencil-alt"></i></button>`;
+                            actions += `<button class="btn btn-sm btn-primary" onclick="editTA(${item.id})" title="Edit Details"><i class="fas fa-pencil-alt"></i></button>`;
                         }
                     }
 
-                    // 🔥 YAHAN FIX KIYA: Approve/Reject buttons status kuch bhi ho, Admin ko hamesha dikhenge
                     if (!isOwnTA || window.userGodMode) {
-                        let currentApproved = item.approved_amount || item.amount;
-                        let safeRemark = item.remarks ? item.remarks.replace(/'/g, "\\'") : '';
-
-                        // Re-Approve / Edit Approve button
-                        actions +=
-                            `<button class="btn btn-sm btn-success secured-item" data-permission="ta_appr" onclick="updateStatus(${item.id}, 'approve', ${item.amount}, ${currentApproved}, '${safeRemark}')" title="Approve / Re-Approve"><i class="fas fa-check-double"></i></button>`;
-
-                        // Reject / Cancel Reject button
-                        actions +=
-                            `<button class="btn btn-sm btn-danger secured-item" data-permission="ta_rej" onclick="updateStatus(${item.id}, 'reject', ${item.amount}, null, '${safeRemark}')" title="Reject / Re-Reject"><i class="fas fa-ban"></i></button>`;
+                        // 🔥 FINAL FIX: No amount/remark passing in HTML to avoid syntax errors
+                        actions += `<button class="btn btn-sm btn-success secured-item" data-permission="ta_appr" onclick="updateStatus(${item.id}, 'approve')" title="Approve / Re-Approve"><i class="fas fa-check-double"></i></button>`;
+                        actions += `<button class="btn btn-sm btn-danger secured-item" data-permission="ta_rej" onclick="updateStatus(${item.id}, 'reject')" title="Reject / Re-Reject"><i class="fas fa-ban"></i></button>`;
                     }
-                    // 🔥 YAHAN EK EXTRA } THA JISKO HATA DIYA GAYA HAI 🔥
 
-                    // 🔥 Naya Person Info Display Logic
                     let personInfoDisplay = `
                         <div class="text-truncate" style="max-width:180px;">
                             <i class="fas fa-user-friends text-primary"></i> <b>${item.person_name || 'Self'}</b> <span class="badge bg-secondary ms-1">x${item.number_of_persons || 1}</span>
@@ -385,7 +555,6 @@
                         </tr>
                     `;
 
-                    // Same amountDisplay mobileHtml me bhi replace kar dein
                     mobileHtml += `
                         <div class="mobile-card shadow-sm">
                             <div class="d-flex justify-content-between mb-2 border-bottom pb-2">
@@ -418,19 +587,16 @@
         }
 
         // ===============================
-        // 2. VIEW, ADD & EDIT (ASYNC PRE-FILL)
+        // 2. VIEW, ADD & EDIT
         // ===============================
         function viewTA(id) {
-            $('#viewModalBody').html(
-                '<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 text-muted">Loading Preview...</p></div>'
-            );
+            $('#viewModalBody').html('<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2 text-muted">Loading Preview...</p></div>');
             $('#viewModal').modal('show');
             $.get(`${apiUrl}/${id}`, function(res) {
                 $('#viewModalBody').html(res.html);
             });
         }
 
-        // 🔥 FILE PREVIEW & CUT LOGIC 🔥
         let selectedFiles = [];
         let existingFiles = [];
 
@@ -439,18 +605,16 @@
             for (let i = 0; i < files.length; i++) {
                 selectedFiles.push(files[i]);
             }
-            $(this).val(''); // Reset taaki same file dubara select ho sake
+            $(this).val(''); 
             renderPreviews();
         });
 
         function renderPreviews() {
             $('#proof_preview_container').empty();
 
-            // Existing Files Render (Edit mode)
             existingFiles.forEach((path, index) => {
                 let isPdf = path.toLowerCase().endsWith('.pdf');
-                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' :
-                    `<img src="/${path}" style="width:100%; height:100%; object-fit:cover;">`;
+                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' : `<img src="/${path}" style="width:100%; height:100%; object-fit:cover;">`;
 
                 $('#proof_preview_container').append(`
                     <div class="position-relative border rounded shadow-sm" style="width: 80px; height: 80px; overflow: hidden; background: #f8f9fa; text-align:center;">
@@ -460,12 +624,10 @@
                 `);
             });
 
-            // New Selected Files Render
             selectedFiles.forEach((file, index) => {
                 let isPdf = file.type === 'application/pdf';
                 let url = URL.createObjectURL(file);
-                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' :
-                    `<img src="${url}" style="width:100%; height:100%; object-fit:cover;">`;
+                let content = isPdf ? '<i class="fas fa-file-pdf fa-2x text-danger mt-3"></i>' : `<img src="${url}" style="width:100%; height:100%; object-fit:cover;">`;
 
                 $('#proof_preview_container').append(`
                     <div class="position-relative border border-primary border-2 rounded shadow-sm" style="width: 80px; height: 80px; overflow: hidden; background: #e3f2fd; text-align:center;">
@@ -494,7 +656,6 @@
             existingFiles = [];
             renderPreviews();
             prepareFormView();
-            // bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('taModal')).show();  <-- isko hata kar ye likhein:
             $('#taModal').modal('show');
         }
 
@@ -507,7 +668,6 @@
             $('#ta_id').val(item.id);
             $('#taModalTitle').text('Edit Travelling & Conveyance Expenses');
 
-            // Text inputs set karna
             $('#ta_date').val(item.ta_date);
             $('#vehicle_no').val(item.vehicle_no);
             $('#purpose').val(item.purpose);
@@ -521,7 +681,6 @@
             $('#person_number').val(item.person_number);
             $('#number_of_persons').val(item.number_of_persons || 1);
 
-            // Files Parsing
             selectedFiles = [];
             existingFiles = [];
             if (item.proof_file) {
@@ -534,14 +693,14 @@
             }
             renderPreviews();
             prepareFormView(item);
-            // bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('taModal')).show();  <-- isko hata kar ye likhein:
             $('#taModal').modal('show');
         }
 
         function prepareFormView(item = null) {
             if (portal === 'employee' || (!window.userGodMode && !window.userPerms.includes('ta_appr'))) {
                 $('#adminSelectionArea').hide();
-                $('.admin-select').removeAttr('required');
+                $('.admin-select').removeAttr('required').prop('disabled', true);
+                
                 $.get(`/api/v1/${portal}/auth/me`, function(res) {
                     let user = res.data;
                     if ($('#hidden_emp_inputs').length === 0) {
@@ -561,7 +720,8 @@
                 });
             } else {
                 $('#adminSelectionArea').show();
-                $('.admin-select').attr('required', true);
+                $('.admin-select').attr('required', true).prop('disabled', false);
+                $('#hidden_emp_inputs').remove();
                 if (!item) loadCompanies();
             }
         }
@@ -575,11 +735,9 @@
             let id = $('#ta_id').val();
             let formData = new FormData($('#taForm')[0]);
 
-            // Append new files array
             selectedFiles.forEach(file => {
                 formData.append('proof_files[]', file);
             });
-            // Keep track of files user didn't delete
             formData.append('existing_proofs', JSON.stringify(existingFiles));
 
             if (id) {
@@ -593,7 +751,6 @@
                 processData: false,
                 contentType: false,
                 success: function(res) {
-                    // bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('taModal')).hide(); <-- isko hata kar ye likhein:
                     $('#taModal').modal('hide');
                     loadData(currentPage);
                     Swal.fire('Success', res.message, 'success');
@@ -605,11 +762,21 @@
         }
 
         // ===============================
-        // 3. WORKFLOW ACTIONS
+        // 3. WORKFLOW ACTIONS (APPROVE/REJECT)
         // ===============================
-        function updateStatus(id, action, requestedAmount = 0, currentApprovedAmount = null, currentRemark = '') {
-            let safeApproved = currentApprovedAmount !== null ? currentApprovedAmount : requestedAmount;
-            let safeRemark = currentRemark && currentRemark !== 'null' ? currentRemark : '';
+        function updateStatus(id, action) {
+            let item = window.taDataList.find(t => t.id === id);
+            if (!item) return;
+
+            let requestedAmount = item.amount;
+            let currentApprovedAmount = item.approved_amount;
+            
+            // 🔥 FIX: Guarding against HTML injection inside textarea via replace
+            let safeRemark = item.remarks ? item.remarks.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''; 
+            let safeApproved = currentApprovedAmount !== null && currentApprovedAmount !== undefined ? currentApprovedAmount : requestedAmount;
+            
+            // 🔥 FIX: Guarding against HTML breaking in Purpose box
+            let purposeText = item.purpose ? item.purpose.replace(/</g, "&lt;").replace(/>/g, "&gt;") : 'No purpose provided.';
 
             if (action === 'approve') {
                 Swal.fire({
@@ -618,8 +785,12 @@
                         <div class="text-start">
                             <label class="form-label small fw-bold text-muted">Requested Amount: ₹${requestedAmount}</label>
                             <input id="swal-amount" class="form-control border-success mb-3" type="number" value="${safeApproved}">
+                            
+                            <label class="form-label small fw-bold text-muted">Purpose of Work</label>
+                            <div class="p-2 mb-3 bg-light border rounded small text-dark" style="max-height: 120px; overflow-y: auto; white-space: pre-wrap; font-size: 13px;">${purposeText}</div>
+
                             <label class="form-label small fw-bold text-muted">Approver's Remark (Optional)</label>
-                            <textarea id="swal-remark" class="form-control" rows="2" placeholder="Add approval remarks...">${safeRemark}</textarea>
+                            <textarea id="swal-remark" class="form-control" rows="4" placeholder="Add approval remarks...">${safeRemark}</textarea>
                         </div>
                     `,
                     showCancelButton: true,
@@ -649,8 +820,11 @@
                     title: `Reject TA Request`,
                     html: `
                         <div class="text-start">
+                            <label class="form-label small fw-bold text-muted">Purpose of Work</label>
+                            <div class="p-2 mb-3 bg-light border rounded small text-dark" style="max-height: 120px; overflow-y: auto; white-space: pre-wrap; font-size: 13px;">${purposeText}</div>
+
                             <label class="form-label small fw-bold text-muted">Reason for Rejection (Optional)</label>
-                            <textarea id="swal-remark" class="form-control border-danger" rows="2" placeholder="Why are you rejecting this?">${safeRemark}</textarea>
+                            <textarea id="swal-remark" class="form-control border-danger" rows="4" placeholder="Why are you rejecting this?">${safeRemark}</textarea>
                         </div>
                     `,
                     icon: 'warning',
@@ -658,9 +832,7 @@
                     confirmButtonColor: '#dc3545',
                     confirmButtonText: 'Confirm Reject',
                     preConfirm: () => {
-                        return {
-                            remarks: document.getElementById('swal-remark').value
-                        }
+                        return { remarks: document.getElementById('swal-remark').value }
                     }
                 }).then((result) => {
                     if (result.isConfirmed) {
@@ -676,8 +848,7 @@
         function openRemarks(id, currentRemark, isOwnTA) {
             $('#remark_ta_id').val(id);
             $('#ta_remark_text').val(currentRemark !== 'null' && currentRemark ? currentRemark : '');
-            let canModifyRemarks = window.userPerms.includes('ta_appr') || window.userPerms.includes('ta_rej') || window
-                .userPerms.includes('ta_remark');
+            let canModifyRemarks = window.userPerms.includes('ta_appr') || window.userPerms.includes('ta_rej') || window.userPerms.includes('ta_remark');
 
             if (isOwnTA || (!canModifyRemarks && !window.userGodMode)) {
                 $('#ta_remark_text').prop('readonly', true);
@@ -774,8 +945,7 @@
             let companyName = $("#company_id option:selected").text();
             return $.get(`/api/v1/branches?company_id=${cid}`).then(res => {
                 let arr = getArray(res);
-                let opts =
-                    `<option value="">Select Branch</option><option value="HO">${companyName} (Head Office)</option>`;
+                let opts = `<option value="">Select Branch</option><option value="HO">${companyName} (Head Office)</option>`;
                 arr.forEach(b => opts += `<option value="${b.id}">${b.branch_name}</option>`);
                 $('#branch_id').html(opts);
             });
@@ -822,8 +992,7 @@
                 loadDesignationsAsync($(this).val());
             });
             $('#designation_id').change(function() {
-                loadEmployeesAsync($(this).val(), $('#branch_id').val(), $('#company_id').val(), $('#department_id')
-                    .val());
+                loadEmployeesAsync($(this).val(), $('#branch_id').val(), $('#company_id').val(), $('#department_id').val());
             });
         }
 

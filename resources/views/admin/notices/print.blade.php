@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $entityData->full_name }} - {{ $notice->title }}</title>
+    <title>{{ optional($entityData)->full_name ?? optional($entityData)->member_name ?? optional($entityData)->customer_name ?? 'Notice' }} - {{ $notice->title }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
@@ -114,7 +114,7 @@
     </style>
 </head>
 
-<body onload="window.print()">
+<body @if(!request()->has('view_only')) onload="window.print()" @endif>
 
     @php
         $logoUrl =
@@ -198,6 +198,33 @@
         <div class="notice-content">
             {!! $notice->content !!}
         </div>
+
+        <!-- 🔥 NEW: Print Replies Section 🔥 -->
+        @if ($notice->requires_reply == 1 && $notice->replies->count() > 0)
+            <div style="margin-top: 40px; border-top: 2px dashed #718096; padding-top: 20px;">
+                <h4 style="color: #1A365D; margin-bottom: 15px; text-decoration: underline; font-size: 16px;">Acknowledgments / Replies Received</h4>
+                <table class="entity-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">Date & Time</th>
+                            <th style="width: 25%;">Sender Name</th>
+                            <th style="width: 15%;">Role</th>
+                            <th style="width: 40%;">Reply Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($notice->replies as $reply)
+                        <tr>
+                            <td>{{ \Carbon\Carbon::parse($reply->created_at)->format('d-M-Y h:i A') }}</td>
+                            <td><b>{{ $reply->sender_name }}</b></td>
+                            <td style="text-transform: capitalize;">{{ $reply->sender_type }}</td>
+                            <td>{{ $reply->reply_text }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
 
     </div>
 </body>

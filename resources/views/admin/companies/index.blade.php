@@ -160,6 +160,12 @@
                                 <input type="text" class="form-control" id="c_phone" name="phone"
                                     placeholder="Contact Number">
                             </div>
+
+                            <!-- 🔥 NAYA: WhatsApp Field -->
+<div class="col-md-6">
+    <label class="small fw-bold">WhatsApp No</label>
+    <input type="text" class="form-control" id="c_whatsapp_no" name="whatsapp_no" placeholder="WhatsApp Number">
+</div>
                             <div class="col-md-6">
                                 <label class="small fw-bold">Email</label>
                                 <input type="email" class="form-control" id="c_email" name="email"
@@ -249,14 +255,19 @@
                         Contact & Address
                     </div>
                     <div class="p-4 pt-3 row g-3">
-                        <div class="col-md-6">
-                            <div class="small fw-bold text-dark mb-1">Mobile:</div>
-                            <div class="text-muted" id="v_phone_display"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="small fw-bold text-dark mb-1">Email:</div>
-                            <div class="text-muted" id="v_email_display"></div>
-                        </div>
+                       <div class="col-md-4">
+    <div class="small fw-bold text-dark mb-1">Mobile:</div>
+    <div class="text-muted" id="v_phone_display"></div>
+</div>
+<!-- 🔥 NAYA: WhatsApp View -->
+<div class="col-md-4">
+    <div class="small fw-bold text-dark mb-1">WhatsApp:</div>
+    <div class="text-muted" id="v_whatsapp_display"></div>
+</div>
+<div class="col-md-4">
+    <div class="small fw-bold text-dark mb-1">Email:</div>
+    <div class="text-muted" id="v_email_display"></div>
+</div>
                         <div class="col-md-12">
                             <div class="small fw-bold text-dark mb-1">Address:</div>
                             <div class="text-muted" id="v_address_display"></div>
@@ -760,6 +771,7 @@
                     $('#c_company_code').val(data.company_code);
                     $('#c_parent_id').val(data.parent_id);
                     $('#c_phone').val(data.phone);
+                    $('#c_whatsapp_no').val(data.whatsapp_no);
                     $('#c_email').val(data.email);
                     $('#c_state').val(data.state);
                     $('#c_district').val(data.district);
@@ -841,6 +853,7 @@
                     $('#v_district_state_top').text([data.district, data.state].filter(Boolean).join(', ') ||
                         'Location N/A');
                     $('#v_phone_display').text(data.phone || 'N/A');
+                    $('#v_whatsapp_display').text(data.whatsapp_no || 'N/A'); // 🔥 NEW: Display value
                     $('#v_email_display').text(data.email || 'N/A');
                     $('#v_address_display').text([data.address, data.district, data.state].filter(Boolean).join(
                         ', ') || 'N/A');

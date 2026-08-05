@@ -11,59 +11,161 @@ use Illuminate\Support\Facades\DB;
 
 class DebitVoucherWebController extends Controller
 {
-   // 1. Current Date Data ke liye (Prefix: dv_)
+    
+// 1. Current Date Data ke liye (Prefix: dv_)
     public function index()
     {
+        $context = $this->getGlobalContext();
+        $user = auth()->user();
+
+        // Null-Safe fallback
+        $companyId = $context?->company_id ?? $user?->company_id ?? 1;
+        $branchId = $context?->branch_id ?? $user?->branch_id;
+
+        $userCompany = \App\Models\Company::find($companyId);
+        $userBranch = $branchId ? \App\Models\Branch::find($branchId) : null;
+        
+        $isExecutive = $context?->is_god || $context?->role_level === 'ceo' || in_array($user?->email ?? '', ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in']);
+
         return view('admin.debit_vouchers.index', [
             'prefix' => 'dv_',
-            'source' => 'index'
+            'source' => 'index',
+            'companyId' => $companyId, // 🔥 Directly passing ID
+            'branchId' => $branchId,   // 🔥 Directly passing ID
+            'userCompany' => $userCompany,
+            'userBranch' => $userBranch,
+            'isExecutive' => $isExecutive,
+            'isDirector' => $context?->is_director ?? false
         ]);
     }
 
     // 2. All Time Data / Directory ke liye (Prefix: dv_dir_)
     public function directory()
     {
-        // Notice karein ki view same 'index' load ho raha hai, bas prefix aur source change ho gaye hain
+        $context = $this->getGlobalContext();
+        $user = auth()->user();
+
+        // Null-Safe fallback
+        $companyId = $context?->company_id ?? $user?->company_id ?? 1;
+        $branchId = $context?->branch_id ?? $user?->branch_id;
+
+        $userCompany = \App\Models\Company::find($companyId);
+        $userBranch = $branchId ? \App\Models\Branch::find($branchId) : null;
+        
+        $isExecutive = $context?->is_god || $context?->role_level === 'ceo' || in_array($user?->email ?? '', ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in']);
+
         return view('admin.debit_vouchers.index', [
             'prefix' => 'dv_dir_',
-            'source' => 'directory'
+            'source' => 'directory',
+            'companyId' => $companyId, // 🔥 Directly passing ID
+            'branchId' => $branchId,   // 🔥 Directly passing ID
+            'userCompany' => $userCompany,
+            'userBranch' => $userBranch,
+            'isExecutive' => $isExecutive,
+            'isDirector' => $context?->is_director ?? false
         ]);
     }
+
     // Form dikhane ke liye
     public function create()
     {
         return view('admin.debit_vouchers.index');
     }
 
-    public function print(Request $request, $id)
+   public function print(Request $request, $id)
     {
-        $voucher = DebitVoucher::findOrFail($id);
+        $voucher = \App\Models\DebitVoucher::findOrFail($id);
+        $context = $this->getGlobalContext(); 
         
-        $branch = $voucher->branch_id ? Branch::find($voucher->branch_id) : null;
-        
-        $company_id = $voucher->company_id ?? (auth()->user()->company_id ?? ($branch ? $branch->company_id : 1));
-        $company = Company::find($company_id);
+        $branch = $voucher->branch_id ? \App\Models\Branch::find($voucher->branch_id) : null;
+        $company_id = $voucher->company_id ?? ($context->company_id ?? ($branch ? $branch->company_id : 1));
+        $company = \App\Models\Company::find($company_id);
 
         $mode = $request->query('mode', 'print');
 
-        // 🔥 NAYA LOGIC: Approved By aur Authorized Signatory ka naam nikalna
+        // 1. DV No Formatting (e.g. ABDPL-H/01 or ABDPL-JHA/02)
+        $compCode = $company ? ($company->company_code ?? 'COMP') : 'COMP';
+        
+        // Agar branch null hai to 'H' (Head Office), warna branch ka code
+        $branchCode = $branch ? ($branch->branch_code ?? 'BR') : 'H'; 
+
+        // Naya Format: COMPANY_CODE-BRANCH_CODE/DV_NO
+        $formattedDvNo = $compCode . '-' . $branchCode . '/' . str_pad($voucher->dv_no, 2, '0', STR_PAD_LEFT);
+        // 2. Head of Account Name Mapping
+        $ledgerName = \Illuminate\Support\Facades\DB::table('ledgers')->where('ledger_code', $voucher->head_of_account)->value('ledger_name');
+        $ledgerName = $ledgerName ? $ledgerName : $voucher->head_of_account; 
+
+        // 3. Paid To Name Mapping
+        $pId = $voucher->paid_to;
+        $paidToName = $pId; 
+        $nameMatches = [
+            \Illuminate\Support\Facades\DB::table('adm_regist')->where('member_id', $pId)->value('full_name'),
+            \Illuminate\Support\Facades\DB::table('members')->where('member_id', $pId)->value('member_name'),
+            \Illuminate\Support\Facades\DB::table('vendors')->where('vendor_id', $pId)->value('full_name'),
+            \Illuminate\Support\Facades\DB::table('agents')->where('agent_id', $pId)->value('full_name'),
+            \Illuminate\Support\Facades\DB::table('landowners')->where('land_owner_id', $pId)->value('land_owner_name'),
+            \Illuminate\Support\Facades\DB::table('directors')->where('director_id', $pId)->value('full_name'),
+            \Illuminate\Support\Facades\DB::table('super_admins')->where('ceo_id', $pId)->value('full_name')
+        ];
+        
+        foreach ($nameMatches as $name) {
+            if (!empty($name)) {
+                $paidToName = $name . ' (' . $pId . ')'; // Name with ID
+                break;
+            }
+        }
+
+        // 4. Prepared By & Verified By - Check in adm_regist (id or member_id)
         $approverName = '';
-        if ($voucher->approved_by) {
-            $approver = DB::table('adm_regist')->where('id', $voucher->approved_by)->first();
-            if ($approver) {
-                $approverName = strtoupper($approver->full_name) . ' (' . strtoupper($approver->member_id) . ')';
+        $employee = \Illuminate\Support\Facades\DB::table('adm_regist')
+            ->where('member_id', $voucher->approved_by)
+            ->orWhere('id', $voucher->approved_by)
+            ->first();
+            
+        if ($employee) {
+            $approverName = strtoupper($employee->full_name) . ' (' . $employee->member_id . ')';
+        } else {
+            // Fallback for Admin
+            $adminUser = \Illuminate\Support\Facades\DB::table('users')->where('id', $voucher->approved_by)->first();
+            if ($adminUser && $adminUser->email === 'admin@jankivilla.com') {
+                $approverName = 'ACCOUNT(ABDPL)';
+            } elseif ($adminUser) {
+                $approverName = strtoupper($adminUser->name);
+            } else {
+                $approverName = $voucher->approved_by; 
             }
         }
 
+        // 5. Approved By (Director) - Check in super_admins (id or ceo_id)
         $signatoryName = '';
-        if ($voucher->authorized_signatory) {
-            $signatory = DB::table('adm_regist')->where('id', $voucher->authorized_signatory)->first();
-            if ($signatory) {
-                $signatoryName = strtoupper($signatory->full_name) . ' (' . strtoupper($signatory->member_id) . ')';
-            }
+        $superAdmin = \Illuminate\Support\Facades\DB::table('super_admins')
+            ->where('ceo_id', $voucher->authorized_signatory)
+            ->orWhere('id', $voucher->authorized_signatory)
+            ->first();
+            
+        if ($superAdmin) {
+            $signatoryName = strtoupper($superAdmin->full_name) . ' (' . $superAdmin->ceo_id . ')';
+        } else {
+            $signatoryName = $voucher->authorized_signatory; 
         }
 
-        // compact mein 'approverName' aur 'signatoryName' add kiya hai
-        return view('admin.debit_vouchers.print', compact('voucher', 'mode', 'company', 'branch', 'approverName', 'signatoryName'));
+        // 6. Payment Details formatting
+        $paymentRef = '';
+        if (strtoupper($voucher->payment_mode) === 'UPI') {
+            $paymentRef = $voucher->pay_upi ?? $voucher->transaction_id;
+        } else if (in_array(strtoupper($voucher->payment_mode), ['CHEQUE', 'BANK TRANSFER'])) {
+            $paymentRef = $voucher->transaction_id;
+        }
+
+        $displayMode = strtoupper($voucher->payment_mode);
+        if (!empty($voucher->type) && $displayMode === 'BANK TRANSFER') {
+            $displayMode .= ' (' . strtoupper($voucher->type) . ')';
+        }
+
+        return view('admin.debit_vouchers.print', compact(
+            'voucher', 'mode', 'company', 'branch', 
+            'formattedDvNo', 'ledgerName', 'paidToName', 
+            'approverName', 'signatoryName', 'paymentRef', 'displayMode'
+        ));
     }
 }

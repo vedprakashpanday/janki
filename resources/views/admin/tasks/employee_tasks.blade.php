@@ -308,46 +308,89 @@
                             </div>
 
                             <div id="tasksRepeaterBody">
-                                <div
-                                    class="task-row bg-white p-3 rounded border border-secondary border-opacity-25 mb-2 shadow-sm">
+                                <div class="task-row bg-white p-3 rounded border border-secondary border-opacity-25 mb-2 shadow-sm">
                                     <div class="row g-2 align-items-end">
+                                        <!-- Title -->
                                         <div class="col-md-2">
-                                            <label class="small fw-bold text-muted mb-1">Task Title <span
-                                                    class="text-danger">*</span></label>
-                                            <input type="text" class="form-control form-control-sm task-title-input"
-                                                placeholder="Task Name" required>
+                                            <label class="small fw-bold text-muted mb-1">Task Title <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control form-control-sm task-title-input" placeholder="Task Name" required>
                                         </div>
-                                        <div class="col-md-3 position-relative">
+                                        <!-- Specific Assignees -->
+                                        <div class="col-md-2 position-relative">
                                             <label class="small fw-bold text-muted mb-1">Specific Assignees</label>
-                                            <select class="select2-multiple task-specific-users" multiple
-                                                data-placeholder="All targets (Leave empty for all)"
-                                                style="width: 100%;"></select>
+                                            <select class="select2-multiple task-specific-users" multiple data-placeholder="All targets" style="width: 100%;"></select>
                                         </div>
+                                        <!-- Module -->
                                         <div class="col-md-2">
                                             <label class="small fw-bold text-muted mb-1">Target Base Work</label>
-                                            <select
-                                                class="form-select form-select-sm tracking-module-dropdown border-primary">
+                                            <select class="form-select form-select-sm tracking-module-dropdown border-primary">
                                                 <option value="">Manual Task</option>
                                             </select>
                                         </div>
+                                        <!-- Phase -->
                                         <div class="col-md-2">
                                             <label class="small fw-bold text-muted mb-1">Linked Phase</label>
                                             <select class="form-select form-select-sm task-phase-dropdown border-info">
                                                 <option value="">-- No Phase --</option>
                                             </select>
                                         </div>
+                                        <!-- 🔥 NAYA: PROVIDER DROPDOWN + PERCENTAGE 🔥 -->
                                         <div class="col-md-2">
-                                            <label class="small fw-bold text-muted mb-1">Target Count</label>
-                                            <input type="number" class="form-control form-control-sm target-count-input"
-                                                value="0" min="0">
+                                            <label class="small fw-bold text-muted mb-1">Provider & %</label>
+                                            <div class="input-group input-group-sm">
+                                                <select class="form-select task-provider-dropdown border-warning">
+                                                    <option value="">-- Mixed Data --</option>
+                                                </select>
+                                                <input type="number" class="form-control border-warning provider-percent-input" value="50" min="1" max="100" style="max-width: 60px;" title="Provider Assignment Percentage">
+                                            </div>
                                         </div>
+
+                                        <!-- Count -->
+                                        <div class="col-md-1">
+                                            <label class="small fw-bold text-muted mb-1">Count</label>
+                                            <input type="number" class="form-control form-control-sm target-count-input" value="0" min="0">
+                                        </div>
+                                        <!-- Remove Btn -->
                                         <div class="col-md-1 text-center">
-                                            <button type="button"
-                                                class="btn btn-sm btn-outline-danger w-100 remove-task-row" disabled
-                                                title="First row cannot be removed">
-                                                <i class="fas fa-times"></i>
-                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger w-100 remove-task-row" disabled title="First row cannot be removed"><i class="fas fa-times"></i></button>
                                         </div>
+
+                                        <!-- 🔥 NAYA: MEMBER OVERRIDE TOGGLE 🔥 -->
+                                        <div class="col-md-12 mt-2">
+                                            <div class="form-check form-switch bg-light p-2 rounded border">
+                                                <input class="form-check-input override-member-toggle ms-0 me-2" type="checkbox" style="cursor: pointer;">
+                                                <label class="form-check-label small fw-bold text-danger" style="cursor: pointer;">
+                                                    <i class="fas fa-unlock-alt"></i> Assign Member's Data (Override)
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <!-- OVERRIDE SECTION (Hidden by default) -->
+                                        <div class="col-md-12 mt-2 override-section d-none bg-danger bg-opacity-10 p-3 rounded border border-danger">
+                                            <div class="row align-items-end g-2">
+                                               <div class="col-md-4 position-relative">
+    <label class="small fw-bold text-danger mb-1">Select Member</label>
+                                                    <select class="form-select form-select-sm task-override-member border-danger" style="width: 100%;">
+                                                        <option value="">Search Member...</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <button type="button" class="btn btn-sm btn-danger w-100 view-summary-btn fw-bold shadow-sm"><i class="fas fa-chart-pie me-1"></i> View Summary</button>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <label class="small fw-bold text-danger mb-1">Fetch Status Type</label>
+                                                    <select class="form-select form-select-sm task-override-status border-danger">
+                                                        <option value="Pending">Pending (Fresh)</option>
+                                                        <option value="Busy">Busy</option>
+                                                        <option value="Switch Off">Switch Off</option>
+                                                        <option value="Not Reachable">Not Reachable</option>
+                                                        <option value="Call Back Requested">Call Back Requested</option>
+                                                        <option value="all">All Available</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -530,28 +573,33 @@
                         </div>
 
                         <div class="row bg-light p-3 rounded border border-primary border-opacity-25 mx-0 mb-3 shadow-sm">
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-dark"><i
-                                        class="fas fa-crosshairs text-danger me-1"></i> Target Base Work</label>
-                                <select name="tracking_module_id" id="editTrackingModuleSelect"
-                                    class="form-select form-select-sm tracking-module-dropdown border-primary">
-                                    <option value="">Manual Task (No auto-track)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-5 mt-2 mt-md-0">
-                                <label class="form-label small fw-bold text-dark"><i
-                                        class="fas fa-building text-warning me-1"></i> Linked Phase</label>
-                                <select name="phase_id" id="editPhaseSelect"
-                                    class="form-select form-select-sm task-phase-dropdown border-info">
-                                    <option value="">-- No Phase / General --</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 mt-2 mt-md-0">
-                                <label class="form-label small fw-bold text-dark">Target Count</label>
-                                <input type="number" name="target_count" id="editTargetCountInput"
-                                    class="form-control form-control-sm border-primary" min="0">
-                            </div>
-                        </div>
+    <div class="col-md-3">
+        <label class="form-label small fw-bold text-dark"><i class="fas fa-crosshairs text-danger me-1"></i> Target Base Work</label>
+        <select name="tracking_module_id" id="editTrackingModuleSelect" class="form-select form-select-sm tracking-module-dropdown border-primary">
+            <option value="">Manual Task</option>
+        </select>
+    </div>
+    <div class="col-md-3 mt-2 mt-md-0">
+        <label class="form-label small fw-bold text-dark"><i class="fas fa-building text-warning me-1"></i> Linked Phase</label>
+        <select name="phase_id" id="editPhaseSelect" class="form-select form-select-sm task-phase-dropdown border-info">
+            <option value="">-- No Phase --</option>
+        </select>
+    </div>
+    <!-- 🔥 NAYA: EDIT PROVIDER DROPDOWN + PERCENTAGE 🔥 -->
+    <div class="col-md-3 mt-2 mt-md-0">
+        <label class="form-label small fw-bold text-dark"><i class="fas fa-filter text-success me-1"></i> Provider & %</label>
+        <div class="input-group input-group-sm">
+            <select name="provider_id" id="editProviderSelect" class="form-select border-warning task-provider-dropdown">
+                <option value="">Loading providers...</option>
+            </select>
+            <input type="number" name="provider_percent" id="editProviderPercentInput" class="form-control border-warning" value="50" min="1" max="100" style="max-width: 70px;">
+        </div>
+    </div>
+    <div class="col-md-3 mt-2 mt-md-0">
+        <label class="form-label small fw-bold text-dark">Target Count</label>
+        <input type="number" name="target_count" id="editTargetCountInput" class="form-control form-control-sm border-primary" min="0">
+    </div>
+</div>
 
                         <div class="row mb-2">
                             <div class="col-md-6">
@@ -639,6 +687,23 @@
             let vals = $('#' + selectId).val();
             return (vals && vals.length > 0) ? vals.join(',') : '';
         }
+
+        function loadAvailableProviders() {
+            $.ajax({
+                url: apiPrefix + '/available-providers',
+                type: 'GET',
+                success: function(res) {
+                    let options = '<option value="">-- Mixed Data (No specific) --</option>';
+                    if (res.success && res.data && res.data.length > 0) {
+                        res.data.forEach(p => { options += `<option value="${p.id}">${p.name}</option>`; });
+                    } else {
+                        options = '<option value="">-- No Data Available --</option>';
+                    }
+                    $('.task-provider-dropdown').html(options);
+                }
+            });
+        }
+        loadAvailableProviders();
 
         // ========================================================
         // 🛡️ 2. ZERO-TRUST GLOBAL CONTEXT FETCH & AUTO-LOCK
@@ -879,6 +944,8 @@
             newRow.find('.tracking-module-dropdown').val('');
             newRow.find('.task-phase-dropdown').val('');
             newRow.find('.target-count-input').val('0');
+            newRow.find('.task-provider-dropdown').val(''); // 🔥 YE LINE ADD KAREIN
+            newRow.find('.provider-percent-input').val('50');
 
             let newSpecificSelect = newRow.find('.task-specific-users');
             newSpecificSelect.empty().val(null);
@@ -901,7 +968,7 @@
             $(this).closest('.task-row').slideUp(200, function() { $(this).remove(); });
         });
 
-        // ========================================================
+      // ========================================================
         // 📤 6. SUBMIT ASSIGN TASK
         // ========================================================
         $('#assignTaskForm').on('submit', function(e) {
@@ -917,19 +984,31 @@
             btn.html('<i class="fas fa-spinner fa-spin"></i> Dispatching...').prop('disabled', true);
 
             let requestGroups = {};
-            $('.task-row').each(function() {
+           $('.task-row').each(function() {
                 let row = $(this);
                 let title = row.find('.task-title-input').val();
                 let trackId = row.find('.tracking-module-dropdown').val();
                 let phaseId = row.find('.task-phase-dropdown').val();
+                let provId = row.find('.task-provider-dropdown').val(); 
+                let provPercent = row.find('.provider-percent-input').val(); 
                 let count = row.find('.target-count-input').val();
                 let specificUsers = row.find('.task-specific-users').val();
+                
+                // 🔥 MEMBER OVERRIDE VARIABLES 🔥
+                let isOverride = row.find('.override-member-toggle').is(':checked') ? 1 : 0;
+                let overMemberId = row.find('.task-override-member').val();
+                let overStatus = row.find('.task-override-status').val();
 
                 let assigneesToUse = (specificUsers && specificUsers.length > 0) ? specificUsers : globalAssignees;
                 let groupKey = [...assigneesToUse].sort().join(',');
 
                 if (!requestGroups[groupKey]) { requestGroups[groupKey] = { assignee_ids: assigneesToUse, tasks: [] }; }
-                requestGroups[groupKey].tasks.push({ title: title, tracking_module_id: trackId, phase_id: phaseId, target_count: count });
+                
+                requestGroups[groupKey].tasks.push({ 
+                    title: title, tracking_module_id: trackId, phase_id: phaseId, 
+                    provider_id: provId, provider_percent: provPercent, target_count: count,
+                    is_member_override: isOverride, override_member_id: overMemberId, override_status: overStatus
+                });
             });
 
             let fileInput = document.getElementById('globalAttachmentsInput');
@@ -943,11 +1022,20 @@
                 fd.append('due_datetime', $('input[name="due_datetime"]').val());
 
                 group.assignee_ids.forEach(id => fd.append('assignee_ids[]', id));
-                group.tasks.forEach((t, i) => {
+               group.tasks.forEach((t, i) => {
                     fd.append(`tasks[${i}][title]`, t.title);
                     if (t.tracking_module_id) fd.append(`tasks[${i}][tracking_module_id]`, t.tracking_module_id);
                     if (t.phase_id) fd.append(`tasks[${i}][phase_id]`, t.phase_id);
+                    if (t.provider_id) fd.append(`tasks[${i}][provider_id]`, t.provider_id); 
+                    if (t.provider_percent) fd.append(`tasks[${i}][provider_percent]`, t.provider_percent); 
                     fd.append(`tasks[${i}][target_count]`, t.target_count);
+                    
+                    // 🔥 MEMBER OVERRIDE APPEND 🔥
+                    if (t.is_member_override) {
+                        fd.append(`tasks[${i}][is_member_override]`, t.is_member_override);
+                        fd.append(`tasks[${i}][override_member_id]`, t.override_member_id);
+                        fd.append(`tasks[${i}][override_status]`, t.override_status);
+                    }
                 });
 
                 if (fileInput.files.length > 0) {
@@ -965,7 +1053,6 @@
                 Swal.fire('Error', 'Some tasks failed to assign. Please check your data.', 'error');
             }).finally(() => { btn.html(originalText).prop('disabled', false); });
         });
-
        // ========================================================
         // 🚀 7. RENDER TASKS (With Fixed Checkbox & Filter Data)
         // ========================================================
@@ -1295,6 +1382,68 @@
         }
     }
 });
+
+
+// 1. Initialize Member Search for Override
+        function initOverrideSelect2(row) {
+            let selectEl = row.find('.task-override-member');
+            selectEl.select2({
+                theme: 'bootstrap-5', 
+                width: '100%', 
+                minimumInputLength: 3, 
+                dropdownParent: selectEl.parent(), // 🔥 YAHAN FIX HAI: Ab ye ud kar upar nahi jayega
+                ajax: {
+                    url: apiPrefix + '/task-dependencies/members', dataType: 'json', delay: 250,
+                    data: function (params) { return { search: params.term }; },
+                    processResults: function (data) {
+                        return { results: $.map(data.data, function(item) { return { id: item.member_id, text: item.full_name + ' (' + item.member_id + ')' }; })};
+                    }
+                }
+            });
+        }
+        initOverrideSelect2($('.task-row').first()); // Initialize first row
+
+        // 2. Toggle Override Section
+        $(document).on('change', '.override-member-toggle', function() {
+            let row = $(this).closest('.task-row');
+            if($(this).is(':checked')) {
+                row.find('.override-section').removeClass('d-none').hide().slideDown(200);
+            } else {
+                row.find('.override-section').slideUp(200, function() { $(this).addClass('d-none'); });
+                row.find('.task-override-member').val(null).trigger('change');
+            }
+        });
+
+        // 3. View Summary Button Click
+        $(document).on('click', '.view-summary-btn', function() {
+            let row = $(this).closest('.task-row');
+            let memberId = row.find('.task-override-member').val();
+            if(!memberId) { Swal.fire('Wait!', 'Please select a Member first!', 'warning'); return; }
+
+            let btn = $(this);
+            let ogText = btn.html();
+            btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+
+            $.get(apiPrefix + '/interested-customers/member-summary/' + memberId, function(res) {
+                let html = '<ul class="list-group text-start mt-3">';
+                let total = 0;
+                if(res.data && res.data.length > 0) {
+                    res.data.forEach(item => {
+                        html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                    ${item.status} <span class="badge bg-primary rounded-pill">${item.total}</span>
+                                </li>`;
+                        total += item.total;
+                    });
+                } else { html += '<li class="list-group-item text-danger">No leads found for this member.</li>'; }
+                html += `</ul><h5 class="mt-3 text-dark fw-bold">Total Available: ${total}</h5>`;
+
+                Swal.fire({ title: 'Lead Summary', html: html, icon: 'info' });
+            }).always(function() { btn.html(ogText).prop('disabled', false); });
+        });
+
+       
+
+
 
        function renderTimelineToModal(task) {
             let timelineHtml = '<div class="chat-container">';
@@ -1694,8 +1843,10 @@
                 $('#editTaskId').val(task.id);
                 $('#editTaskTitleInput').val(task.title);
                 $('#editTaskDescInput').val(task.description);
-                $('#editTrackingModuleSelect').val(task.tracking_module_id || '');
+              $('#editTrackingModuleSelect').val(task.tracking_module_id || '');
                 $('#editPhaseSelect').val(task.phase_id || '');
+                $('#editProviderSelect').val(task.provider_id || ''); 
+                $('#editProviderPercentInput').val(task.provider_percent || 50); // 🔥 ADD THIS
                 $('#editTargetCountInput').val(task.target_count);
                 $('#editPrioritySelect').val(task.priority);
                 if (task.due_datetime) {
@@ -1764,6 +1915,13 @@
                 }
             });
         });
+
+
+        
+
+
+
+
 
         renderTasks(); // Initialize
     });

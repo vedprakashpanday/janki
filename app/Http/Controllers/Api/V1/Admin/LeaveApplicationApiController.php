@@ -73,10 +73,20 @@ class LeaveApplicationApiController extends Controller
         $validator = Validator::make($request->all(), [
             'application_type' => 'required|in:Leave,Short Leave,Other',
             'reason' => 'required|string|min:300',
-            'start_datetime' => 'required_unless:application_type,Other|date',
-            'end_datetime' => 'required_unless:application_type,Other|date|after_or_equal:start_datetime',
+            
+            // 🔥 NAYA: Custom dates ke validation rules
+            'is_custom_date' => 'nullable',
+            'custom_dates' => 'required_if:is_custom_date,1|array',
+            
+            // 🔥 FIX: Agar Custom Date (1) hai YA type Other hai, toh in fields ko validation se bahar (exclude) nikal do
+            'start_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date',
+            'end_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date|after_or_equal:start_datetime',
+            
             'user_type' => 'required|in:employee,member',
-            'resume_datetime' => 'required_unless:application_type,Other|nullable|date',
+            
+            // 🔥 FIX: Resume date ko bhi Other me exclude kar diya
+            'resume_datetime' => 'exclude_if:application_type,Other|required|date',
+            
             'emergency_contact' => 'required|string|max:50',
             'applied_to' => 'required|string',
             'proof_attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
@@ -100,16 +110,30 @@ class LeaveApplicationApiController extends Controller
             $data['user_id'] = auth()->id();
         }
 
+       $data['is_custom_date'] = $request->has('is_custom_date') && $request->is_custom_date ? 1 : 0;
+
         if ($data['application_type'] !== 'Other') {
-            $start = Carbon::parse($data['start_datetime']);
-            $end = Carbon::parse($data['end_datetime']);
-            if ($data['application_type'] === 'Leave') {
-                $data['duration'] = $start->diffInDays($end) + 1;
+            if ($data['is_custom_date']) {
+                // 🔥 NAYA: Custom Dates Logic
+                $data['custom_dates'] = $request->custom_dates;
+                $data['start_datetime'] = null;
+                $data['end_datetime'] = null;
+                $data['duration'] = count($request->custom_dates); // Har select ki hui date 1 din mani jayegi
             } else {
-                $data['duration'] = $start->diffInHours($end);
+                // Purana Normal Range Logic
+                $data['custom_dates'] = null;
+                $start = Carbon::parse($data['start_datetime']);
+                $end = Carbon::parse($data['end_datetime']);
+                if ($data['application_type'] === 'Leave') {
+                    $data['duration'] = $start->diffInDays($end) + 1;
+                } else {
+                    $data['duration'] = $start->diffInHours($end);
+                }
             }
         } else {
             $data['duration'] = null;
+            $data['is_custom_date'] = 0;
+            $data['custom_dates'] = null;
         }
 
         // NAYA FILE UPLOAD LOGIC
@@ -192,13 +216,23 @@ class LeaveApplicationApiController extends Controller
 
     public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
+       $validator = Validator::make($request->all(), [
             'application_type' => 'required|in:Leave,Short Leave,Other',
             'reason' => 'required|string|min:300',
-            'start_datetime' => 'required_unless:application_type,Other|date',
-            'end_datetime' => 'required_unless:application_type,Other|date|after_or_equal:start_datetime',
+            
+            // 🔥 NAYA: Custom dates ke validation rules
+            'is_custom_date' => 'nullable',
+            'custom_dates' => 'required_if:is_custom_date,1|array',
+            
+            // 🔥 FIX: Agar Custom Date (1) hai YA type Other hai, toh in fields ko validation se bahar (exclude) nikal do
+            'start_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date',
+            'end_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date|after_or_equal:start_datetime',
+            
             'user_type' => 'required|in:employee,member',
-            'resume_datetime' => 'required_unless:application_type,Other|nullable|date',
+            
+            // 🔥 FIX: Resume date ko bhi Other me exclude kar diya
+            'resume_datetime' => 'exclude_if:application_type,Other|required|date',
+            
             'emergency_contact' => 'required|string|max:50',
             'applied_to' => 'required|string',
             'proof_attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
@@ -246,16 +280,30 @@ class LeaveApplicationApiController extends Controller
             $data['user_id'] = auth()->id();
         }
 
+        $data['is_custom_date'] = $request->has('is_custom_date') && $request->is_custom_date ? 1 : 0;
+
         if ($data['application_type'] !== 'Other') {
-            $start = Carbon::parse($data['start_datetime']);
-            $end = Carbon::parse($data['end_datetime']);
-            if ($data['application_type'] === 'Leave') {
-                $data['duration'] = $start->diffInDays($end) + 1;
+            if ($data['is_custom_date']) {
+                // 🔥 NAYA: Custom Dates Logic
+                $data['custom_dates'] = $request->custom_dates;
+                $data['start_datetime'] = null;
+                $data['end_datetime'] = null;
+                $data['duration'] = count($request->custom_dates); // Har select ki hui date 1 din mani jayegi
             } else {
-                $data['duration'] = $start->diffInHours($end);
+                // Purana Normal Range Logic
+                $data['custom_dates'] = null;
+                $start = Carbon::parse($data['start_datetime']);
+                $end = Carbon::parse($data['end_datetime']);
+                if ($data['application_type'] === 'Leave') {
+                    $data['duration'] = $start->diffInDays($end) + 1;
+                } else {
+                    $data['duration'] = $start->diffInHours($end);
+                }
             }
         } else {
             $data['duration'] = null;
+            $data['is_custom_date'] = 0;
+            $data['custom_dates'] = null;
         }
 
         $leave->update($data);
@@ -294,15 +342,18 @@ class LeaveApplicationApiController extends Controller
         }
     }
 
-    public function approve(Request $request, $id)
+ public function approve(Request $request, $id)
     {
+        // 🔥 FIX: start_datetime aur end_datetime ko 'nullable' kiya gaya, aur custom_dates array ko allowed me daala gaya
         $validator = Validator::make($request->all(), [
             'approved_duration' => 'required|numeric|min:0.5',
-            'approved_start_datetime' => 'required|date',
-            'approved_end_datetime' => 'required|date|after_or_equal:approved_start_datetime',
+            'approved_start_datetime' => 'nullable|date',
+            'approved_end_datetime' => 'nullable|date|after_or_equal:approved_start_datetime',
             'approved_resume_datetime' => 'required|date',
-            'remarks' => 'nullable|string'
+            'remarks' => 'nullable|string',
+            'approved_custom_dates' => 'nullable|array'
         ]);
+        
         if ($validator->fails()) return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
 
         $leave = LeaveApplication::findOrFail($id);
@@ -314,17 +365,30 @@ class LeaveApplicationApiController extends Controller
             }
         }
 
-        $leave->update([
+        // 🔥 PICHLE STEP ME JO HUMNE UPDATE KIYA THA WAHI SAME LOGIC YAHAN AAYEGA
+        $updateData = [
             'status' => 'approved',
-            'approved_duration' => $request->approved_duration,
-            'approved_start_datetime' => $request->approved_start_datetime,
-            'approved_end_datetime' => $request->approved_end_datetime,
-            'approved_resume_datetime' => $request->approved_resume_datetime,
             'remarks' => $request->remarks,
+            'approved_resume_datetime' => $request->approved_resume_datetime,
             'approved_by' => auth()->id()
-        ]);
+        ];
 
-        // 🔥 2. LEAVE APPROVE NOTIFICATION (Dynamic Model Find) 🔥
+        // Check if it's a Custom Dates application
+        if ($leave->is_custom_date) {
+            $updateData['approved_custom_dates'] = $request->approved_custom_dates ?? [];
+            $updateData['approved_duration'] = count($request->approved_custom_dates ?? []);
+            $updateData['approved_start_datetime'] = null;
+            $updateData['approved_end_datetime'] = null;
+        } else {
+            $updateData['approved_duration'] = $request->approved_duration;
+            $updateData['approved_start_datetime'] = $request->approved_start_datetime;
+            $updateData['approved_end_datetime'] = $request->approved_end_datetime;
+            $updateData['approved_custom_dates'] = null;
+        }
+
+        $leave->update($updateData);
+
+        // 🔥 Iske aage aapka Notification bhejney ka purana code waisa hi rahega...
         $modelClass = $leave->user_type === 'member' ? \App\Models\Member::class : \App\Models\Employee::class;
         $applicant = $modelClass::find($leave->user_id);
 
@@ -357,10 +421,16 @@ class LeaveApplicationApiController extends Controller
             }
         }
 
+        // 🔥 NAYA: Agar approved chhutti reject ho rahi hai, toh uski purani approved details NULL kar do
         $leave->update([
             'status' => 'rejected',
             'remarks' => $request->remarks,
-            'rejected_by' => auth()->id()
+            'rejected_by' => auth()->id(),
+            'approved_by' => null,
+            'approved_duration' => null,
+            'approved_start_datetime' => null,
+            'approved_end_datetime' => null,
+            'approved_resume_datetime' => null
         ]);
 
         // 🔥 3. LEAVE REJECT NOTIFICATION (Dynamic Model Find) 🔥
@@ -512,4 +582,39 @@ class LeaveApplicationApiController extends Controller
 
         return response()->json(['success' => true, 'data' => $options]);
     }
+
+    // 🔥 NAYA FUNCTION: Other applications me sirf remark dene ke liye
+    public function addRemark(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), ['remarks' => 'required|string']);
+        if ($validator->fails()) return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+
+        $leave = LeaveApplication::findOrFail($id);
+
+        // Status ko approved karenge taaki pending queue se bahar nikal jaye (Frontend pe 'Reviewed' dikhayenge)
+        $leave->update([
+            'status' => 'approved', 
+            'remarks' => $request->remarks,
+            'approved_by' => auth()->id()
+        ]);
+
+        // Notification Bhejna
+        $modelClass = $leave->user_type === 'member' ? \App\Models\Member::class : \App\Models\Employee::class;
+        $applicant = $modelClass::find($leave->user_id);
+
+        if ($applicant) {
+            $portalRoute = $leave->user_type === 'member' ? 'member' : 'employee';
+            $urlPath = $leave->user_type === 'member' ? '/member-leave-applications' : '/leave-applications';
+            $applicant->notify(new SystemAlertNotification(
+                'Application Reviewed',
+                "Management has replied to your {$leave->application_type} application.",
+                "/{$portalRoute}{$urlPath}",
+                'fa-comment-dots',
+                'text-info'
+            ));
+        }
+
+        return response()->json(['success' => true, 'message' => 'Remark added successfully.']);
+    }
+
 }

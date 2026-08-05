@@ -4,211 +4,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debit Voucher - {{ $voucher->dv_no }}</title>
+    <title>Debit Voucher - {{ $formattedDvNo }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
-        /* 🔥 THE BULLETPROOF A4 PRINT LAYOUT STRUCTURE ENGINE 🔥 */
         * {
             box-sizing: border-box;
         }
 
-        body,
-        html {
+        body {
+            font-family: 'Arial', sans-serif;
             background: #f4f7f6;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
         }
 
-        .voucher-container {
+        .print-container {
             width: 100%;
-            max-width: 900px;
-            margin: 10px auto;
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 15px;
         }
 
         .voucher-wrapper {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 15px;
-        }
-
-        .voucher-box {
-            flex-grow: 1;
-            padding: 12px 15px;
             border: 2px solid #000;
             position: relative;
-            border-radius: 5px;
-            z-index: 1;
+            padding: 8px 15px;
+            margin-bottom: 15px;
+            background: #fff;
             display: flex;
             flex-direction: column;
-            background: #fff;
-            margin-bottom: 5px;
+            justify-content: space-between;
+            /* Top aur Bottom content ko unke edges par stretch karega */
+            overflow: hidden;
+                border-radius: 10px;
         }
 
-        /* Watermark Background Logic */
-        .voucher-box::before {
+        .voucher-content {
+            flex-grow: 1;
+            /* Bacha hua saara space content wrap le lega */
+        }
+
+       /* 💧 WATERMARK (Existing) */
+        .voucher-wrapper::before {
             content: "";
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 350px;
-            height: 350px;
+            width: 400px;
+            height: 400px;
             background: url("{{ isset($company) && !empty($company->company_logo) ? asset($company->company_logo) : asset('image/harihomes1-logo.png') }}") no-repeat center;
             background-size: contain;
-            opacity: 0.12 !important;
+            opacity: 0.08 !important;
             transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 0;
         }
 
-        .voucher-box>* {
+        /* 🚫 CANCELLED WATERMARK (New) */
+        .cancelled-voucher::after {
+            content: "CANCELLED";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            font-size: 80px;
+            font-weight: 900;
+            color: rgba(255, 0, 0, 0.15); /* Light red, semi-transparent */
+            transform: translate(-50%, -50%) rotate(-45deg);
+            pointer-events: none;
+            z-index: 0; 
+            letter-spacing: 15px;
+            white-space: nowrap;
+        }
+
+        /* 📄 TITLE SECTION */
+        .title-section {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 2px;
+            margin-bottom: 5px;
             position: relative;
             z-index: 1;
         }
 
-        .voucher-heading-wrapper {
-            text-align: center;
-            margin: 0px 0 8px;
-            padding-bottom: 4px;
-        }
-
-        .main-heading {
-            font-size: 15px;
-            font-weight: 800;
+        .main-title {
+            font-size: 18px;
+            font-weight: 900;
             letter-spacing: 1px;
+            margin: 0;
             text-transform: uppercase;
             text-decoration: underline;
-            margin-bottom: 2px;
         }
 
-        .sub-heading {
-            font-size: 11px;
-            font-weight: 600;
-            color: #333;
-            text-transform: uppercase;
+        .sub-title {
+            font-size: 12px;
+            font-weight: bold;
         }
 
-        .table {
-            margin-bottom: 8px;
+        /* VOUCHER NO & DATE ROW */
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .meta-row .text-danger {
+            color: #d32f2f !important;
+        }
+
+        /* 📋 FORM LAYOUT */
+        .form-table {
             width: 100%;
             border-collapse: collapse;
-            background: transparent !important;
-            flex-grow: 1;
+            font-size: 13.5px;
+            position: relative;
+            z-index: 1;
         }
 
-        .table th,
-        .table td {
-            padding: 6px 8px !important;
-            font-size: 11px !important;
-            border: 1px solid #000 !important;
-            vertical-align: middle;
+        .form-table td {
+            padding: 4px 2px;
+            vertical-align: bottom;
         }
 
-        .table th {
-            background: #f2f2f2 !important;
+        .label-text {
+            white-space: nowrap;
+            font-weight: normal;
+            padding-right: 5px;
+        }
+
+        .value-text {
+            border-bottom: 1px solid #000;
             font-weight: bold;
-        }
-
-        .table td {
-            background: transparent !important;
-        }
-
-        .amount-section {
-            border: 2px solid #000;
-            padding: 6px 12px;
-            margin: 8px 0;
-            border-radius: 4px;
-            background: transparent !important;
-        }
-
-        .amount-title {
-            font-size: 11px;
-            font-weight: 600;
-            margin-bottom: 2px;
+            color: #000;
             text-transform: uppercase;
+            padding: 0 5px;
         }
 
-        .amount-words {
-            font-size: 13px;
-            font-weight: bold;
+        /* 🔥 NARRATION UNLIMITED EXPANSION */
+        .narration-box {
+            display: block;
+            width: 100%;
+            white-space: normal;
+            word-wrap: break-word;
+            line-height: 18px;
+            min-height: 40px;
+        }
+
+        /* ✂️ CUT DIVIDER */
+        .copy-divider {
             border-bottom: 1px dashed #000;
-            padding-bottom: 3px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 8px 0;
         }
 
-        .amount-number {
-            font-size: 20px;
-            font-weight: 900;
-            text-align: right;
+        .copy-divider span {
+            background: #fff;
+            padding: 0 15px;
+            font-size: 12px;
+            position: absolute;
+            z-index: 2;
         }
 
+        /* ✍️ SIGNATURE SECTION */
         .signature-row {
             display: flex;
             justify-content: space-between;
-            margin-top: auto;
             padding-top: 15px;
+            position: relative;
+            z-index: 1;
         }
 
-        .signature-block {
-            width: 28%;
+        .sig-block {
+            width: 24%;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
         }
 
-        .signature-name {
+        .sig-name {
             font-size: 10px;
             font-weight: bold;
-            color: #333;
-            margin-bottom: 2px;
-            min-height: 15px; /* Taki agar naam blank ho to bhi line apni jagah rahe */
+            color: #000;
+            min-height: 14px;
+            margin-bottom: 1px;
+            text-transform: uppercase;
         }
 
-        .signature-line {
+        .sig-line {
             border-top: 1px solid #000;
-            padding-top: 5px;
-            font-size: 11px;
-            font-weight: 700;
-            width: 100%;
+            padding-top: 3px;
+            font-size: 10.5px;
+            font-weight: bold;
         }
 
-        .copy-divider {
-            border-bottom: 1px dashed #000;
-            position: relative;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 5px;
-        }
-
-        .copy-divider span {
-            font-size: 11px;
-            background: #fff;
-            padding: 0 10px;
-            position: absolute;
-            z-index: 2;
-        }
-
-        /* 🔥 HARDWARE-LEVEL PRINT MEDIA MATRICES 🔥 */
+        /* 🔥 PRINT CSS MAGIC 🔥 */
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 0 !important;
+                margin: 6mm 2mm;
             }
 
             html,
             body {
                 background: #fff !important;
-                width: 210mm !important;
-                height: 297mm !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: hidden !important;
+                margin: 0;
+                padding: 0;
+                width: 100%;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -217,64 +228,38 @@
                 display: none !important;
             }
 
-            .copy-divider {
-                height: 6mm !important;
-                margin-bottom: 2px;
+            /* 🔥 FIX: Left Border Cut Issue */
+            .print-container {
+                padding: 0 5mm !important;
+                /* Left & Right margin for hardware margins */
+                max-width: 100%;
+                margin: 0 auto;
             }
 
-            .voucher-container {
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
-                width: 100% !important;
-                height: 290mm !important;
-                max-height: 290mm !important;
-                padding: 8mm 12mm !important;
-                margin: 0 !important;
-                overflow: hidden !important;
-            }
-
+            /* EXACT HALF PAGE HEIGHT */
             .voucher-wrapper {
-                height: 134mm !important;
-                max-height: 134mm !important;
-                margin-bottom: 0 !important;
-                overflow: hidden !important;
-                page-break-inside: avoid;
+                height: 140mm;
+                max-height: 140mm;
+                margin-bottom: 2mm;
+                padding: 5mm 4mm;
             }
 
-            .voucher-box {
-                width: 100% !important;
-                flex-grow: 1 !important;
-                padding: 4mm 5mm !important;
-                border: 2px solid #000 !important;
-                border-radius: 4px !important;
-                display: flex !important;
-                flex-direction: column !important;
+            .form-table {
+                font-size: 11.5px;
             }
 
-            .table {
-                margin-bottom: 4px !important;
+            .form-table td {
+                padding: 3.5px 2px;
             }
 
-            .table th,
-            .table td {
-                padding: 5px 6px !important;
-                font-size: 10px !important;
+            .narration-box {
+                line-height: 16px;
             }
 
-            .amount-section {
-                padding: 4px 8px !important;
-                margin-top: 5px !important;
-                margin-bottom: 5px !important;
-            }
-
-            .amount-number {
-                font-size: 16px !important;
-            }
-
-            .signature-line {
+            .sig-line {
                 font-size: 9px !important;
-                padding-top: 2px !important;
+                white-space: nowrap !important;
+                /* Forces signature title to 1 line */
             }
         }
     </style>
@@ -290,160 +275,190 @@
         </div>
     @endif
 
-    <div class="voucher-container">
+    <div class="print-container">
 
-        <div class="voucher-wrapper">
-            <div class="voucher-box">
-
+        <!-- 📄 VOUCHER 1 (Office Copy) -->
+       <!-- 📄 VOUCHER 1 (Office Copy) -->
+        <div class="voucher-wrapper {{ strtolower($voucher->status) === 'cancelled' ? 'cancelled-voucher' : '' }}">
+            <div class="voucher-content">
                 <x-print-header :company="$company" :branch="$branch" />
 
-                <div class="voucher-heading-wrapper">
-                    <div class="main-heading">Debit Voucher</div>
-                    <div class="sub-heading">(Office Copy)</div>
+                <div class="title-section">
+                    <h1 class="main-title">DEBIT VOUCHER</h1>
+                    <div class="sub-title">(Payment Authorization Voucher)</div>
                 </div>
 
-                <table class="info-table table">
+                <div class="meta-row">
+                    <div>Voucher No.: <span class="text-danger">{{ $formattedDvNo }}</span></div>
+                    <div>Date: <span
+                            style="font-weight: normal;">{{ date('d-M-Y', strtotime($voucher->voucher_date)) }}</span>
+                    </div>
+                </div>
+
+                <table class="form-table">
                     <tr>
-                        <td style="width: 50%;"><strong>DATE:</strong>
-                            {{ date('d-m-Y', strtotime($voucher->voucher_date)) }}</td>
-                        <td style="width: 50%; text-align: right;"><strong>VOUCHER NO:</strong> {{ $voucher->dv_no }}
+                        <td class="label-text" style="width: 15%;">Head of Account</td>
+                        <td class="value-text" style="width: 55%;">{{ $ledgerName }}</td>
+                        <td class="label-text" style="width: 8%; text-align: right;">Project</td>
+                        <td class="value-text" style="width: 22%;">{{ $voucher->project_name ?? 'JANKI VILLA' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">Paid to Mr./Ms.</td>
+                        <td class="value-text">{{ $paidToName }}</td>
+                        <td class="label-text" style="text-align: right;">Rs.</td>
+                        <td class="value-text">{{ number_format($voucher->amount, 2) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">(Rupees</td>
+                        <td class="value-text" colspan="3">{{ $voucher->amount_words }} <span class="label-text"
+                                style="float: right; border: none;">only)</span></td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">by Cash/Chq./UPI/NEFT No.</td>
+                        <td class="value-text">{{ $displayMode }} - {{ $paymentRef ?: 'N/A' }}</td>
+                        <td class="label-text" style="text-align: right;">Dated</td>
+                        <td class="value-text">
+                            {{ $voucher->bank_date ? date('d-M-Y', strtotime($voucher->bank_date)) : 'N/A' }}</td>
+                    </tr>
+                </table>
+
+               <table class="form-table" style="margin-top: 1px;">
+                    <tr>
+                        <td class="label-text" style="width: 15%;">On (Comp. Bank)</td>
+                        <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->sender_bank ?? 'N/A') }}</td>
+                        <td class="label-text" style="width: 15%; text-align: right;">Receiver's A/c No.</td>
+                        <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->account_no ?? 'N/A') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">Bank Name</td>
+                        <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_name ?? 'N/A') }}</td>
+                        <td class="label-text" style="text-align: right;">Branch</td>
+                        <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_branch ?? 'N/A') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">IFSC Code</td>
+                        <td class="value-text" colspan="3">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->ifsc_code ?? 'N/A') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text" style="vertical-align: top; padding-top: 8px;">Purpose / Remarks</td>
+                        <td class="value-text" colspan="3" style="border: none; padding-top: 8px;">
+                            <div class="narration-box">{{ $voucher->narration ?? '-' }}</div>
                         </td>
                     </tr>
                 </table>
+            </div>
 
-                <table class="table details-table">
-                    <tr>
-                        <th style="width: 25%;">PAID TO</th>
-                        <td style="font-weight: bold;">{{ strtoupper($voucher->paid_to) }}</td>
-                    </tr>
-                    <tr>
-                        <th>HEAD OF ACCOUNT</th>
-                        <td>{{ strtoupper($voucher->head_of_account) }}</td>
-                    </tr>
-                    <tr>
-                        <th>PAYMENT MODE</th>
-                        <td>{{ strtoupper($voucher->payment_mode) }}</td>
-                    </tr>
-                    @if (in_array(strtolower($voucher->payment_mode), ['cheque', 'bank transfer', 'upi']))
-                        <tr>
-                            <th>TR. ID / CHQ NO.</th>
-                            <td>{{ $voucher->transaction_id ?? '-' }}</td>
-                        </tr>
-                        <tr>
-                            <th>BANK (DRAWN ON)</th>
-                            <td>{{ strtoupper($voucher->drawn_on ?? '-') }}</td>
-                        </tr>
-                    @endif
-                    <tr>
-                        <th>NARRATION / BEING</th>
-                        <td style="height: 35px; vertical-align: top;">{{ $voucher->narration ?? '-' }}</td>
-                    </tr>
-                </table>
-
-                <div class="amount-section">
-                    <div class="row align-items-center">
-                        <div class="col-8">
-                            <div class="amount-title">Amount Paid (In Words)</div>
-                            <div class="amount-words">({{ $voucher->amount_words }})</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="amount-number">₹ {{ number_format($voucher->amount, 2) }} /-</div>
-                        </div>
-                    </div>
+            <div class="signature-row">
+                <div class="sig-block">
+                    <div class="sig-name">{{ $approverName }}</div>
+                    <div class="sig-line">Prepared by (Account)</div>
                 </div>
-
-                <div class="signature-row">
-                    <div class="signature-block">
-                        <div class="signature-name">{{ $approverName }}</div>
-                        <div class="signature-line">Approved By</div>
-                    </div>
-                    <div class="signature-block">
-                        <div class="signature-name">{{ $signatoryName }}</div>
-                        <div class="signature-line">Authorize Signatory</div>
-                    </div>
-                    <div class="signature-block">
-                        <div class="signature-name"></div> <div class="signature-line">Receiver's Signature</div>
-                    </div>
+                <div class="sig-block">
+                    <div class="sig-name">{{ $approverName }}</div>
+                    <div class="sig-line">Verified by</div>
+                </div>
+                <div class="sig-block">
+                    <div class="sig-name">{{ $signatoryName }}</div>
+                    <div class="sig-line">Approved by (Director)</div>
+                </div>
+                <div class="sig-block">
+                    <div class="sig-name"></div>
+                    <div class="sig-line">Receiver's Signature & Mob. No.</div>
                 </div>
             </div>
         </div>
 
-        <div class="copy-divider">
+        <div class="copy-divider no-print">
             <span><i class="fas fa-scissors"></i> Detach Here</span>
         </div>
 
-        <div class="voucher-wrapper">
-            <div class="voucher-box">
+        
+     <!-- 📄 VOUCHER 2 (Client Copy) -->
+        <div class="voucher-wrapper {{ strtolower($voucher->status) === 'cancelled' ? 'cancelled-voucher' : '' }}">
+            <div class="voucher-content">
+                <x-print-header :company="$company" :branch="$branch" />
 
-               <x-print-header :company="$company" :branch="$branch" />
-
-                <div class="voucher-heading-wrapper">
-                    <div class="main-heading">Debit Voucher</div>
-                    <div class="sub-heading">(Client Copy)</div>
+                <div class="title-section">
+                    <h1 class="main-title">DEBIT VOUCHER</h1>
+                    <div class="sub-title">(Payment Authorization Voucher)</div>
                 </div>
 
-                <table class="info-table table">
+                <div class="meta-row">
+                    <div>Voucher No.: <span class="text-danger">{{ $formattedDvNo }}</span></div>
+                    <div>Date: <span
+                            style="font-weight: normal;">{{ date('d-M-Y', strtotime($voucher->voucher_date)) }}</span>
+                    </div>
+                </div>
+
+                <table class="form-table">
                     <tr>
-                        <td style="width: 50%;"><strong>DATE:</strong>
-                            {{ date('d-m-Y', strtotime($voucher->voucher_date)) }}</td>
-                        <td style="width: 50%; text-align: right;"><strong>VOUCHER NO:</strong> {{ $voucher->dv_no }}
+                        <td class="label-text" style="width: 15%;">Head of Account</td>
+                        <td class="value-text" style="width: 55%;">{{ $ledgerName }}</td>
+                        <td class="label-text" style="width: 8%; text-align: right;">Project</td>
+                        <td class="value-text" style="width: 22%;">{{ $voucher->project_name ?? 'JANKI VILLA' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">Paid to Mr./Ms.</td>
+                        <td class="value-text">{{ $paidToName }}</td>
+                        <td class="label-text" style="text-align: right;">Rs.</td>
+                        <td class="value-text">{{ number_format($voucher->amount, 2) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">(Rupees</td>
+                        <td class="value-text" colspan="3">{{ $voucher->amount_words }} <span class="label-text"
+                                style="float: right; border: none;">only)</span></td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">by Cash/Chq./UPI/NEFT No.</td>
+                        <td class="value-text">{{ $displayMode }} - {{ $paymentRef ?: 'N/A' }}</td>
+                        <td class="label-text" style="text-align: right;">Dated</td>
+                        <td class="value-text">
+                            {{ $voucher->bank_date ? date('d-M-Y', strtotime($voucher->bank_date)) : 'N/A' }}</td>
+                    </tr>
+                </table>
+
+               <table class="form-table" style="margin-top: 1px;">
+                    <tr>
+                        <td class="label-text" style="width: 15%;">On (Comp. Bank)</td>
+                        <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->sender_bank ?? 'N/A') }}</td>
+                        <td class="label-text" style="width: 15%; text-align: right;">Receiver's A/c No.</td>
+                        <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->account_no ?? 'N/A') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">Bank Name</td>
+                        <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_name ?? 'N/A') }}</td>
+                        <td class="label-text" style="text-align: right;">Branch</td>
+                        <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_branch ?? 'N/A') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text">IFSC Code</td>
+                        <td class="value-text" colspan="3">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->ifsc_code ?? 'N/A') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label-text" style="vertical-align: top; padding-top: 8px;">Purpose / Remarks</td>
+                        <td class="value-text" colspan="3" style="border: none; padding-top: 8px;">
+                            <div class="narration-box">{{ $voucher->narration ?? '-' }}</div>
                         </td>
                     </tr>
                 </table>
+            </div>
 
-                <table class="table details-table">
-                    <tr>
-                        <th style="width: 25%;">PAID TO</th>
-                        <td style="font-weight: bold;">{{ strtoupper($voucher->paid_to) }}</td>
-                    </tr>
-                    <tr>
-                        <th>HEAD OF ACCOUNT</th>
-                        <td>{{ strtoupper($voucher->head_of_account) }}</td>
-                    </tr>
-                    <tr>
-                        <th>PAYMENT MODE</th>
-                        <td>{{ strtoupper($voucher->payment_mode) }}</td>
-                    </tr>
-                    @if (in_array(strtolower($voucher->payment_mode), ['cheque', 'bank transfer', 'upi']))
-                        <tr>
-                            <th>TR. ID / CHQ NO.</th>
-                            <td>{{ $voucher->transaction_id ?? '-' }}</td>
-                        </tr>
-                        <tr>
-                            <th>BANK (DRAWN ON)</th>
-                            <td>{{ strtoupper($voucher->drawn_on ?? '-') }}</td>
-                        </tr>
-                    @endif
-                    <tr>
-                        <th>NARRATION / BEING</th>
-                        <td style="height: 35px; vertical-align: top;">{{ $voucher->narration ?? '-' }}</td>
-                    </tr>
-                </table>
-
-                <div class="amount-section">
-                    <div class="row align-items-center">
-                        <div class="col-8">
-                            <div class="amount-title">Amount Paid (In Words)</div>
-                            <div class="amount-words">({{ $voucher->amount_words }})</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="amount-number">₹ {{ number_format($voucher->amount, 2) }} /-</div>
-                        </div>
-                    </div>
+            <div class="signature-row">
+                <div class="sig-block">
+                    <div class="sig-name">{{ $approverName }}</div>
+                    <div class="sig-line">Prepared by (Account)</div>
                 </div>
-
-               <div class="signature-row">
-                    <div class="signature-block">
-                        <div class="signature-name">{{ $approverName }}</div>
-                        <div class="signature-line">Approved By</div>
-                    </div>
-                    <div class="signature-block">
-                        <div class="signature-name">{{ $signatoryName }}</div>
-                        <div class="signature-line">Authorize Signatory</div>
-                    </div>
-                    <div class="signature-block">
-                        <div class="signature-name"></div> <div class="signature-line">Receiver's Signature</div>
-                    </div>
+                <div class="sig-block">
+                    <div class="sig-name">{{ $approverName }}</div>
+                    <div class="sig-line">Verified by</div>
+                </div>
+                <div class="sig-block">
+                    <div class="sig-name">{{ $signatoryName }}</div>
+                    <div class="sig-line">Approved by (Director)</div>
+                </div>
+                <div class="sig-block">
+                    <div class="sig-name"></div>
+                    <div class="sig-line">Receiver's Signature & Mob. No.</div>
                 </div>
             </div>
         </div>
@@ -457,7 +472,6 @@
             }
         </script>
     @endif
-
 </body>
 
 </html>

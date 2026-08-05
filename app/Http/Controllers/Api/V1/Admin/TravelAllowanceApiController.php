@@ -21,11 +21,12 @@ class TravelAllowanceApiController extends Controller
         $this->mediaConverter = $mediaConverter;
     }
 
-    public function index(Request $request)
+   public function index(Request $request)
     {
         $user = Auth::user();
         $query = TravelAllowance::with(['company', 'branch', 'employee', 'approver'])->orderBy('id', 'desc');
 
+        // 🔥 1. Search Filter
         if ($request->filled('search')) {
             $searchTerm = $request->search;
             $query->where(function ($q) use ($searchTerm) {
@@ -41,6 +42,31 @@ class TravelAllowanceApiController extends Controller
             });
         }
 
+        // 🔥 2. Hierarchical Dropdown Filters
+        if ($request->filled('company_id')) $query->where('company_id', $request->company_id);
+        
+        // 🔥 NAYA: 'HO' aane par database me NULL (Head office) search karega
+        if ($request->filled('branch_id')) {
+            if ($request->branch_id === 'HO') {
+                $query->whereNull('branch_id');
+            } else {
+                $query->where('branch_id', $request->branch_id);
+            }
+        }
+        
+        if ($request->filled('department_id')) $query->where('department_id', $request->department_id);
+        if ($request->filled('designation_id')) $query->where('designation_id', $request->designation_id);
+        if ($request->filled('employee_id')) $query->where('employee_id', $request->employee_id);
+        
+        // 🔥 3. Month Filter (Format: YYYY-MM)
+        if ($request->filled('month')) {
+            $parts = explode('-', $request->month);
+            if (count($parts) == 2) {
+                $query->whereYear('ta_date', $parts[0])->whereMonth('ta_date', $parts[1]);
+            }
+        }
+
+        // 🔥 4. Role & Permissions Logic
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
         $emailStr = strtolower($user->email ?? '');
         $isGodMode = in_array($emailStr, $developerEmails);
@@ -56,7 +82,21 @@ class TravelAllowanceApiController extends Controller
             }
         }
 
-        return response()->json($query->paginate($request->input('per_page', 10)));
+        // 🔥 5. Summary Calculation (Clone query before pagination)
+        $summaryQuery = clone $query;
+        $totalApplied = $summaryQuery->sum('amount');
+        $totalApproved = $summaryQuery->where('status', 'active')->sum('approved_amount');
+
+        // 🔥 6. Pagination & Response
+        $paginated = $query->paginate($request->input('per_page', 20))->toArray();
+        
+        // Add summary to the response
+        $paginated['summary'] = [
+            'total_applied' => $totalApplied,
+            'total_approved' => $totalApproved
+        ];
+
+        return response()->json($paginated);
     }
 
     public function store(Request $request)
@@ -87,14 +127,14 @@ class TravelAllowanceApiController extends Controller
                 }
             }
         }
-
+$employee = Employee::find($request->employee_id);
         $branchId = ($request->branch_id === 'HO') ? null : $request->branch_id;
 
-        $ta = TravelAllowance::create([
-            'company_id' => $request->company_id,
+     $ta = TravelAllowance::create([
+            'company_id' => $request->company_id ?: $employee->company_id,
             'branch_id' => $branchId,
-            'department_id' => $request->department_id,
-            'designation_id' => $request->designation_id,
+            'department_id' => $request->department_id ?: $employee->department_id,  // 🔥 FIX: Agar frontend blank bhejta hai toh Employee DB se auto-fill
+            'designation_id' => $request->designation_id ?: $employee->designation_id, // 🔥 FIX
             'employee_id' => $request->employee_id,
             'ta_date' => $request->ta_date,
             'vehicle_no' => $request->vehicle_no,
@@ -140,7 +180,14 @@ class TravelAllowanceApiController extends Controller
             'purpose' => 'required|string|min:200',
         ]);
 
-        $data = $request->except(['proof_files', 'existing_proofs']);
+       $data = $request->except(['proof_files', 'existing_proofs']);
+
+        // 🔥 FIX: Edit ke waqt bhi empty value overwrite hone se bachayein
+        $employee = Employee::find($ta->employee_id);
+        $data['company_id'] = $request->company_id ?: $employee->company_id;
+        $data['branch_id'] = ($request->branch_id === 'HO') ? null : ($request->branch_id ?: $employee->branch_id);
+        $data['department_id'] = $request->department_id ?: $employee->department_id;
+        $data['designation_id'] = $request->designation_id ?: $employee->designation_id;
 
         // 🔥 EDIT MODE: EXISTING + NEW FILES MERGE LOGIC 🔥
         $proofFilesPaths = [];
@@ -290,4 +337,88 @@ class TravelAllowanceApiController extends Controller
         $html = view('admin.travel_allowances.view_partial', ['ta' => $ta, 'company' => $ta->company, 'branch' => $ta->branch])->render();
         return response()->json(['html' => $html]);
     }
+
+
+  public function searchFilters(Request $request)
+    {
+        $type = $request->type;
+        $q = $request->q;
+        
+        if (strlen($q) < 3) return response()->json([]);
+
+        $data = [];
+
+        if ($type === 'company') {
+            $data = \App\Models\Company::where('company_name', 'LIKE', "%{$q}%")
+                ->select('id', 'company_name as text')->limit(15)->get();
+                
+        } elseif ($type === 'branch') {
+            $query = \App\Models\Branch::where('branch_name', 'LIKE', "%{$q}%");
+            if ($request->company_id) $query->where('company_id', $request->company_id);
+            
+            $branches = $query->select('id', 'branch_name as text')->limit(15)->get()->toArray();
+            
+            if (stripos('head office', $q) !== false || stripos('ho', $q) !== false) {
+                array_unshift($branches, ['id' => 'HO', 'text' => 'Head Office']);
+            }
+            $data = $branches;
+            
+        } elseif ($type === 'department') {
+            $query = \App\Models\Department::where('department_name', 'LIKE', "%{$q}%");
+            
+            // 🔥 FIX: Column names changed to 'company_ids' and 'branch_ids'
+            if ($request->company_id) {
+                $query->where(function ($q2) use ($request) {
+                    $q2->whereJsonContains('company_ids', (string)$request->company_id)
+                       ->orWhereJsonContains('company_ids', 'all');
+                });
+            }
+            
+            if ($request->branch_id) {
+                $query->where(function ($q2) use ($request) {
+                    $branchVal = (string)$request->branch_id;
+                    $q2->whereJsonContains('branch_ids', $branchVal)
+                       ->orWhereJsonContains('branch_ids', 'all')
+                       ->orWhereNull('branch_ids'); // 🔥 FIX: Handle (NULL) values in branch_ids
+                });
+            } else {
+                // Agar branch filter me nahi di gayi hai tab bhi NULL aur 'all' wale aayein
+                $query->where(function ($q2) {
+                    $q2->whereJsonContains('branch_ids', 'all')
+                       ->orWhereNull('branch_ids');
+                });
+            }
+            
+            $data = $query->select('id', 'department_name as text')->limit(15)->get();
+            
+        } elseif ($type === 'designation') {
+            $query = \App\Models\Designation::where('designation_name', 'LIKE', "%{$q}%");
+            if ($request->department_id) $query->where('department_id', $request->department_id);
+            $data = $query->select('id', 'designation_name as text')->limit(15)->get();
+            
+        } elseif ($type === 'employee') {
+            $query = \App\Models\Employee::where(function($sq) use ($q) {
+                $sq->where('full_name', 'LIKE', "%{$q}%")->orWhere('member_id', 'LIKE', "%{$q}%");
+            });
+            if ($request->company_id) $query->where('company_id', $request->company_id);
+            
+            if ($request->filled('branch_id')) {
+                if ($request->branch_id === 'HO') {
+                    $query->whereNull('branch_id');
+                } else {
+                    $query->where('branch_id', $request->branch_id);
+                }
+            }
+            
+            if ($request->department_id) $query->where('department_id', $request->department_id);
+            if ($request->designation_id) $query->where('designation_id', $request->designation_id);
+            
+            $data = $query->select('id', \Illuminate\Support\Facades\DB::raw("CONCAT(full_name, ' (', member_id, ')') as text"))
+                ->limit(15)->get();
+        }
+
+        return response()->json($data);
+    }
+
+
 }

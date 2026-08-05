@@ -59,32 +59,32 @@
             border-radius: 0.16cm;
             margin-top: 0.2cm;
             text-align: center;
-            margin-bottom: 0.6cm;
+            margin-bottom: 0.1cm;
             padding: 0;
         }
 
         .header img {
             border: 0.02cm solid black;
             border-radius: 0.16cm;
-            height: 1cm;
+            height: 1.25cm;
             max-height: none;
             object-fit: cover;
             text-align: center;
-            width: 3.8cm;
+            width: 4cm;
             background: white;
             margin-bottom: -0.3cm;
         }
 
-        .photo {
-            width: 2.7cm;
-            height: 2.7cm;
-            border-radius: 50%;
-            border: 0.07cm solid white;
-            box-shadow: 0 0.13cm 0.33cm rgba(0, 0, 0, 0.4);
-            display: block;
-            margin: 0 auto 0.4cm;
-            object-fit: cover;
-        }
+       .photo {
+    width: 3.3cm;
+    height: 3.3cm;
+    border-radius: 50%;
+    border: 0.07cm solid white;
+    box-shadow: 0 0.13cm 0.33cm rgba(0, 0, 0, 0.4);
+    display: block;
+    margin: 0 auto 0.4cm;
+    object-fit: cover;
+}
 
         .info-list {
             list-style: none;
@@ -98,7 +98,7 @@
 }
 
         .info-list li {
-            margin-bottom: 0.14cm;
+            margin-bottom: 0.05cm;
             font-size: 0.21cm;
         }
 
@@ -130,7 +130,7 @@
         }
 
         .shape.secondary {
-            width: 6.6cm;
+            width: 6.9cm;
             height: 6.6cm;
             left: -2.4cm;
             top: -2.6cm;
@@ -176,24 +176,25 @@
         }
 
         .details-box {
-            background-color: white;
-            color: black;
-            font-weight: 500;
-            border: 0.015cm solid black;
-            border-radius: 0.08cm;
-            padding: 0.20cm 0.15cm;
-            margin: 0.8cm auto 0.5cm;
-            font-size: 0.17cm;
-            letter-spacing: 0.0001cm;
-            line-height: 2;
-            list-style: none;
-            width: 4.8cm;
-            text-align: left;
-            box-shadow: 0 0.02cm 0.05cm rgba(0, 0, 0, 0.2);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
+    background-color: white;
+    color: black;
+    font-weight: 500;
+    border: 0.015cm solid black;
+    border-radius: 0.08cm;
+    padding: 0.20cm 0.15cm;
+    margin: 0.5cm auto 0.2cm;
+    font-size: 0.17cm;
+    letter-spacing: 0.0001cm;
+    line-height: 2.2;
+    list-style: none;
+    width: 4.8cm;
+    text-align: left;
+    box-shadow: 0 0.02cm 0.05cm rgba(0, 0, 0, 0.2);
+    display: flex
+;
+    flex-direction: column;
+    justify-content: space-between;
+}
 
         .details-box li {
             display: flex;

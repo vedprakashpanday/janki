@@ -329,16 +329,18 @@
         </div>
     </div>
 
+ <!-- 🔥 UPDATED VIEW MODAL (WITH IFRAME) 🔥 -->
     <div class="modal fade" id="viewNoticeModal" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content shadow border-0">
                 <div class="modal-header bg-dark text-white border-bottom-0">
-                    <h5 class="modal-title fw-bold" id="viewTitle">Notice</h5>
-                    <button type="button" class="btn-close btn-close-white shadow-none"
-                        data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title fw-bold"><i class="fas fa-file-alt me-2"></i> Notice Document View</h5>
+                    <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body bg-white text-dark p-4" id="viewContent"
-                    style="font-size: 15px; line-height: 1.6;"></div>
+                <!-- Padding 0 kardi taaki Iframe ekdum fit baithe -->
+                <div class="modal-body p-0" style="height: 75vh; overflow: hidden; background: #e2e8f0;">
+                    <iframe id="viewNoticeIframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
             </div>
         </div>
     </div>
@@ -585,11 +587,11 @@
                     className: 'text-center',
                     render: function(data, type, row) {
                         let btns = `<div class="d-flex justify-content-center gap-1">`;
-                        btns += `<button class="btn btn-sm btn-dark text-white secured-item" data-permission="notices_view" onclick="viewNotice(${row.id})" title="View Notice"><i class="fas fa-eye"></i></button>`;
-
-                        // 🔥 DYNAMIC PRINT PARAMETERS TRANSFERS
                         let compId = row.target_company_id ? row.target_company_id : 'all';
                         let branchId = row.target_branch_id ? row.target_branch_id : 'all';
+
+                        // 🔥 Yahan viewNotice me compId aur branchId pass kiya hai
+                        btns += `<button class="btn btn-sm btn-dark text-white secured-item" data-permission="notices_view" onclick="viewNotice(${row.id}, '${compId}', '${branchId}')" title="View Notice"><i class="fas fa-eye"></i></button>`;
                         btns += `<button class="btn btn-sm btn-secondary text-white secured-item" data-permission="notices_print" onclick="printNotice(${row.id}, '${compId}', '${branchId}')" title="Print"><i class="fas fa-print"></i></button>`;
 
                         if (row.status === 'pending') {
@@ -846,7 +848,7 @@ if (data.holiday) {
         if ($('#target_audience').val() === 'other') loadAudienceEntities();
     });
 
-    // 🔥 DYNAMIC PERSONNEL CONTEXT FETCHING
+    // 🔥 DYNAMIC PERSONNEL CONTEXT FETCHING (UPDATED FOR NEW CLEAN API) 🔥
     function loadAudienceEntities() {
         let type = $('#entity_type').val();
         if (!type) return;
@@ -855,43 +857,24 @@ if (data.holiday) {
         let rawBranchId = $('#form_branch_id').val();
         let departmentId = $('#form_department_id').val();
 
-        // 🔥 SMART FIX: API me query block na ho isliye HO ke case me branch khali bhejenge
-        let apiBranchId = (rawBranchId === 'HO') ? '' : rawBranchId;
-
-        let url = '';
-        if (type === 'ceo') url = '/api/v1/super-admins';
-        if (type === 'director') url = '/api/v1/directors/active';
-        if (type === 'employee') url = '/api/v1/employees';
-        if (type === 'member') url = '/api/v1/members';
-        if (type === 'customer') url = '/api/v1/customers';
-
         $('#entityList').html('<option value="">Loading items...</option>');
 
-        $.get(url, {
+        // Seedha humari nayi optimize ki hui API call hogi
+        $.get('/api/v1/notices/audience-entities', {
+            entity_type: type,
             company_id: companyId,
-            branch_id: apiBranchId, // HO hone par khali jayega
-            department_id: departmentId,
-            status: 'active',
-            emp_status: 'active' // Safey ke liye dono fields bhej diye hain
+            branch_id: rawBranchId,
+            department_id: departmentId
         }, function(res) {
             let html = '';
-            let items = res.data || res;
+            let items = res.data;
             let count = 0;
 
             if (Array.isArray(items) && items.length > 0) {
                 items.forEach(item => {
-                    if (rawBranchId === 'HO') {
-                        if (item.branch_id != null && item.branch_id != 0 && item.branch_id !== '') return;
-                    }
-
-                    let name = item.name || item.full_name || item.employee_name || item.member_name || item.customer_name || 'No Name';
-                    let displayId = item.employee_smart_id || item.member_id || item.customer_id || item.id;
-                    
-                    if (name && displayId) {
-                        // 🔥 SMART FIX: Ab hum exact string ID bhej rahe hain (e.g., EMP-001)
-                        html += `<option value="${displayId}">${name} (${displayId})</option>`;
-                        count++;
-                    }
+                    // Backend se ab seedha id aur name aa raha hai, parsing ka koi jhanjhat nahi
+                    html += `<option value="${item.id}">${item.name} (${item.id})</option>`;
+                    count++;
                 });
             }
             
@@ -904,13 +887,16 @@ if (data.holiday) {
             $('#entityList').html('<option value="" disabled>Error loading records</option>');
         });
     }
-    // 🔥 SINGLE ITEM VIEW AND OVERLAYS
-    window.viewNotice = function(id) {
-        $.get(`/api/v1/notices/${id}`, function(res) {
-            $('#viewTitle').text(res.data.title);
-            $('#viewContent').html(res.data.content);
-            $('#viewNoticeModal').modal('show');
-        });
+
+
+
+  // 🔥 SINGLE ITEM VIEW (VIA IFRAME) 🔥
+    window.viewNotice = function(id, companyId, branchId) {
+        // Same print wala URL banayenge, bas end me &view_only=1 laga denge
+        let url = `/admin/notices/print/${id}?company_id=${companyId}&branch_id=${branchId}&view_only=1`;
+        
+        $('#viewNoticeIframe').attr('src', url); // Iframe me URL set kiya
+        $('#viewNoticeModal').modal('show');     // Modal open kar diya
     }
 
     // 🔥 ROUTING PARAMETERS LINKING TO PRINT ENGINE

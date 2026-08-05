@@ -21,7 +21,7 @@ class TaskDependencyController extends Controller
         if (!empty($search)) {
             $query->where('company_name', 'LIKE', "%{$search}%");
         }
-        return response()->json(['status' => 'success', 'data' => $query->select('id', 'company_name')->limit(15)->get()]);
+        return response()->json(['status' => 'success', 'data' => $query->select('id', 'company_name')->get()]);
     }
 
     public function getBranches(Request $request)
@@ -38,7 +38,7 @@ class TaskDependencyController extends Controller
             $query->where('branch_name', 'LIKE', "%{$search}%");
         }
 
-        return response()->json(['status' => 'success', 'data' => $query->select('id', 'branch_name', 'company_id')->limit(15)->get()]);
+        return response()->json(['status' => 'success', 'data' => $query->select('id', 'branch_name', 'company_id')->get()]);
     }
 
    public function getDepartments(Request $request)
@@ -101,7 +101,25 @@ class TaskDependencyController extends Controller
         });
     }
 
-    return response()->json(['status' => 'success', 'data' => $query->select('id', 'department_name')->limit(15)->get()]);
+  
+// Purana return statement hata do aur ye use karo:
+
+        $departments = $query->selectRaw('GROUP_CONCAT(id) as grouped_id, department_name')
+                             ->groupBy('department_name')
+                             ->get()
+                             ->map(function($item) {
+                                 // Yahan hum string (e.g. "9,15") ko manually id me daal rahe hain 
+                                 // taaki Laravel use integer me na badle
+                                 return [
+                                     'id' => $item->grouped_id, 
+                                     'department_name' => $item->department_name
+                                 ];
+                             });
+
+        return response()->json([
+            'status' => 'success', 
+            'data' => $departments
+        ]);
 }
 
     public function getDesignations(Request $request)
@@ -119,7 +137,7 @@ class TaskDependencyController extends Controller
         if (!empty($search)) {
             $query->where('designation_name', 'LIKE', "%{$search}%");
         }
-        return response()->json(['status' => 'success', 'data' => $query->select('id', 'designation_name')->limit(15)->get()]);
+        return response()->json(['status' => 'success', 'data' => $query->select('id', 'designation_name')->get()]);
     }
 
     
@@ -127,14 +145,14 @@ class TaskDependencyController extends Controller
     {
         $query = Employee::where('emp_status', 'active');
         $this->applyUserFilters($query, $request);
-        return response()->json(['status' => 'success', 'data' => $query->select('id', 'full_name', 'member_id')->limit(20)->get()]);
+        return response()->json(['status' => 'success', 'data' => $query->select('id', 'full_name', 'member_id')->get()]);
     }
 
     public function getMembers(Request $request)
     {
         $query = Member::where('status', 'active');
         $this->applyUserFilters($query, $request);
-        return response()->json(['status' => 'success', 'data' => $query->select('id', 'member_name as full_name', 'member_id')->limit(20)->get()]); // member_name aliased as full_name for uniform JS
+        return response()->json(['status' => 'success', 'data' => $query->select('id', 'member_name as full_name', 'member_id')->get()]); // member_name aliased as full_name for uniform JS
     }
 
     // Common Filter Logic for both Employees and Members

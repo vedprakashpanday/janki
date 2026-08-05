@@ -103,6 +103,7 @@ class BranchController extends Controller
         $request->validate([
             'branch_name' => 'required|string|max:255',
             'branch_state' => 'required|string',
+            'branch_code' => 'nullable|string|max:50',
             'branch_district' => 'required|string',
             'opening_date' => 'required|date'
         ]);
@@ -132,6 +133,7 @@ class BranchController extends Controller
             Branch::create([
                 'branch_id'       => $smartBranchId,
                 'branch_name'     => $request->branch_name,
+                'branch_code'     => $request->branch_code,
                 'company_id'      => $finalCompanyId,
                 'branch_status'   => $hasDirect ? 'active' : 'pending',
                 'branch_state'    => $request->branch_state,
@@ -171,7 +173,11 @@ class BranchController extends Controller
     public function update(Request $request, $id)
     {
         $context = $this->getGlobalContext();
-        $request->validate(['branch_name' => 'required|string|max:255']);
+        $request->validate([
+            'branch_name' => 'required|string|max:255',
+            'branch_code' => 'nullable|string|max:50',
+            
+            ]);
 
         DB::beginTransaction();
         try {
@@ -195,6 +201,7 @@ class BranchController extends Controller
                 'branch_name'     => $request->branch_name,
                 'branch_state'    => $request->branch_state,
                 'branch_district' => $request->branch_district,
+                'branch_code'     => $request->branch_code,
                 'opening_date'    => $request->opening_date,
                 'company_id'      => $finalCompanyId,
                 'branch_status'   => $hasDirect ? ($request->branch_status ?? $branch->branch_status) : 'pending',

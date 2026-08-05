@@ -141,6 +141,42 @@ class BankDetailController extends Controller
         return response()->json($results->take(20));
     }
 
+    // 4. Data Update (Edit Modal Se)
+    public function update(Request $request, $id)
+    {
+        $context = $this->getGlobalContext();
+        $bankDetail = BankDetail::findOrFail($id);
+
+        $validated = $request->validate([
+            'company_id' => 'nullable|integer',
+            'branch_id' => 'nullable|integer',
+            'member_id' => 'required|string',
+            'account_name' => 'required|string',
+            // Unique rule ko is id ke liye ignore karna zaroori hai warna "Account already exists" aayega
+            'account_no' => [
+                'required',
+                'string',
+                Rule::unique('tbl_bank_details', 'account_no')->ignore($bankDetail->id),
+            ],
+            'account_type' => 'nullable|string',
+            'bank_name' => 'nullable|string',
+            'ifsc_code' => 'nullable|string',
+        ]);
+
+        // Khali values (Head Office) ko database me correctly NULL bhejenge
+        $validated['company_id'] = $request->company_id ?: 1;
+        $validated['branch_id'] = $request->branch_id ?: null;
+
+        // Normal users agar edit karein aur permission strictly add request wali ho to status 'pending' me jaa sakta hai (Optional Logic)
+        // Yahan currently normal update perform ho raha hai
+        $bankDetail->update($validated);
+
+        return response()->json([
+            'message' => 'Bank details updated successfully', 
+            'data' => $bankDetail
+        ], 200);
+    }
+
   public function printPreview(Request $request)
     {
         $query = BankDetail::orderBy('id', 'desc');

@@ -148,16 +148,16 @@ class NoticeAdminController extends Controller
         ]);
     }
 
-    // 3. Fetch Single Notice for Edit
+   // 3. Fetch Single Notice for Edit & View
     public function show($id)
     {
-        $notice = Notice::with('holiday')->findOrFail($id);
+        // 🔥 FIX: 'replies' relation ko bhi load kar liya
+        $notice = Notice::with(['holiday', 'replies'])->findOrFail($id);
         return response()->json([
             'success' => true,
             'data' => $notice
         ]);
     }
-
     // 4. Update Notice
     public function update(Request $request, $id)
     {
@@ -344,5 +344,115 @@ class NoticeAdminController extends Controller
                 ));
             }
         }
+    }
+
+   // 🔥 NEW FUNCTION: Dedicated Lightweight API for Notice Target Dropdown 🔥
+    public function getAudienceEntities(Request $request)
+    {
+        $type = $request->entity_type;
+        $companyId = $request->company_id;
+        $departmentId = $request->department_id;
+        
+        $results = [];
+
+        if ($type === 'ceo') {
+            $data = \App\Models\SuperAdmin::where('status', 'active')->get();
+            foreach($data as $item) {
+                $results[] = ['id' => $item->id, 'name' => $item->name ?? 'CEO'];
+            }
+        } 
+        elseif ($type === 'director') {
+            $query = \App\Models\Director::where('status', 'active');
+            if ($companyId) $query->where('company_id', $companyId);
+            
+            $data = $query->get();
+            foreach($data as $item) {
+                $results[] = ['id' => $item->id, 'name' => $item->name];
+            }
+        } 
+        elseif ($type === 'employee') {
+            // 🔥 FIX: Status ke variations handle kiye
+            $query = \App\Models\Employee::where(function($q) {
+                $q->where('emp_status', 'active')->orWhere('emp_status', 'Active')->orWhere('emp_status', 1);
+            });
+            
+            if ($companyId) $query->where('company_id', $companyId);
+            if ($departmentId) $query->where('department_id', $departmentId);
+            
+            if ($request->has('branch_id') && $request->branch_id !== '') {
+                if ($request->branch_id === 'HO') {
+                    // 🔥 FIX: Head office ke liye teeno conditions check karega (Null, 0, Blank)
+                    $query->where(function($q) {
+                        $q->whereNull('branch_id')
+                          ->orWhere('branch_id', 0)
+                          ->orWhere('branch_id', '');
+                    });
+                } else {
+                    $query->where('branch_id', $request->branch_id);
+                }
+            }
+            
+            $data = $query->get();
+            foreach($data as $item) {
+                $displayId = $item->member_id ?? $item->employee_smart_id ?? $item->id;
+                $name = $item->full_name ?? $item->employee_name ?? 'N/A';
+                $results[] = ['id' => $displayId, 'name' => $name];
+            }
+        } 
+        elseif ($type === 'member') {
+            $query = \App\Models\Member::where(function($q) {
+                $q->where('status', 'active')->orWhere('status', 'Active')->orWhere('status', 1);
+            });
+
+            if ($companyId) $query->where('company_id', $companyId);
+            if ($departmentId) $query->where('department_id', $departmentId);
+            
+            if ($request->has('branch_id') && $request->branch_id !== '') {
+                if ($request->branch_id === 'HO') {
+                    $query->where(function($q) {
+                        $q->whereNull('branch_id')
+                          ->orWhere('branch_id', 0)
+                          ->orWhere('branch_id', '');
+                    });
+                } else {
+                    $query->where('branch_id', $request->branch_id);
+                }
+            }
+            
+            $data = $query->get();
+            foreach($data as $item) {
+                $displayId = $item->member_id ?? $item->id;
+                $name = $item->member_name ?? 'N/A';
+                $results[] = ['id' => $displayId, 'name' => $name];
+            }
+        } 
+        elseif ($type === 'customer') {
+            $query = \App\Models\Customer::where('status', 'active');
+            if ($companyId) $query->where('company_id', $companyId);
+            
+            if ($request->has('branch_id') && $request->branch_id !== '') {
+                if ($request->branch_id === 'HO') {
+                    $query->where(function($q) {
+                        $q->whereNull('branch_id')
+                          ->orWhere('branch_id', 0)
+                          ->orWhere('branch_id', '');
+                    });
+                } else {
+                    $query->where('branch_id', $request->branch_id);
+                }
+            }
+            
+            $data = $query->get();
+            foreach($data as $item) {
+                $displayId = $item->customer_id ?? $item->id;
+                $name = $item->customer_name ?? 'N/A';
+                $results[] = ['id' => $displayId, 'name' => $name];
+            }
+        }
+
+        return response()->json([
+            'success' => true, 
+            'data' => $results
+        ]);
     }
 }

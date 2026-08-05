@@ -23,6 +23,9 @@ class LeaveApplication extends Model
         'end_datetime',
         'duration',
         'reason',
+        'is_custom_date',
+        'custom_dates',
+        'approved_custom_dates',
         'proof_attachments',
         'status',
         'approved_duration',
@@ -39,12 +42,15 @@ class LeaveApplication extends Model
         'approved_resume_datetime'
     ];
 
-    protected $casts = [
+  protected $casts = [
         'start_datetime' => 'datetime',
         'end_datetime' => 'datetime',
         'duration' => 'decimal:2',
         'approved_duration' => 'decimal:2',
         'proof_attachments' => 'array',
+        'is_custom_date' => 'boolean',          // 🔥 NAYA
+        'custom_dates' => 'array',              // 🔥 NAYA
+        'approved_custom_dates' => 'array',     // 🔥 NAYA
     ];
 
     // ==========================================

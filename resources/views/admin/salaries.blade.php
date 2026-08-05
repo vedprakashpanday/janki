@@ -130,11 +130,10 @@
             </div>
         </div>
 
-        <!-- 3. Dynamic Calculation Workspace -->
         <div id="calculationWorkspace" class="d-none mb-4">
             <h5 class="fw-bold text-dark mb-3"><i class="fas fa-cogs me-2"></i> Salary Calculation Wizard</h5>
             <div class="row g-3">
-                <!-- STEP 1: Attendance Verification -->
+                <!-- STEP 1 -->
                 <div class="col-md-12">
                     <div class="card step-card active p-3" id="step1_card">
                         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -207,7 +206,7 @@
                         <div class="row mt-3 g-2 align-items-center">
                             <div class="col-md-2">
                                 <div class="val-box bg-dark text-white border-dark">
-                                    <div class="title text-light">System ED (Added)</div>
+                                    <div class="title text-light">System ED</div>
                                     <div class="amount text-white" id="disp_sys_ed">0</div>
                                 </div>
                             </div>
@@ -235,7 +234,7 @@
                     </div>
                 </div>
 
-                <!-- STEP 2: Fines & Penalties -->
+                <!-- STEP 2 -->
                 <div class="col-md-12">
                     <div class="card step-card p-3" id="step2_card">
                         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -245,9 +244,8 @@
                                     for="toggle_fine">Adjust Fine Manually?</label></div>
                         </div>
                         <div class="row align-items-center mt-2">
-                            <div class="col-md-8 text-muted small"><i class="fas fa-info-circle"></i> System has
-                                automatically fetched and applied the approved fines. Toggle switch to modify the amount.
-                            </div>
+                            <div class="col-md-8 text-muted small"><i class="fas fa-info-circle"></i> System automatically
+                                fetched approved fines. Toggle switch to modify.</div>
                             <div class="col-md-4">
                                 <div class="input-group input-group-sm"><span
                                         class="input-group-text bg-danger text-white fw-bold">Deduct ₹</span><input
@@ -261,54 +259,121 @@
                     </div>
                 </div>
 
-                <!-- STEP 3: Loans & Advances -->
+                <!-- STEP 3: Hybrid Loan Logic -->
                 <div class="col-md-12">
                     <div class="card step-card p-3" id="step3_card">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="fw-bold text-warning m-0">Step 3: Loans & Advances (Auto-Deducted 30%)</h6>
-                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox"
-                                    id="toggle_loan"><label class="form-check-label small fw-bold"
-                                    for="toggle_loan">Adjust Loan Manually?</label></div>
+                            <h6 class="fw-bold text-warning m-0">Step 3: Loans & Advances Deduction</h6>
                         </div>
                         <div class="row align-items-center mt-2" id="loan_calculation_area">
                             <input type="hidden" id="hidden_active_loan_id">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="val-box border-warning">
                                     <div class="title text-warning">Active Loan Remaining</div>
                                     <div class="amount">₹<span id="disp_remaining_loan">0</span></div>
                                 </div>
                             </div>
-                            <div class="col-md-4"><label class="small fw-bold text-muted">Deduction Percentage
-                                    (%)</label><input type="number"
-                                    class="form-control form-control-sm text-center fw-bold" id="input_loan_percentage"
-                                    value="30" min="0" max="100" readonly></div>
-                            <div class="col-md-4"><label class="small fw-bold text-muted">Final Loan Deduction
-                                    (₹)</label><input type="number"
-                                    class="form-control form-control-sm text-center fw-bold text-danger"
-                                    id="input_loan_deduction_amount" value="0" min="0" readonly></div>
+                            <div class="col-md-3"><label class="small fw-bold text-muted">Deduct via Percentage
+                                    (%)</label>
+                                <input type="number" class="form-control form-control-sm text-center fw-bold"
+                                    id="input_loan_percentage" placeholder="Base Salary %" value="0" min="0"
+                                    max="100">
+                            </div>
+                            <div class="col-md-3"><label class="small fw-bold text-muted">Deduct Fixed Amount (₹)</label>
+                                <input type="number" class="form-control form-control-sm text-center fw-bold"
+                                    id="input_loan_fixed" placeholder="Direct amount" value="0" min="0">
+                            </div>
+                            <div class="col-md-3"><label class="small fw-bold text-muted">Total EMI Deduction (₹)</label>
+                                <input type="number"
+                                    class="form-control form-control-sm text-center fw-bold text-danger bg-light"
+                                    id="input_loan_deduction_amount" value="0" min="0" readonly>
+                            </div>
                         </div>
                         <div class="text-end mt-3 pt-2 border-top"><button
-                                class="btn btn-warning btn-sm fw-bold px-4 text-dark step-btn" id="btnStep3Next">Calculate
-                                Payable Salary <i class="fas fa-calculator ms-1"></i></button></div>
+                                class="btn btn-warning btn-sm fw-bold px-4 text-dark step-btn" id="btnStep3Next">Verify
+                                Incentives <i class="fas fa-arrow-right ms-1"></i></button></div>
                     </div>
                 </div>
 
-                <!-- STEP 4: Final Summary -->
+                <!-- STEP 4 -->
                 <div class="col-md-12">
-                    <div class="card step-card p-3 bg-light" id="step4_card">
+                    <div class="card step-card p-3" id="step4_card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-info m-0">Step 4: Pending Incentives</h6>
+                            <div class="form-check form-switch"><input class="form-check-input" type="checkbox"
+                                    id="toggle_incentive"><label class="form-check-label small fw-bold"
+                                    for="toggle_incentive">Want to give incentive?</label></div>
+                        </div>
+                        <div class="row align-items-center mt-2">
+                            <div class="col-md-4">
+                                <div class="val-box border-info">
+                                    <div class="title text-info">Total Pending Incentive</div>
+                                    <div class="amount">₹<span id="disp_pending_incentive">0</span></div>
+                                </div>
+                            </div>
+                            <div class="col-md-8 d-none" id="incentive_input_area">
+                                <label class="small fw-bold text-muted">How much you want to give?</label>
+                                <div class="input-group"><span class="input-group-text bg-info text-white fw-bold">Add
+                                        ₹</span><input type="number" class="form-control fw-bold text-info"
+                                        id="input_incentive_amount" value="0" min="0"></div>
+                            </div>
+                        </div>
+                        <div class="text-end mt-3 pt-2 border-top"><button
+                                class="btn btn-info btn-sm fw-bold px-4 text-white step-btn" id="btnStep4Next">Configure
+                                PF/ESI <i class="fas fa-arrow-right ms-1"></i></button></div>
+                    </div>
+                </div>
+
+                <!-- STEP 5: PF/ESI Default Open -->
+                <div class="col-md-12">
+                    <div class="card step-card p-3" id="step5_card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-secondary m-0">Step 5: Statutory Deductions (PF / ESI)</h6>
+                        </div>
+                        <!-- 🔥 Default Visible, No Toggle Required -->
+                        <div class="row align-items-center mt-2" id="pf_esi_input_area">
+                            <div class="col-md-12 text-muted small mb-2"><i class="fas fa-info-circle"></i> Default is set
+                                to 0. You can apply deductions directly below if required.</div>
+                            <div class="col-md-4">
+                                <label class="small fw-bold text-muted">PF Deduction (₹)</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-secondary text-white fw-bold">₹</span>
+                                    <input type="number" class="form-control fw-bold" id="input_pf_amount"
+                                        value="0" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="small fw-bold text-muted">ESI Deduction (₹)</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-secondary text-white fw-bold">₹</span>
+                                    <input type="number" class="form-control fw-bold" id="input_esi_amount"
+                                        value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end mt-3 pt-2 border-top">
+                            <button class="btn btn-secondary btn-sm fw-bold px-4 text-white step-btn"
+                                id="btnStep5Next">Review Summary <i class="fas fa-arrow-right ms-1"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 6 -->
+                <div class="col-md-12">
+                    <div class="card step-card p-3 bg-light" id="step6_card">
                         <h6 class="fw-bold text-success mb-3 text-center border-bottom pb-2">Final Salary Summary</h6>
                         <div class="row justify-content-center text-center">
                             <div class="col-md-2"><small class="fw-bold text-muted d-block">Actual Salary</small><span
                                     class="fs-6 fw-bold">₹<span id="summary_actual">0</span></span></div>
                             <div class="col-md-1"><i class="fas fa-minus text-danger mt-3"></i></div>
-                            <div class="col-md-2"><small class="fw-bold text-danger d-block">Fines</small><span
-                                    class="fs-6 fw-bold text-danger">₹<span id="summary_fine">0</span></span></div>
-                            <div class="col-md-1"><i class="fas fa-minus text-danger mt-3"></i></div>
-                            <div class="col-md-2"><small class="fw-bold text-danger d-block">Loan EMI</small><span
-                                    class="fs-6 fw-bold text-danger">₹<span id="summary_loan">0</span></span></div>
+                            <div class="col-md-2"><small class="fw-bold text-danger d-block">All Deductions</small><span
+                                    class="fs-6 fw-bold text-danger">₹<span id="summary_deductions">0</span></span></div>
                             <div class="col-md-1"><i class="fas fa-plus text-success mt-3"></i></div>
                             <div class="col-md-2"><small class="fw-bold text-success d-block">TA Added</small><span
                                     class="fs-6 fw-bold text-success">₹<span id="summary_ta">0</span></span></div>
+                            <div class="col-md-1"><i class="fas fa-plus text-info mt-3"></i></div>
+                            <div class="col-md-2"><small class="fw-bold text-info d-block">Incentive</small><span
+                                    class="fs-6 fw-bold text-info">₹<span id="summary_incentive">0</span></span></div>
                         </div>
                         <div class="text-center mt-4 mb-3">
                             <h4 class="fw-bold mb-1">Net Payable: <span
@@ -316,8 +381,7 @@
                                         id="summary_net_payable">0</span></span></h4>
                         </div>
                         <div class="form-group mb-3"><label class="small fw-bold text-muted">Remarks (Optional)</label>
-                            <textarea class="form-control form-control-sm border-secondary" id="input_remarks" rows="2"
-                                placeholder="Enter any notes or remarks regarding this salary generation..."></textarea>
+                            <textarea class="form-control form-control-sm border-secondary" id="input_remarks" rows="2"></textarea>
                         </div>
                         <div class="text-center mt-2 pt-3 border-top"><button
                                 class="btn btn-success btn-lg fw-bold px-5 shadow" id="btnFinalizeSalary"><i
@@ -334,7 +398,6 @@
                 </h6>
             </div>
             <div class="card-body">
-                <!-- Desktop View -->
                 <div class="table-responsive d-none d-md-block">
                     <table id="salariesTable" class="table table-sm table-bordered table-hover align-middle w-100"
                         style="font-size: 12px;">
@@ -343,23 +406,21 @@
                                 <th class="text-center"><input type="checkbox" id="selectAllDesktop"></th>
                                 <th>EMP Code</th>
                                 <th>Name</th>
-                                <th>Month</th>
-                                <th class="text-center">P</th>
-                                <th class="text-center">A</th>
-                                <th class="text-center">L/SL</th>
+                                <th title="Present" class="text-success">P</th>
+                                <th title="Absent" class="text-danger">A</th>
+                                <th title="Leave" class="text-secondary">L</th>
+                                <th title="Extra Days" class="text-dark">ED</th>
                                 <th class="text-end">Actual (₹)</th>
-                                <th class="text-end text-danger">Fine (₹)</th>
-                                <th class="text-end text-danger">Loan (₹)</th>
-                                <th class="text-end text-success">TA (₹)</th>
+                                <th class="text-end text-danger">L.Cut (₹)</th>
+                                <th class="text-end text-danger">L.Bal (₹)</th>
                                 <th class="text-end text-primary fw-bold">Payable (₹)</th>
                                 <th class="text-center">Status</th>
-                                <th class="text-center">Actions</th>
+                                <th class="text-center" style="width: 120px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
                 </div>
-                <!-- Mobile View Cards -->
                 <div id="mobileCardsContainer" class="d-md-none row g-3"></div>
             </div>
         </div>
@@ -377,16 +438,13 @@
 @push('scripts')
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script>
         $(document).ready(function() {
             let adminToken = localStorage.getItem('admin_token') || localStorage.getItem('emp_token');
             let calculationCache = {};
 
-            // DROPDOWNS
+            // Dropdowns ...
             $.ajax({
                 url: '/api/v1/task-dependencies/companies',
                 type: 'GET',
@@ -523,14 +581,11 @@
                 }
             });
 
-            // CALCULATION
+            // INITIATE CALC
             $('#btnInitiateCalculation').click(function() {
                 let empId = $('#filter_employee').val();
                 let month = $('#filter_month').val();
-                if (!empId || !month) {
-                    Swal.fire('Warning', 'Select Employee and Month!', 'warning');
-                    return;
-                }
+                if (!empId || !month) return Swal.fire('Warning', 'Select Employee and Month!', 'warning');
                 Swal.fire({
                     title: 'Fetching Data...',
                     allowOutsideClick: false,
@@ -569,88 +624,104 @@
                             $('#calc_actual_salary').text(calculationCache.actual_salary);
 
                             $('#input_fine_amount').val(calculationCache.total_fine);
+
+                            // Load active loan remaining balance
                             if (calculationCache.active_loan) {
                                 $('#hidden_active_loan_id').val(calculationCache.active_loan
                                 .id);
                                 $('#disp_remaining_loan').text(calculationCache.active_loan
                                     .remaining_amount);
-                                $('#input_loan_deduction_amount').val(calculationCache
-                                    .active_loan.default_cut);
                             } else {
                                 $('#hidden_active_loan_id').val('');
                                 $('#disp_remaining_loan').text('0');
-                                $('#input_loan_deduction_amount').val('0');
                             }
+                            $('#input_loan_percentage, #input_loan_fixed, #input_loan_deduction_amount')
+                                .val('0');
+
+                            $('#input_pf_amount, #input_esi_amount').val('0');
+
+                            $('#disp_pending_incentive').text(calculationCache
+                                .total_pending_incentive || 0);
+                            $('#toggle_incentive').prop('checked', false);
+                            $('#incentive_input_area').addClass('d-none');
+                            $('#input_incentive_amount').val(0);
+
+                            $('#input_ed_days').val('');
+                            $('#toggle_ed').prop('checked', false);
 
                             $('#calculationWorkspace').removeClass('d-none');
                             $('.step-card').removeClass('active completed');
                             $('#step1_card').addClass('active');
                         }
-                    },
-                    error: function(err) {
-                        Swal.fire('Error', err.responseJSON?.message || 'Failed to calculate.',
-                            'error');
                     }
                 });
             });
 
-            // WIZARD FLOW & RECALCULATION
+            // RECALCULATION
             function recalculateNet() {
-                let actual = calculationCache.current_actual_salary || calculationCache.actual_salary;
-                let fine = parseFloat($('#input_fine_amount').val()) || 0;
-                let ta = calculationCache.total_ta || 0;
+                // 🔥 Precision Formula: (Payable Days / 30) * Base Salary
+                let currentPayableDays = parseFloat($('#disp_payable_days').text()) || 0;
+                let actual = Math.round((currentPayableDays / 30) * calculationCache.base_salary);
+
+                let fine = Math.round(parseFloat($('#input_fine_amount').val()) || 0);
+                let ta = Math.round(calculationCache.total_ta || 0);
+
+                // 🔥 Hybrid Loan Math
+                let remainingLoan = calculationCache.active_loan ? Math.round(calculationCache.active_loan
+                    .remaining_amount) : 0;
                 let loanPercent = parseFloat($('#input_loan_percentage').val()) || 0;
-                let remainingLoan = calculationCache.active_loan ? calculationCache.active_loan.remaining_amount :
-                0;
-                let loanCut = 0;
-                if (!$('#toggle_loan').is(':checked')) {
-                    let baseForLoan = actual - fine;
-                    if (baseForLoan > 0) {
-                        loanCut = baseForLoan * (loanPercent / 100);
-                        if (loanCut > remainingLoan) loanCut = remainingLoan;
-                    }
-                    $('#input_loan_deduction_amount').val(loanCut.toFixed(2));
-                } else {
-                    loanCut = parseFloat($('#input_loan_deduction_amount').val()) || 0;
+                let loanFixed = parseFloat($('#input_loan_fixed').val()) || 0;
+
+                let pctCut = Math.round(calculationCache.base_salary * (loanPercent / 100));
+                let totalLoanCut = pctCut + loanFixed;
+                if (totalLoanCut > remainingLoan) {
+                    totalLoanCut = remainingLoan;
                 }
 
-                let netPayable = (actual - fine - loanCut) + ta;
+                $('#input_loan_deduction_amount').val(totalLoanCut);
+
+                let incentiveAmount = $('#toggle_incentive').is(':checked') ? Math.round(parseFloat($(
+                    '#input_incentive_amount').val()) || 0) : 0;
+                let pfAmount = Math.round(parseFloat($('#input_pf_amount').val()) || 0);
+                let esiAmount = Math.round(parseFloat($('#input_esi_amount').val()) || 0);
+
+                let totalDeductions = fine + totalLoanCut + pfAmount + esiAmount;
+                let netPayable = Math.round((actual - totalDeductions) + ta + incentiveAmount);
                 if (netPayable < 0) netPayable = 0;
+
                 $('#summary_actual').text(actual.toFixed(2));
-                $('#summary_fine').text(fine.toFixed(2));
-                $('#summary_loan').text(loanCut.toFixed(2));
+                $('#summary_deductions').text(totalDeductions.toFixed(2));
                 $('#summary_ta').text(ta.toFixed(2));
+                $('#summary_incentive').text(incentiveAmount.toFixed(2));
                 $('#summary_net_payable').text(netPayable.toFixed(2));
             }
 
-        // REWARD DAYS (ED) LOGIC UPDATED FOR LATEST PER DAY SALARY
-    $('#toggle_ed').change(function() {
-        if ($(this).is(':checked')) {
-            $('#input_ed_days').removeClass('d-none');
-        } else {
-            $('#input_ed_days').addClass('d-none').val('');
-            let basePayableDays = calculationCache.attendance.payable_days;
-            $('#disp_payable_days').text(basePayableDays);
-            $('#calc_actual_salary').text(calculationCache.actual_salary.toFixed(2));
-            calculationCache.current_actual_salary = calculationCache.actual_salary;
-            recalculateNet();
-        }
-    });
+            // INPUT EVENTS
+            $('#toggle_ed').change(function() {
+                if ($(this).is(':checked')) {
+                    $('#input_ed_days').removeClass('d-none');
+                } else {
+                    $('#input_ed_days').addClass('d-none').val('');
+                    $('#disp_payable_days').text(calculationCache.attendance.payable_days);
+                    let baseActual = Math.round((calculationCache.attendance.payable_days / 30) *
+                        calculationCache.base_salary);
+                    $('#calc_actual_salary').text(baseActual.toFixed(2));
+                    recalculateNet();
+                }
+            });
 
-    $('#input_ed_days').on('input', function() {
-        let rewardDays = parseFloat($(this).val()) || 0;
-        let basePayableDays = calculationCache.attendance.payable_days;
-        
-        let newPayableDays = basePayableDays + rewardDays;
-        // 🔥 NAYA: Hum latest_per_day use kar rahe hain taaki promotion ke baad wali salary se ED reward ho
-        let rewardAmount = rewardDays * calculationCache.latest_per_day; 
-        let newActual = calculationCache.actual_salary + rewardAmount;
-        
-        $('#disp_payable_days').text(newPayableDays);
-        $('#calc_actual_salary').text(newActual.toFixed(2));
-        calculationCache.current_actual_salary = newActual;
-        recalculateNet();
-    });
+            $('#input_ed_days').on('input', function() {
+                let rewardDays = parseFloat($(this).val()) || 0;
+                let newPayableDays = calculationCache.attendance.payable_days + rewardDays;
+
+                // Naya formula applied here as well
+                let newActual = Math.round((newPayableDays / 30) * calculationCache.base_salary);
+
+                $('#disp_payable_days').text(newPayableDays);
+                $('#calc_actual_salary').text(newActual.toFixed(2));
+                recalculateNet();
+            });
+
             $('#toggle_fine').change(function() {
                 if ($(this).is(':checked')) {
                     $('#input_fine_amount').prop('readonly', false);
@@ -660,17 +731,23 @@
                 recalculateNet();
             });
             $('#input_fine_amount').on('input', recalculateNet);
-            $('#toggle_loan').change(function() {
-                if ($(this).is(':checked')) {
-                    $('#input_loan_percentage, #input_loan_deduction_amount').prop('readonly', false);
-                } else {
-                    $('#input_loan_percentage').prop('readonly', true).val(30);
-                    $('#input_loan_deduction_amount').prop('readonly', true);
-                    recalculateNet();
-                }
-            });
-            $('#input_loan_percentage, #input_loan_deduction_amount').on('input', recalculateNet);
 
+            // Loan Events
+            $('#input_loan_percentage, #input_loan_fixed').on('input', recalculateNet);
+
+            $('#toggle_incentive').change(function() {
+                if ($(this).is(':checked')) {
+                    $('#incentive_input_area').removeClass('d-none');
+                } else {
+                    $('#incentive_input_area').addClass('d-none');
+                    $('#input_incentive_amount').val(0);
+                }
+                recalculateNet();
+            });
+            $('#input_incentive_amount').on('input', recalculateNet);
+            $('#input_pf_amount, #input_esi_amount').on('input', recalculateNet);
+
+            // STEP NAV
             $('#btnStep1Next').click(function() {
                 $('#step1_card').removeClass('active').addClass('completed');
                 $('#step2_card').addClass('active');
@@ -680,9 +757,17 @@
                 $('#step3_card').addClass('active');
             });
             $('#btnStep3Next').click(function() {
-                recalculateNet();
                 $('#step3_card').removeClass('active').addClass('completed');
                 $('#step4_card').addClass('active');
+            });
+            $('#btnStep4Next').click(function() {
+                $('#step4_card').removeClass('active').addClass('completed');
+                $('#step5_card').addClass('active');
+            });
+            $('#btnStep5Next').click(function() {
+                recalculateNet();
+                $('#step5_card').removeClass('active').addClass('completed');
+                $('#step6_card').addClass('active');
             });
 
             // FINALIZE API
@@ -703,17 +788,21 @@
                             present_days: calculationCache.attendance.present,
                             absent_days: calculationCache.attendance.absent,
                             half_days: calculationCache.attendance.half_day,
-                            paid_leaves: calculationCache.attendance.paid_leaves,
+                            paid_leaves: calculationCache.attendance.leaves,
                             short_leaves: calculationCache.attendance.short_leaves,
+                            cl: calculationCache.attendance.cl,
                             week_offs: calculationCache.attendance.week_offs,
                             holidays: calculationCache.attendance.holidays,
                             extra_days: calculationCache.attendance.extra_days,
-                            reward_days: $('#input_ed_days').val() || 0,
-                            total_payable_days: $('#disp_payable_days').text(),
+                            reward_days: parseFloat($('#input_ed_days').val()) || 0,
+                            total_payable_days: parseFloat($('#disp_payable_days').text()) || 0,
                             actual_salary: $('#summary_actual').text(),
-                            travel_allowance_added: $('#summary_ta').text(),
-                            fine_deduction: $('#summary_fine').text(),
-                            loan_deduction: $('#summary_loan').text(),
+                            travel_allowance_added: parseFloat($('#summary_ta').text()) || 0,
+                            fine_deduction: parseFloat($('#input_fine_amount').val()) || 0,
+                            loan_deduction: parseFloat($('#input_loan_deduction_amount')
+                            .val()) || 0,
+                            incentive_added: $('#toggle_incentive').is(':checked') ? (
+                                parseFloat($('#input_incentive_amount').val()) || 0) : 0,
                             net_payable_salary: $('#summary_net_payable').text(),
                             remarks: $('#input_remarks').val(),
                             active_loan_id: $('#hidden_active_loan_id').val()
@@ -732,17 +821,12 @@
                                         'd-none');
                                     salariesTable.draw();
                                 });
-                            },
-                            error: function(err) {
-                                Swal.fire('Error', err.responseJSON?.message ||
-                                    'Failed to save.', 'error');
                             }
                         });
                     }
                 });
             });
 
-         // Naya function floating buttons ko show/hide karne ke liye
             function toggleFloatingButtons() {
                 let checkedCount = $('.row-checkbox:checked').length;
                 if (checkedCount > 0) {
@@ -752,14 +836,16 @@
                 }
             }
 
-            // DATATABLES & CHECKBOX LOGIC
+            // DATATABLES
             let salariesTable = $('#salariesTable').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
                     url: '/api/v1/salaries',
                     type: 'GET',
-                    headers: { 'Authorization': 'Bearer ' + adminToken },
+                    headers: {
+                        'Authorization': 'Bearer ' + adminToken
+                    },
                     data: function(d) {
                         d.company_id = $('#filter_company').val();
                         d.branch_id = $('#filter_branch').val();
@@ -768,8 +854,7 @@
                         d.month = $('#filter_month').val();
                     }
                 },
-                columns: [
-                    {
+                columns: [{
                         data: 'id',
                         orderable: false,
                         className: 'text-center',
@@ -777,20 +862,50 @@
                             return `<input type="checkbox" class="row-checkbox form-check-input border-dark" value="${data}">`;
                         }
                     },
-                    { data: 'emp_code' }, { data: 'name', className: 'fw-bold text-primary' }, { data: 'month' }, 
-                    { data: 'present', className: 'text-center text-success fw-bold' },
-                    { data: 'absent', className: 'text-center text-danger fw-bold' }, 
-                    { data: 'leaves', className: 'text-center text-info fw-bold' }, 
-                    { data: 'actual', className: 'text-end' },
-                    { data: 'fine', className: 'text-end text-danger fw-bold' }, 
-                    { data: 'loan', className: 'text-end text-danger fw-bold' }, 
-                    { data: 'ta', className: 'text-end text-success fw-bold' },
-                    { data: 'payable', className: 'text-end text-primary fs-6 fw-bold' },
+                    {
+                        data: 'emp_code'
+                    }, {
+                        data: 'name',
+                        className: 'fw-bold text-primary'
+                    },
+                    {
+                        data: 'present',
+                        className: 'text-success fw-bold'
+                    },
+                    {
+                        data: 'absent',
+                        className: 'text-danger fw-bold'
+                    },
+                    {
+                        data: 'l',
+                        className: 'text-secondary fw-bold'
+                    },
+                    {
+                        data: 'ed',
+                        className: 'text-dark fw-bold'
+                    },
+                    {
+                        data: 'actual',
+                        className: 'text-end'
+                    },
+                    {
+                        data: 'loan',
+                        className: 'text-end text-danger fw-bold'
+                    },
+                    {
+                        data: 'loan_bal',
+                        className: 'text-end text-danger fw-bold'
+                    }, // 🔥 Naya L.Bal UI me include ho gaya
+                    {
+                        data: 'payable',
+                        className: 'text-end text-primary fs-6 fw-bold'
+                    },
                     {
                         data: 'status',
                         className: 'text-center',
                         render: function(data) {
-                            let badge = data === 'active' || data === 'paid' ? 'bg-success' : 'bg-warning text-dark';
+                            let badge = data === 'active' || data === 'paid' ? 'bg-success' :
+                                'bg-warning text-dark';
                             return `<span class="badge ${badge}">${data.toUpperCase()}</span>`;
                         }
                     },
@@ -799,47 +914,25 @@
                         orderable: false,
                         className: 'text-center',
                         render: function(data) {
-                            return `<button class="btn btn-sm btn-outline-info" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-danger btnDeleteSalary secured-item" data-permission="emp_salary_delete" data-id="${data}" title="Delete"><i class="fas fa-trash-alt"></i></button>`;
+                            return `<a href="/admin/salaries/${data}/print-slip" target="_blank" class="btn btn-sm btn-warning text-dark" title="Print Salary Slip"><i class="fas fa-print"></i></a> <button type="button" class="btn btn-sm btn-outline-info btnViewSalary" data-id="${data}" title="View"><i class="fas fa-eye"></i></button> <button type="button" class="btn btn-sm btn-danger btnDeleteSalary secured-item" data-permission="emp_salary_delete" data-id="${data}"><i class="fas fa-trash-alt"></i></button>`;
                         }
                     }
                 ],
                 drawCallback: function(settings) {
-                    let api = this.api();
-                    let records = api.rows({ page: 'current' }).data();
-                    let mobileHtml = '';
-                    records.each(function(r) {
-                        mobileHtml += `
-                        <div class="col-12">
-                            <div class="card salary-card bg-white p-3">
-                                <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
-                                    <div><div class="form-check d-inline-block me-2"><input class="form-check-input row-checkbox border-dark" type="checkbox" value="${r.id}"></div><span class="fw-bold text-primary">${r.name}</span> <br><small class="text-muted">${r.emp_code} | ${r.month}</small></div>
-                                    <div class="text-end"><span class="badge ${r.status === 'active' || r.status === 'paid' ? 'bg-success' : 'bg-warning text-dark'}">${r.status.toUpperCase()}</span><br><div class="mt-1"><button class="btn btn-sm btn-outline-info py-0 px-2"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-danger py-0 px-2 btnDeleteSalary secured-item" data-permission="emp_salary_delete" data-id="${r.id}"><i class="fas fa-trash-alt"></i></button></div></div>
-                                </div>
-                                <div class="row text-center g-2 mt-1">
-                                    <div class="col-4"><div class="metric">Actual</div><div class="val">₹${r.actual}</div></div><div class="col-4 border-start border-end"><div class="metric text-danger">Fine+Loan</div><div class="val text-danger">₹${(parseFloat(r.fine) + parseFloat(r.loan)).toFixed(2)}</div></div><div class="col-4"><div class="metric text-primary">Payable</div><div class="val text-primary fs-5">₹${r.payable}</div></div>
-                                </div>
-                            </div>
-                        </div>`;
-                    });
-                    $('#mobileCardsContainer').html(mobileHtml);
-                    
-                    // Reset Checkboxes and Buttons on page change
                     $('#selectAllDesktop').prop('checked', false);
                     toggleFloatingButtons();
-                    window.applyPermissions();
+                    if (typeof window.applyPermissions === 'function') {
+                        window.applyPermissions();
+                    }
                 }
             });
 
             $('#filter_month, #filter_employee').change(function() {
                 salariesTable.draw();
             });
-
-            // Single Checkbox Tick Event
             $(document).on('change', '.row-checkbox', function() {
                 toggleFloatingButtons();
             });
-
-            // Select All Event
             $('#selectAllDesktop, #btnSelectAllFloating').click(function() {
                 let isChecked = $('#selectAllDesktop').prop('checked');
                 if (this.id === 'btnSelectAllFloating') {
@@ -849,18 +942,15 @@
                 $('.row-checkbox').prop('checked', isChecked);
                 toggleFloatingButtons();
             });
-            $('#filter_month, #filter_employee').change(function() {
-                salariesTable.draw();
+
+            $(document).on('click', '.btnViewSalary', function(e) {
+                e.preventDefault();
+                let id = $(this).data('id');
+                window.open('/admin/salaries/' + id + '/print-slip', '_blank');
             });
 
-            $('#selectAllDesktop, #btnSelectAllFloating').click(function() {
-                let isChecked = $('#selectAllDesktop').prop('checked');
-                if (this.id === 'btnSelectAllFloating') isChecked = !isChecked;
-                $('#selectAllDesktop').prop('checked', isChecked);
-                $('.row-checkbox').prop('checked', isChecked);
-            });
-
-            $(document).on('click', '.btnDeleteSalary', function() {
+            $(document).on('click', '.btnDeleteSalary', function(e) {
+                e.preventDefault();
                 let id = $(this).data('id');
                 Swal.fire({
                     title: 'Permanent Delete?',
@@ -892,10 +982,8 @@
                 $('.row-checkbox:checked').each(function() {
                     selectedIds.push($(this).val());
                 });
-                if (selectedIds.length === 0) {
-                    Swal.fire('Notice', 'Select at least one record.', 'info');
-                    return;
-                }
+                if (selectedIds.length === 0) return Swal.fire('Notice', 'Select at least one record.',
+                    'info');
                 Swal.fire({
                     title: 'Bulk Delete?',
                     text: "Deleting these records will revert all associated loan deductions.",
@@ -929,6 +1017,8 @@
                 window.open('/admin/salaries/print?' + $.param({
                     company_id: $('#filter_company').val() || '',
                     branch_id: $('#filter_branch').val() || '',
+                    department_id: $('#filter_department').val() || '',
+                    employee_id: $('#filter_employee').val() || '',
                     month: $('#filter_month').val() || '',
                     token: adminToken
                 }), '_blank');
@@ -937,6 +1027,8 @@
                 window.open('/admin/salaries/print?' + $.param({
                     company_id: $('#filter_company').val() || '',
                     branch_id: $('#filter_branch').val() || '',
+                    department_id: $('#filter_department').val() || '',
+                    employee_id: $('#filter_employee').val() || '',
                     month: $('#filter_month').val() || '',
                     export: 'excel',
                     token: adminToken

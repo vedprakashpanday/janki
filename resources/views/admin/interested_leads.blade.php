@@ -59,20 +59,27 @@
     <div class="container-fluid p-0">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="fw-bold mb-0" style="color: var(--sidebar-bg);">Interested Leads Management</h4>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item"
-                    data-permission="interested_leads_add_direct" style="background-color: #10b981;"
-                    onclick="$('#importExcel').click()"><i class="fas fa-file-import me-1"></i> Import Excel</button>
-                <input type="file" id="importExcel" class="d-none" accept=".xlsx, .xls, .csv">
+           <div class="d-flex gap-2">
+            <!-- 1. Download Template Button -->
+            <a href="interested-customers/import-template" class="btn text-white px-3 py-2 shadow-sm secured-item"
+                data-permission="interested_leads_add_direct" style="background-color: #0dcaf0;">
+                <i class="fas fa-file-download me-1"></i> Template
+            </a>
 
-                <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item"
-                    data-permission="interested_leads_add_direct" style="background-color: var(--brand-primary);"
-                    onclick="openModal('add_direct')"><i class="fas fa-plus me-1"></i> Add Lead</button>
+            <!-- 2. Naya Upload Excel Button -->
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item"
+                data-permission="interested_leads_add_direct" style="background-color: #10b981;"
+                id="selectFileBtn"><i class="fas fa-file-import me-1"></i> Upload Excel</button>
 
-                <button type="button" class="btn text-dark px-3 py-2 shadow-sm secured-item"
-                    data-permission="interested_leads_add_reque" style="background-color: #facc15;"
-                    onclick="openModal('add_request')"><i class="fas fa-paper-plane me-1"></i> Request Lead</button>
-            </div>
+            <!-- Baki purane buttons waise hi rahenge -->
+            <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item"
+                data-permission="interested_leads_add_direct" style="background-color: var(--brand-primary);"
+                onclick="openModal('add_direct')"><i class="fas fa-plus me-1"></i> Add Lead</button>
+
+            <button type="button" class="btn text-dark px-3 py-2 shadow-sm secured-item"
+                data-permission="interested_leads_add_reque" style="background-color: #facc15;"
+                onclick="openModal('add_request')"><i class="fas fa-paper-plane me-1"></i> Request Lead</button>
+        </div>
         </div>
 
         <div class="card mb-3 admin-report-section" style="display: none; border-left: 4px solid #0d6efd;">
@@ -230,6 +237,9 @@
 
         <div class="tab-content">
             <div class="tab-pane fade show active" id="activeLeadsList">
+                <!-- 🔥 YAHAN ADD KAREIN: Mobile Cards Container 🔥 -->
+                <div class="row d-lg-none mt-3" id="mobileCardsContainer"></div>
+                <!-- ----------------------------------------------- -->
                 <div class="card border-0 shadow-sm mb-4 d-none d-lg-block">
                     <div class="card-body p-3 table-responsive">
                         <table id="dataTableMain" class="table table-hover table-custom w-100">
@@ -254,6 +264,9 @@
             </div>
 
             <div class="tab-pane fade" id="pendingApprovalList">
+                <!-- 🔥 YAHAN ADD KAREIN: Mobile Cards Container 🔥 -->
+                <div class="row d-lg-none mt-3" id="mobileCardsContainer"></div>
+                <!-- ----------------------------------------------- -->
                 <div class="card border-0 shadow-sm mb-4 d-none d-lg-block">
                     <div class="card-body p-3 table-responsive">
                         <table id="pendingTable" class="table table-hover table-custom w-100">
@@ -488,6 +501,89 @@
         <i class="fas fa-chart-line fs-5 mb-1"></i>
         <span id="countValue" class="fw-bold lh-1" style="font-size: 14px;">0</span>
     </div>
+
+
+<!-- Naya Import Modal -->
+<style>
+    /* 🔥 Inputs ko visible banane ke liye custom styling 🔥 */
+    #importModal .form-control {
+        border: 1px solid #6c757d !important;
+        background-color: #f8f9fa !important;
+        padding: 10px;
+    }
+    #importModal .select2-container--bootstrap-5 .select2-selection {
+        border: 1px solid #6c757d !important;
+        background-color: #f8f9fa !important;
+        min-height: 40px;
+        padding-top: 4px;
+    }
+</style>
+
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+    <!-- 🔥 YAHAN modal-lg ADD KIYA HAI WIDTH BADHANE KE LIYE 🔥 -->
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title fw-bold text-dark"><i class="fas fa-file-excel text-success me-2"></i> Import Leads</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-white">
+                <form id="importForm" enctype="multipart/form-data">
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="small fw-bold text-muted mb-1">Company <span class="text-danger">*</span></label>
+                            <select name="company_id" id="importCompany" class="form-select shadow-none" required>
+                                <option value="">Type 3 letters...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <!-- 🔥 Branch ab optional hai kyunki HO default hoga 🔥 -->
+                            <label class="small fw-bold text-muted mb-1">Branch (Optional)</label>
+                            <select name="branch_id" id="importBranch" class="form-select shadow-none">
+                                <option value="">Select Branch...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mb-3 p-3 bg-light rounded" style="border: 1px solid #6c757d;">
+                        <input class="form-check-input ms-0 me-2 border-dark" type="checkbox" name="is_member" id="importIsMember" value="1" style="cursor: pointer;">
+                        <label class="form-check-label small fw-bold text-dark" for="importIsMember" style="cursor: pointer;">
+                            Is this Member Data? (Toggle ON to assign to a specific member)
+                        </label>
+                    </div>
+
+                    <div class="mb-3 d-none" id="importMemberDiv">
+                        <label class="small fw-bold text-primary mb-1"><i class="fas fa-user-tag me-1"></i> Search Member <span class="text-danger">*</span></label>
+                        <select name="member_id" id="importMember" class="form-select shadow-none border-primary">
+                            <option value="">Type 3 letters...</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted mb-1">Provider Name (e.g. MagicBricks, 99Acres) <span class="text-danger">*</span></label>
+                        <input type="text" name="provider_name" class="form-control shadow-none" placeholder="Enter provider name" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted mb-1">Upload Excel File <span class="text-danger">*</span></label>
+                        <input type="file" name="file" class="form-control shadow-none" accept=".xlsx, .xls, .csv" required>
+                        <small class="text-primary mt-1 d-block"><a href="interested-customers/import-template" download><i class="fas fa-download me-1"></i> Download Sample Format</a></small>
+                    </div>
+                    
+                </form>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary shadow-none" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="importForm" class="btn btn-success shadow-sm px-4" id="submitImportBtn">
+                    <i class="fas fa-upload me-2"></i> Import Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 
@@ -500,6 +596,7 @@
 
     <script>
         $(document).ready(function() {
+            let apiPrefix = '/api/v1';
           // 👇🔥 YAHAN SE NAYA CODE ADD KAREN (sysContext ERROR FIX) 🔥👇
             let sysContext = null;
             $.ajax({
@@ -562,6 +659,96 @@
                     }
                 });
             };
+
+            // 1. Initialize Select2 for Import Modal
+    function initImportSelect2(elementId, url, dataCallback) {
+        $('#' + elementId).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            minimumInputLength: 3, // 3-letter type karte hi search
+            dropdownParent: $('#importModal'),
+            ajax: {
+                url: apiPrefix + url,
+                dataType: 'json',
+                delay: 250,
+                data: dataCallback,
+                processResults: function (data) {
+                    return {
+                        results: $.map(data.data, function(item) {
+                            let text = item.name || item.company_name || item.branch_name || (item.full_name + ' (' + item.member_id + ')') || 'Unknown';
+                            return { id: item.id, text: text };
+                        })
+                    };
+                }
+            }
+        });
+    }
+
+    // Company Search
+    initImportSelect2('importCompany', '/task-dependencies/companies', function(params) {
+        return { search: params.term };
+    });
+
+ // 🔥 CUSTOM Branch Search (Always shows Head Office by default) 🔥
+    $('#importBranch').select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        minimumInputLength: 0, // 0 kiya taaki click karte hi options dikhein
+        dropdownParent: $('#importModal'),
+        ajax: {
+            url: apiPrefix + '/task-dependencies/branches',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return { search: params.term, company_ids: $('#importCompany').val() };
+            },
+            processResults: function (data) {
+                let mappedBranches = $.map(data.data, function(item) {
+                    return { id: item.id, text: item.branch_name };
+                });
+                
+                // Hamesha sabse upar "Head Office" add kar do (value blank/null)
+                mappedBranches.unshift({ id: '', text: '🏢 -- Head Office (Default) --' });
+                
+                return { results: mappedBranches };
+            }
+        }
+    });
+    // Member Search (Depends on Company & Branch)
+    initImportSelect2('importMember', '/task-dependencies/members', function(params) {
+        return { 
+            search: params.term, 
+            company_ids: $('#importCompany').val(),
+            branch_ids: $('#importBranch').val()
+        };
+    });
+
+    // Reset dependents when parent changes
+    $('#importCompany').on('change', function() {
+        $('#importBranch, #importMember').empty().val(null).trigger('change');
+    });
+    $('#importBranch').on('change', function() {
+        $('#importMember').empty().val(null).trigger('change');
+    });
+
+    // 2. Member Toggle Logic
+    $('#importIsMember').on('change', function() {
+        if ($(this).is(':checked')) {
+            $('#importMemberDiv').removeClass('d-none');
+            $('#importMember').prop('required', true);
+        } else {
+            $('#importMemberDiv').addClass('d-none');
+            $('#importMember').prop('required', false).empty().val(null).trigger('change');
+        }
+    });
+
+    // Reset form on modal close
+    $('#importModal').on('hidden.bs.modal', function () {
+        $('#importForm')[0].reset();
+        $('#importCompany, #importBranch, #importMember').empty().val(null).trigger('change');
+        $('#importMemberDiv').addClass('d-none');
+        $('#importMember').prop('required', false);
+    });
 
           // ====== INITIAL DATA & SERVER-SIDE TABLE LOAD ======
             function loadAllData() {
@@ -975,34 +1162,34 @@
                 }
             });
 
-            // ====== LIVE BACKGROUND REFRESH (SMOOTH POLLING) ======
-            if (!window.liveUpdateStarted) {
-                window.liveUpdateStarted = true;
-                setInterval(function() {
-                    $.ajax({
-                        url: '/api/v1/interested-customers?type=interested',
-                        type: 'GET',
-                        headers: { "Accept": "application/json" },
-                        success: function(liveRes) {
-                            if (liveRes.today_count !== undefined) {
-                                $('#countValue').text(liveRes.today_count);
-                            }
-                            if (isAdmin || isDirector) {
-                                pendingData = liveRes.pending_requests || [];
-                                // Refresh DataTable quietly ONLY if no selection is made
-                                if (window.selectedIds.length === 0) {
-                                    if ($.fn.DataTable.isDataTable('#dataTableMain')) {
-                                        $('#dataTableMain').DataTable().ajax.reload(null, false);
-                                    }
-                                    if ($.fn.DataTable.isDataTable('#pendingTable')) {
-                                        $('#pendingTable').DataTable().clear().rows.add(pendingData).draw(false);
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }, 10000); // 10 sec interval
-            }
+            // // ====== LIVE BACKGROUND REFRESH (SMOOTH POLLING) ======
+            // if (!window.liveUpdateStarted) {
+            //     window.liveUpdateStarted = true;
+            //     setInterval(function() {
+            //         $.ajax({
+            //             url: '/api/v1/interested-customers?type=interested',
+            //             type: 'GET',
+            //             headers: { "Accept": "application/json" },
+            //             success: function(liveRes) {
+            //                 if (liveRes.today_count !== undefined) {
+            //                     $('#countValue').text(liveRes.today_count);
+            //                 }
+            //                 if (isAdmin || isDirector) {
+            //                     pendingData = liveRes.pending_requests || [];
+            //                     // Refresh DataTable quietly ONLY if no selection is made
+            //                     if (window.selectedIds.length === 0) {
+            //                         if ($.fn.DataTable.isDataTable('#dataTableMain')) {
+            //                             $('#dataTableMain').DataTable().ajax.reload(null, false);
+            //                         }
+            //                         if ($.fn.DataTable.isDataTable('#pendingTable')) {
+            //                             $('#pendingTable').DataTable().clear().rows.add(pendingData).draw(false);
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //         });
+            //     }, 10000); // 10 sec interval
+            // }
 
             // =========================================================
             // BULLETPROOF BULK SELECTION & DELETE LOGIC
@@ -1253,6 +1440,141 @@
                 $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
             });
 
-        }); // END OF DOCUMENT READY
+           // =========================================================
+            // 🔥 UPDATED EXCEL IMPORT LOGIC (For New Modal) 🔥
+            // =========================================================
+            const expectedHeaders = ['cust_name', 'mobile', 'email', 'address', 'remark', 'status', 'assigned_telecaller', 'reference', 'refer_by'];
+
+            // 1. Direct Modal Open
+            $('#selectFileBtn').off('click').on('click', function() {
+                $('#importModal').modal('show');
+            });
+
+            // 2. Form Submit Logic (Includes SheetJS parsing & Chunking)
+            $('#importForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                let fileInput = $(this).find('input[type="file"]')[0];
+                let file = fileInput.files[0];
+                if (!file) return;
+
+                let btn = $('#submitImportBtn');
+                let originalText = btn.html();
+                btn.html('<i class="fas fa-spinner fa-spin me-2"></i> Reading Excel...').prop('disabled', true);
+
+                let pName = $('input[name="provider_name"]').val().trim();
+                let compId = $('#importCompany').val();
+                let branchId = $('#importBranch').val();
+                let isMember = $('#importIsMember').is(':checked') ? 1 : 0;
+                let memberId = $('#importMember').val() || null;
+
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    let data = new Uint8Array(e.target.result);
+                    let workbook = XLSX.read(data, {type: 'array'});
+                    let firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    let excelData = XLSX.utils.sheet_to_json(firstSheet, {defval: ""});
+                    
+                    if (excelData.length === 0) {
+                        Swal.fire('Empty File!', 'No data found in the Excel file.', 'error');
+                        btn.html(originalText).prop('disabled', false);
+                        return;
+                    }
+                    
+                    let actualHeaders = Object.keys(excelData[0]);
+                    let isValid = expectedHeaders.every(h => actualHeaders.includes(h));
+                    
+                    if (!isValid) {
+                        Swal.fire('Format Mismatch!', 'Please download the Template first. Columns must match exactly!', 'error');
+                        btn.html(originalText).prop('disabled', false);
+                        return;
+                    }
+
+                    // Get Provider ID & Start Import Process
+                    btn.html('<i class="fas fa-spinner fa-spin me-2"></i> Generating ID...');
+                    
+                    $.ajax({
+                        url: apiPrefix + '/interested-customers/next-provider-id',
+                        type: 'GET',
+                        success: function(res) {
+                            if(res.status === 'success') {
+                                processChunkedImport(excelData, pName, res.provider_id, compId, branchId, isMember, memberId, btn, originalText);
+                            } else {
+                                Swal.fire('Error', 'Could not generate Provider ID', 'error');
+                                btn.html(originalText).prop('disabled', false);
+                            }
+                        },
+                        error: function() {
+                            Swal.fire('Error', 'API Route missing for Provider ID!', 'error');
+                            btn.html(originalText).prop('disabled', false);
+                        }
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            });
+
+            // 3. Chunking Logic
+            function processChunkedImport(allData, pName, pId, compId, branchId, isMember, memberId, btn, originalText) {
+                let chunkSize = 100; 
+                let totalRows = allData.length;
+                let currentIndex = 0;
+                let totalInserted = 0;
+                let totalDuplicates = 0;
+
+                function uploadNextChunk() {
+                    let chunk = allData.slice(currentIndex, currentIndex + chunkSize);
+                    
+                    // Jab data khatam ho jaye
+                    if (chunk.length === 0) {
+                        $('#importModal').modal('hide');
+                        btn.html(originalText).prop('disabled', false);
+                        Swal.fire({
+                            title: 'Import Complete!',
+                            html: `<b>Inserted:</b> ${totalInserted} records <br> <b>Skipped (Duplicates):</b> ${totalDuplicates} records`,
+                            icon: 'success'
+                        }).then(() => {
+                            $('#importForm')[0].reset();
+                            $('#importCompany, #importBranch, #importMember').empty().val(null).trigger('change');
+                            $('#importMemberDiv').addClass('d-none');
+                            loadAllData(); 
+                        });
+                        return;
+                    }
+
+                    $.ajax({
+                        url: apiPrefix + '/interested-customers/import',
+                        type: 'POST',
+                        data: {
+                            leads: chunk,
+                            provider_name: pName,
+                            provider_id: pId,
+                            company_id: compId,
+                            branch_id: branchId,
+                            is_member: isMember,
+                            member_id: memberId
+                        },
+                        success: function(res) {
+                            if (res.status === 'success') {
+                                totalInserted += res.inserted;
+                                totalDuplicates += res.db_duplicates;
+                                currentIndex += chunkSize;
+
+                                let percent = Math.min(Math.round((currentIndex / totalRows) * 100), 100);
+                                btn.html(`<i class="fas fa-spinner fa-spin me-2"></i> Importing... ${percent}%`);
+
+                                uploadNextChunk(); 
+                            } else {
+                                Swal.fire('Error', 'Server returned an error.', 'error');
+                                btn.html(originalText).prop('disabled', false);
+                            }
+                        },
+                        error: function() {
+                            Swal.fire('Error', 'Import failed midway!', 'error');
+                            btn.html(originalText).prop('disabled', false);
+                        }
+                    });
+                }
+                uploadNextChunk();
+            }        }); // END OF DOCUMENT READY
     </script>
 @endpush

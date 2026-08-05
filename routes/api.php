@@ -103,7 +103,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/attendance/today-status', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'getTodayStatus']);
             // 👇 YEH DO LINES ADD KARNI HAIN 👇
             Route::post('/attendance/mark', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'markAttendance']);
-            Route::post('/attendance/ping-location', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'pingLocation']);
+            // Route::post('/attendance/ping-location', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'pingLocation']);
 
             Route::get('/attendance/monthly', [\App\Http\Controllers\Api\V1\Member\AttendanceController::class, 'getMonthlyAttendance']);
 
@@ -309,6 +309,12 @@ Route::get('/members/search-departments', [\App\Http\Controllers\Api\V1\Admin\Me
 // 👇 YEH ROUTE MISSING THA, ISE ADD KAREIN 👇
 Route::get('/members/search-sponsor', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'searchSponsorDynamic']);
 
+   // Auto-fill Search Routes
+Route::get('/search-company', [App\Http\Controllers\Api\V1\Admin\LandownerController::class, 'searchCompany']);
+Route::get('/search-branch', [App\Http\Controllers\Api\V1\Admin\LandownerController::class, 'searchBranch']);
+Route::get('/search-phase', [App\Http\Controllers\Api\V1\Admin\LandownerController::class, 'searchPhase']);
+Route::get('/search-landowners-list', [App\Http\Controllers\Api\V1\Admin\LandownerController::class, 'searchLandownersList']);
+
 
 
           Route::apiResource('members', MemberController::class);
@@ -333,6 +339,7 @@ Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
         Route::get('/debit_vouchers/search-branches', [DebitVoucherApiController::class, 'searchBranches']);
         Route::get('/debit_vouchers/search-ledgers', [DebitVoucherApiController::class, 'searchLedgers']);
         Route::get('/debit_vouchers/search-paid-to', [DebitVoucherApiController::class, 'searchPaidTo']);
+        Route::get('/debit_vouchers/get-salary-details', [DebitVoucherApiController::class, 'fetchSalaryDetails']);
         
         // 2. Action Modifiers & Utilities
         Route::post('/debit_vouchers/{id}/approve', [DebitVoucherApiController::class, 'approve']);
@@ -345,6 +352,8 @@ Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
         Route::get('/get-next-dv-no', [DebitVoucherApiController::class, 'getNextDvNo']);
         Route::get('/get-member-bank', [DebitVoucherApiController::class, 'getMemberBankDetails']);
         Route::get('/get-sender-bank', [DebitVoucherApiController::class, 'getSenderBankDetails']);
+
+        Route::get('/debit_vouchers/get-advance-history', [DebitVoucherApiController::class, 'getEmployeeAdvanceHistory']);
         
         // 3. Base API Resource (Hamesha last me rakhein)
         Route::apiResource('debit_vouchers', DebitVoucherApiController::class);
@@ -359,16 +368,30 @@ Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
 
 
         Route::apiResource('phases', \App\Http\Controllers\Api\V1\Admin\PhaseApiController::class);
+
+        Route::get('/interested-customers/member-template', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'downloadMemberTemplate']);
+
+        // 🔥 MEMBER CALLING PORTAL API 🔥
+        Route::get('/interested-customers/member-portal/leads', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'getMemberPortalLeads']);
+
+       Route::get('/interested-customers/member-summary/{member_id}', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'getMemberLeadsSummary'])->where('member_id', '.*');
         Route::post('/interested-customers/report-employees', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'getReportEmployees']);
+
+        Route::get('/available-providers', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'getAvailableProviders']);
+        Route::get('/interested-customers/next-provider-id', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'getNextProviderId']);
+        // Template download route (Web session based)
+    Route::get('/interested-customers/import-template', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'downloadImportTemplate']);
         Route::post('/interested-customers/generate-report', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'generatePerformanceReport']);
         Route::post('/interested-customers/check-mobile', [\App\Http\Controllers\Api\V1\Admin\InterestedCustomerController::class, 'checkMobile']);
         Route::post('/interested-customers/bulk-delete', [InterestedCustomerController::class, 'bulkDelete']);
-        Route::apiResource('interested-customers', InterestedCustomerController::class);
+
+        
+        
         Route::post('interested-customers/assign-telecaller', [InterestedCustomerController::class, 'assignTelecaller']);
         Route::post('interested-customers/filter-reports', [InterestedCustomerController::class, 'filterReports']);
         Route::post('interested-customers/{id}/status', [InterestedCustomerController::class, 'updateEntryStatus']);
         Route::post('interested-customers/import', [InterestedCustomerController::class, 'import']);
-
+Route::apiResource('interested-customers', InterestedCustomerController::class);
         // --- Operations & Utilities ---
 
         Route::get('/letterheads/next-ref', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'getNextRefNo']);
@@ -395,6 +418,12 @@ Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
         Route::get('/welcome-letter/generate', [\App\Http\Controllers\Api\V1\Employee\WelcomeLetterApiController::class, 'getLetter']);
 
         // --- Notices & Communications ---
+        // 🔥 NEW ROUTE: Dedicated API for Notice Target Audience Dropdown
+        Route::get('notices/audience-entities', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'getAudienceEntities']);
+
+        Route::apiResource('notices', \App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class);
+
+        // --- Notices & Communications ---
         Route::apiResource('notices', \App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class);
         // --- User Portal Notices API ---
         Route::get('/my-notices', [\App\Http\Controllers\Api\V1\Employee\NoticeApiController::class, 'index']);
@@ -408,6 +437,7 @@ Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
         Route::get('notices/{id}/replies', [\App\Http\Controllers\Api\V1\Admin\NoticeAdminController::class, 'getReplies']);
 
         // --- Travel Allowance (TA) API ---
+        Route::get('travel-allowances/search-filters', [App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'searchFilters']);
         Route::apiResource('travel-allowances', \App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class);
         Route::post('travel-allowances/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'bulkDelete']);
         Route::post('travel-allowances/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'approve']);
@@ -422,6 +452,8 @@ Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
         Route::post('leave-applications/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'approve']);
         Route::get('leave-applications/dropdown/apply-to', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getApplyToOptions']);
         Route::post('leave-applications/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'reject']);
+        // 🔥 NAYA ROUTE: Sirf Remark add karne ke liye (Other application type)
+        Route::post('leave-applications/{id}/remark', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'addRemark']);
         Route::get('leave-applications/{id}/view', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'viewHtml']);
         // Fine Penalty Module
         Route::apiResource('fine-penalties', \App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class);
@@ -549,6 +581,31 @@ Route::delete('salaries/{id}', [\App\Http\Controllers\Api\V1\Admin\SalaryApiCont
 // Downline Tree API Route
         Route::get('members/downline/tree', [\App\Http\Controllers\Api\V1\Admin\MemberController::class, 'getDownline']);
 
+
+
+        // =======================================================
+        // 🔥 EMPLOYEE INCENTIVES MODULE API ROUTES 🔥
+        // =======================================================
+        
+        // 1. Dynamic 3-Letter Cascading Search APIs
+        Route::get('/incentives/search-companies', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'searchCompanies']);
+        Route::get('/incentives/search-branches', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'searchBranches']);
+        Route::get('/incentives/search-departments', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'searchDepartments']);
+        Route::get('/incentives/search-designations', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'searchDesignations']);
+        Route::get('/incentives/search-employees', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'searchEmployees']);
+
+        // 2. Incentive Types (Nested Modal ke liye)
+        Route::get('/incentive-types/active', [\App\Http\Controllers\Api\V1\Admin\IncentiveTypeApiController::class, 'getActive']);
+        Route::post('/incentive-types/store', [\App\Http\Controllers\Api\V1\Admin\IncentiveTypeApiController::class, 'store']);
+
+        // 3. Action Modifiers & Bulk Utilities
+        Route::post('/incentives/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'bulkDeletePermanent']);
+        Route::post('/incentives/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'approve']);
+        Route::post('/incentives/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class, 'reject']);
+        
+        // 4. Base API Resource (Ise hamesha last me rakhein taaki conflicts na ho)
+        Route::apiResource('incentives', \App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class);
+
     });
 
     
@@ -562,6 +619,8 @@ Route::delete('salaries/{id}', [\App\Http\Controllers\Api\V1\Admin\SalaryApiCont
         // Promotion Core Submit API
         Route::post('/promotions/submit', [\App\Http\Controllers\Admin\PromotionController::class, 'submitPromotion']);
 
+     
+
  
 // 🔥 ISOLATED ROUTES FOR TASK CASCADING DROPDOWNS (Prevents breaking other pages) 🔥
         Route::prefix('task-dependencies')->group(function () {
@@ -572,7 +631,128 @@ Route::delete('salaries/{id}', [\App\Http\Controllers\Api\V1\Admin\SalaryApiCont
             Route::get('/employees', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getEmployees']);
             Route::get('/members', [\App\Http\Controllers\Api\V1\Admin\TaskDependencyController::class, 'getMembers']);
         });
-
+Route::get('/cleanup-future-followups', function() {
+    $today = now()->toDateString();
+    
+    \Illuminate\Support\Facades\DB::beginTransaction();
+    try {
+        // Aaj ke sabhi pending allocations uthao
+        $allocations = \App\Models\TelecallerAllocation::with(['customer', 'task'])
+            ->whereDate('created_at', $today)
+            ->where('call_status', 'Pending')
+            ->get();
+            
+        $deletedCount = 0;
+        
+        foreach ($allocations as $alloc) {
+            $customer = $alloc->customer;
+            
+            // Agar customer exist karta hai aur uska followup date future (kal ya uske baad) ka hai
+            if ($customer && $customer->followup_date && \Carbon\Carbon::parse($customer->followup_date)->toDateString() > $today) {
+                
+                // Task ka target count 1 se kam kar do taaki progress bar kharab na ho
+                if ($alloc->task && $alloc->task->target_count > 0) {
+                    $alloc->task->decrement('target_count');
+                }
+                
+                // Aaj ki allocation list se isko hata do
+                $alloc->delete();
+                $deletedCount++;
+            }
+        }
+        
+        \Illuminate\Support\Facades\DB::commit();
+        
+        return response()->json([
+            'status' => 'Success', 
+            'message' => "Total {$deletedCount} future follow-up leads aaj ki list se hata di gayi hain!"
+        ]);
+        
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\DB::rollBack();
+        return response()->json(['status' => 'Error', 'message' => $e->getMessage()]);
+    }
+});
                
 
 });
+
+
+Route::get('/fix-21k-leads', function() {
+    \Illuminate\Support\Facades\DB::beginTransaction();
+    try {
+        // 500-500 ke tukdo (chunks) me data uthayega taaki server hang na ho
+        \App\Models\TelecallerAllocation::with('assignee')->chunk(500, function($allocations) {
+            foreach($allocations as $alloc) {
+                if($alloc->assignee) {
+                    // Employee ki member_id nikal raha hai
+                    $telecallerId = $alloc->assignee->member_id ?? $alloc->assignee->id;
+                    
+                    // Master table me update kar raha hai
+                    \App\Models\InterestedCustomer::where('id', $alloc->customer_id)
+                        ->update(['assigned_telecaller' => $telecallerId]);
+                }
+            }
+        });
+        \Illuminate\Support\Facades\DB::commit();
+        return response()->json(['status' => 'Success', 'message' => 'Saari 21,000+ leads successfully telecallers ke naam par lock ho chuki hain!']);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\DB::rollBack();
+        return response()->json(['status' => 'Error', 'message' => $e->getMessage()]);
+    }
+});
+
+Route::get('/cleanup-bad-allocations', function() {
+    $blacklistStatuses = [
+        'Number Doesn\'t Exists call',
+        'Number Does Not exists',
+        'Site Visit Done Call',
+        'Site Visit Done',
+        'Booking Done',
+        'Booking Confirm',
+        'Lost',
+        'Lost Lead',
+        'Not Interested',
+        'Not Interested Call',
+        'Registry Completed',
+        'registry Done'
+    ];
+
+    \Illuminate\Support\Facades\DB::beginTransaction();
+    try {
+        // Aisi allocations dhoondho jo telecaller ke paas Pending hain, 
+        // par actual me blacklist status wali hain
+        $allocationsToDelete = \App\Models\TelecallerAllocation::where('call_status', 'Pending')
+            ->whereHas('customer', function ($query) use ($blacklistStatuses) {
+                $query->whereIn('status', $blacklistStatuses);
+            })->get();
+
+        $deletedCount = 0;
+        $customerIdsToUnlock = [];
+
+        foreach ($allocationsToDelete as $alloc) {
+            $customerIdsToUnlock[] = $alloc->customer_id;
+            // Telecaller ki list se hata do
+            $alloc->delete(); 
+            $deletedCount++;
+        }
+
+        // Master table se unko free (unlock) kar do
+        if (!empty($customerIdsToUnlock)) {
+            \App\Models\InterestedCustomer::whereIn('id', $customerIdsToUnlock)
+                ->update(['assigned_telecaller' => null]);
+        }
+
+        \Illuminate\Support\Facades\DB::commit();
+        
+        return response()->json([
+            'status' => 'Success', 
+            'message' => "Total {$deletedCount} galat allocations (Lost/Not Interested) telecallers ke panel se hata di gayi hain!"
+        ]);
+        
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\DB::rollBack();
+        return response()->json(['status' => 'Error', 'message' => $e->getMessage()]);
+    }
+});
+

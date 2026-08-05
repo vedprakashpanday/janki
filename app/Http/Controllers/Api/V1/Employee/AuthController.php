@@ -160,59 +160,16 @@ class AuthController extends Controller
     {
         $otp = str_pad(rand(0, 999999), 6, "0", STR_PAD_LEFT);
         $login->panel_otp = $otp;
-        $login->otp_time_till = now()->addMinutes(3); // OTP 3 minute ke liye valid rahega
+        $login->otp_time_till = now()->addMinutes(3);
         $login->save();
 
-        // 1. Employee ka Data aur Email nikalna
-        $employee = \App\Models\Employee::where('member_id', $login->user_id)->first();
-
-        if ($employee && !empty($employee->email)) {
-            $email = $employee->email;
-            $empName = $employee->full_name ?? $employee->employee_name ?? 'Employee';
-
-            // 2. Real Email Bhejna (SMTP ke through)
-            try {
-                \Illuminate\Support\Facades\Mail::send([], [], function ($messageBuilder) use ($email, $empName, $otp) {
-                    $messageBuilder->to($email)
-                        ->subject('Your Login Verification OTP - Security Alert')
-                        ->html("
-                            <div style='font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 8px; max-width: 500px; margin: auto;'>
-                                <h3 style='color: #1A365D;'>Hello {$empName},</h3>
-                                <p>We received a request to log in to your employee attendance panel.</p>
-                                <p>Your One-Time Password (OTP) for device verification is:</p>
-                                <h2 style='background: #f1f5f9; padding: 10px; text-align: center; letter-spacing: 5px; color: #3b82f6; border-radius: 5px;'>{$otp}</h2>
-                                <p style='color: #ef4444; font-size: 12px;'><strong>Note:</strong> This OTP is valid for the next 3 minutes only. Please do not share it with anyone.</p>
-                                <hr style='border: none; border-top: 1px solid #eee; margin-top: 20px;' />
-                                <p style='font-size: 11px; color: #888;'>If you did not request this login, please contact your HR or IT Administrator immediately.</p>
-                            </div>
-                        ");
-                });
-                
-                $message .= " Please check your email inbox (and spam folder).";
-                
-            } catch (\Exception $e) {
-                // Agar SMTP fail ho jaye toh error dikhaye
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Failed to send OTP Email. Please check SMTP settings. Error: ' . $e->getMessage()
-                ], 500);
-            }
-        } else {
-            // Agar employee ki email missing hai
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No registered email found for your profile. Please contact HR.'
-            ], 404);
-        }
-
-        // 3. Success Response (Yahan se 'mock_otp' hata diya gaya hai security ke liye)
         return response()->json([
             'status' => 'require_otp',
-            'message' => $message
+            'message' => 'Device verified. Please enter the OTP shown below.',
+            'mock_otp' => $otp
         ]);
     }
 
-    // 🔥 NAYA: Resend OTP Function 🔥
     public function resendOtp(Request $request)
     {
         $request->validate([
@@ -220,16 +177,15 @@ class AuthController extends Controller
         ]);
 
         $login = EmployeeLogin::where('panel_id', $request->panel_id)->first();
-        
+
         if (!$login) {
             return response()->json(['status' => 'error', 'message' => 'Invalid Panel ID!'], 404);
         }
 
-        // Ye wahi naya wala sendOtp function call karega jo humne email ke liye banaya tha
         return $this->sendOtp($login, 'A fresh OTP has been sent to your email.');
     }
 
-   public function verifyOtp(Request $request)
+    public function verifyOtp(Request $request)
     {
         $request->validate([
             'panel_id' => 'required',
@@ -247,7 +203,6 @@ class AuthController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Invalid OTP or Panel ID!'], 401);
             }
 
-            // 🔥 FIX 1: OTP Expiry Check - 3 min ke baad reject karega
             if (\Carbon\Carbon::now()->greaterThan($loginRecord->otp_time_till)) {
                 return response()->json(['status' => 'error', 'message' => 'OTP has expired! Please request a new login.'], 401);
             }
@@ -264,7 +219,6 @@ class AuthController extends Controller
 
             $token = $employee->createToken($fullTokenName)->plainTextToken;
 
-            // 🔥 FIX 2: Security ke liye use hone ke baad OTP mita dein
             DB::table('employee_logins')->where('panel_id', $request->panel_id)->update([
                 'panel_otp' => null,
                 'otp_time_till' => null
@@ -331,16 +285,24 @@ class AuthController extends Controller
             }
         }
 
-        // 🔥 FIX 1: Strict TRAP Logic using Approved Dates & Ignoring Short Leave 🔥
         $employeeId = $login->employee->id ?? 0;
         $activeLeave = null;
         if ($employeeId) {
             $activeLeave = LeaveApplication::where('user_id', $employeeId)
                 ->where('status', 'approved')
-                ->whereNotNull('approved_start_datetime')
-                ->where('approved_start_datetime', '<=', now()->format('Y-m-d 23:59:59'))
-                ->where('approved_end_datetime', '>=', now()->format('Y-m-d 00:00:00'))
-                ->where('application_type', '!=', 'Short Leave') 
+                ->where('application_type', '!=', 'Short Leave')
+                ->where(function ($q) use ($today) {
+                    $q->where(function ($subQ) use ($today) {
+                        $subQ->where('is_custom_date', 0)
+                            ->whereNotNull('approved_start_datetime')
+                            ->where('approved_start_datetime', '<=', $today . ' 23:59:59')
+                            ->where('approved_end_datetime', '>=', $today . ' 00:00:00');
+                    })->orWhere(function ($subQ) use ($today) {
+                        $subQ->where('is_custom_date', 1)
+                            ->whereNotNull('approved_custom_dates')
+                            ->whereJsonContains('approved_custom_dates', $today);
+                    });
+                })
                 ->first();
         }
 
@@ -348,7 +310,7 @@ class AuthController extends Controller
         $finalReason = $request->reason;
 
         if ($activeLeave) {
-            $verificationStatus = 'pending'; 
+            $verificationStatus = 'pending';
             $alertMsg = "⚠️ SYSTEM ALERT: Punch attempted during an active Approved Leave.";
             $finalReason = $finalReason ? $alertMsg . " | Employee Note: " . $finalReason : $alertMsg;
         }
@@ -359,10 +321,18 @@ class AuthController extends Controller
 
         if (!$attendance) {
             Attendance::create([
-                'user_id' => $login->user_id, 'date' => $today, 'present' => 1, 'login_time' => $claimedTimeStr,
-                'latitude' => $request->latitude, 'longitude' => $request->longitude, 'remarks' => 'Manual Punch via Dashboard',
-                'session_logs' => json_encode([$newSession]), 'is_late_punch' => $isLate, 'punch_reason' => $finalReason,
-                'punch_proof_images' => count($proofPaths) > 0 ? $proofPaths : null, 'hr_verification_status' => $verificationStatus
+                'user_id' => $login->user_id,
+                'date' => $today,
+                'present' => 1,
+                'login_time' => $claimedTimeStr,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'remarks' => 'Manual Punch via Dashboard',
+                'session_logs' => json_encode([$newSession]),
+                'is_late_punch' => $isLate,
+                'punch_reason' => $finalReason,
+                'punch_proof_images' => count($proofPaths) > 0 ? $proofPaths : null,
+                'hr_verification_status' => $verificationStatus
             ]);
         } else {
             $logs = $attendance->session_logs ? json_decode($attendance->session_logs, true) : [];
@@ -373,14 +343,14 @@ class AuthController extends Controller
         return response()->json(['status' => 'success', 'message' => $verificationStatus === 'pending' ? 'Punch Recorded. Sent to HR for Validation!' : 'Attendance Marked Successfully!']);
     }
 
-   public function logout(Request $request)
+    public function logout(Request $request)
     {
         $request->validate([
             'panel_id' => 'required|string',
             'latitude' => 'nullable|string',
             'longitude' => 'nullable|string'
         ]);
-        
+
         $login = EmployeeLogin::where('panel_id', $request->panel_id)->first();
         $isAutoLogout = $request->has('is_auto') && $request->is_auto == 1;
 
@@ -408,8 +378,7 @@ class AuthController extends Controller
                 $attendance->update($updateData);
             }
         }
-        
-        // 🔥 FIX: Token delete wala code hata diya gaya hai taaki user logged in rahe.
+
         return response()->json(['status' => 'success', 'message' => 'Punched Out Successfully!']);
     }
 
@@ -423,7 +392,6 @@ class AuthController extends Controller
             $isSecondaryDevice = true;
         }
 
-        // 1. Fetch Company Details
         $logoUrl = null;
         $companyName = 'N/A';
         $branchName = 'N/A';
@@ -440,16 +408,15 @@ class AuthController extends Controller
             if ($branch) $branchName = $branch;
         }
 
-       // 2. 🔥 RAW DB QUERY TO GET EXACT DESIGNATION & PHOTO 🔥
         $empRecord = \Illuminate\Support\Facades\DB::table('adm_regist')->where('id', $user->id)->first();
-        
+
         $designationName = 'Employee Access';
-        $departmentName = 'General Dept'; // 🔥 NAYA
+        $departmentName = 'General Dept';
         $passportPhoto = null;
 
         if ($empRecord) {
             $passportPhoto = $empRecord->passport_photo ?? $empRecord->photo ?? null;
-            
+
             if (!empty($empRecord->designation_id)) {
                 $desigName = \Illuminate\Support\Facades\DB::table('designations')->where('id', $empRecord->designation_id)->value('designation_name');
                 if ($desigName) {
@@ -459,7 +426,6 @@ class AuthController extends Controller
                 $designationName = $empRecord->designation;
             }
 
-            // 🔥 NAYA: Fetch Department Name
             if (!empty($empRecord->department_id)) {
                 $deptName = \Illuminate\Support\Facades\DB::table('departments')->where('id', $empRecord->department_id)->value('department_name');
                 if ($deptName) {
@@ -472,13 +438,13 @@ class AuthController extends Controller
             'status' => 'success',
             'data' => [
                 'id' => $user->id,
-                'member_id' => $user->member_id, 
+                'member_id' => $user->member_id,
                 'contact_no' => $user->contact_no ?? $user->mobile ?? '',
                 'address' => $user->address ?? $user->permanent_address ?? '',
                 'name' => $user->full_name ?? $user->employee_name ?? 'User',
                 'email' => $user->email,
                 'designation_name' => $designationName,
-                'department_name' => $departmentName, // 🔥 NAYA
+                'department_name' => $departmentName,
                 'passport_photo' => $passportPhoto ? asset($passportPhoto) : null,
                 'company_logo' => $logoUrl,
                 'company_id' => $user->company_id ?? '',
@@ -490,9 +456,7 @@ class AuthController extends Controller
             ]
         ]);
     }
-   // ==========================================
-    // DASHBOARD DATA (100% HR LOGIC SYNC)
-    // ==========================================
+
     public function getDashboardData(Request $request)
     {
         $user = $request->user();
@@ -510,31 +474,49 @@ class AuthController extends Controller
 
         $holidays = \App\Models\Holiday::where(function ($query) use ($checkStart, $checkEnd) {
             $query->whereBetween('start_date', [$checkStart, $checkEnd])->orWhere(function ($q) use ($checkStart, $checkEnd) {
-                $q->where('start_date', '<=', $checkEnd)->where(function ($subQ) use ($checkStart) { $subQ->whereNull('end_date')->orWhere('end_date', '>=', $checkStart); });
+                $q->where('start_date', '<=', $checkEnd)->where(function ($subQ) use ($checkStart) {
+                    $subQ->whereNull('end_date')->orWhere('end_date', '>=', $checkStart);
+                });
             });
         })->get()->flatMap(function ($holiday) {
             $period = \Carbon\CarbonPeriod::create($holiday->start_date, $holiday->end_date ?? $holiday->start_date);
-            $dts = []; foreach ($period as $dt) { $dts[] = $dt->format('Y-m-d'); } return $dts;
+            $dts = [];
+            foreach ($period as $dt) {
+                $dts[] = $dt->format('Y-m-d');
+            }
+            return $dts;
         })->toArray();
         $holidayDates = array_flip($holidays);
 
-        // 🔥 FIX 2: Strict Leave Dates Fetch
         $leaves = LeaveApplication::where('user_id', $user->id)
             ->where('status', 'approved')
-            ->whereNotNull('approved_start_datetime')
-            ->where('approved_start_datetime', '<=', $checkEnd . ' 23:59:59')
-            ->where('approved_end_datetime', '>=', $checkStart . ' 00:00:00')
+            ->where(function ($q) use ($checkStart, $checkEnd) {
+                $q->where(function ($subQ) use ($checkStart, $checkEnd) {
+                    $subQ->where('is_custom_date', 0)
+                        ->whereNotNull('approved_start_datetime')
+                        ->where('approved_start_datetime', '<=', $checkEnd . ' 23:59:59')
+                        ->where('approved_end_datetime', '>=', $checkStart . ' 00:00:00');
+                })->orWhere(function ($subQ) {
+                    $subQ->where('is_custom_date', 1)
+                        ->whereNotNull('approved_custom_dates');
+                });
+            })
             ->get();
 
         $timeWindow = AttendanceTimeWindow::where('company_id', $user->company_id)
-            ->where(function ($q) use ($user) { if ($user->branch_id) $q->where('branch_id', $user->branch_id)->orWhereNull('branch_id'); else $q->whereNull('branch_id'); })
+            ->where(function ($q) use ($user) {
+                if ($user->branch_id) $q->where('branch_id', $user->branch_id)->orWhereNull('branch_id');
+                else $q->whereNull('branch_id');
+            })
             ->where('status', 'active')->orderBy('branch_id', 'desc')->first();
 
         $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
         $todayDate = date('Y-m-d');
         $joinDate = $user->created_at ? Carbon::parse($user->created_at)->startOfDay() : Carbon::parse('2000-01-01');
 
-        $dailyData = []; $rawStatuses = []; $lateCount = 0;
+        $dailyData = [];
+        $rawStatuses = [];
+        $lateCount = 0;
 
         for ($i = 1; $i <= $daysInMonth; $i++) {
             $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $i);
@@ -543,7 +525,10 @@ class AuthController extends Controller
             $isHoliday = isset($holidayDates[$dateStr]);
             $isFuture = $dateStr > $todayDate;
 
-            $status = 'absent'; $remark = ''; $inTime = '--:--'; $outTime = '--:--';
+            $status = 'absent';
+            $remark = '';
+            $inTime = '--:--';
+            $outTime = '--:--';
 
             if ($attendances->has($dateStr)) {
                 $tempAtt = $attendances->get($dateStr);
@@ -551,21 +536,35 @@ class AuthController extends Controller
                 $outTime = $tempAtt->logout_time ? date('h:i A', strtotime($tempAtt->logout_time)) : '--:--';
             }
 
-            $onLeave = false; $leaveType = 'L';
+            // 🔥 FIX: Custom Date Bulletproof Decoding and Matching
+            $onLeave = false;
+            $leaveType = 'L';
             foreach ($leaves as $leave) {
-                $lStart = Carbon::parse($leave->approved_start_datetime)->format('Y-m-d');
-                $lEnd = Carbon::parse($leave->approved_end_datetime)->format('Y-m-d');
-                if ($dateStr >= $lStart && $dateStr <= $lEnd) {
-                    $onLeave = true;
-                    if ($leave->application_type === 'Short Leave') $leaveType = 'SL';
-                    break;
+                if ($leave->is_custom_date) {
+                    // Safe decoding to guarantee array format
+                    $customDates = is_string($leave->approved_custom_dates) ? json_decode($leave->approved_custom_dates, true) : (is_array($leave->approved_custom_dates) ? $leave->approved_custom_dates : []);
+
+                    if (is_array($customDates) && in_array($dateStr, $customDates)) {
+                        $onLeave = true;
+                        if ($leave->application_type === 'Short Leave') $leaveType = 'SL';
+                        break;
+                    }
+                } else {
+                    if (!$leave->approved_start_datetime || !$leave->approved_end_datetime) continue;
+                    $lStart = Carbon::parse($leave->approved_start_datetime)->format('Y-m-d');
+                    $lEnd = Carbon::parse($leave->approved_end_datetime)->format('Y-m-d');
+                    if ($dateStr >= $lStart && $dateStr <= $lEnd) {
+                        $onLeave = true;
+                        if ($leave->application_type === 'Short Leave') $leaveType = 'SL';
+                        break;
+                    }
                 }
             }
 
+            // 🔥 FIX: Priority of Checks (Leave check MUST happen before isFuture check)
             if ($dateObj->lt($joinDate)) {
-                $status = 'n_a'; $remark = 'Before Joining';
-            } elseif ($isFuture) {
-                $status = 'future'; $remark = $isTuesday ? 'Upcoming Weekly Off' : ($isHoliday ? 'Upcoming Holiday' : '-');
+                $status = 'n_a';
+                $remark = 'Before Joining';
             } elseif ($corrections->has($dateStr)) {
                 $corr = $corrections->get($dateStr);
                 $statusMap = ['P' => 'present', 'A' => 'absent', 'HD' => 'half_day', 'L' => 'leave', 'SL' => 'sl', 'WO' => 'off', 'HO' => 'holiday', 'LT' => 'lt'];
@@ -575,86 +574,140 @@ class AuthController extends Controller
                 $att = $attendances->get($dateStr);
 
                 if ($isTuesday || $isHoliday) {
-                    $status = 'extra_day'; $remark = 'Worked on ' . ($isTuesday ? 'Weekly Off' : 'Holiday');
-                }
-                elseif (!empty($att->login_time) && empty($att->logout_time)) {
-                    // 🔥 FIX 3: Current Day 'In-Office' & Late Logic (Shivam Fix)
+                    $status = 'extra_day';
+                    $remark = 'Worked on ' . ($isTuesday ? 'Weekly Off' : 'Holiday');
+                } elseif (!empty($att->login_time) && empty($att->logout_time)) {
                     if ($dateStr === $todayDate) {
                         $isLateToday = false;
                         if ($timeWindow) {
                             $actualLogin = Carbon::parse($dateStr . ' ' . $att->login_time);
                             $lateLimit = !empty($timeWindow->late_time) ? Carbon::parse($dateStr . ' ' . $timeWindow->late_time) : Carbon::parse($dateStr . ' ' . $timeWindow->login_start)->addMinutes(60);
-                            if ($actualLogin->gt($lateLimit)) { $isLateToday = true; }
-                        } elseif ($att->is_late_punch) { $isLateToday = true; }
+                            if ($actualLogin->gt($lateLimit)) {
+                                $isLateToday = true;
+                            }
+                        } elseif ($att->is_late_punch) {
+                            $isLateToday = true;
+                        }
 
                         if ($isLateToday) $lateCount++;
 
-                        if ($onLeave && $leaveType === 'SL') { $status = 'sl'; $remark = 'Short Leave (In-Office)'; }
-                        elseif ($isLateToday) { $status = 'lt'; $remark = 'Late Punch In (Active)'; }
-                        else { $status = 'present'; $remark = 'Present In-Office (Active)'; }
+                        if ($onLeave && $leaveType === 'SL') {
+                            $status = 'sl';
+                            $remark = 'Short Leave (In-Office)';
+                        } elseif ($isLateToday) {
+                            $status = 'lt';
+                            $remark = 'Late Punch In (Active)';
+                        } else {
+                            $status = 'present';
+                            $remark = 'Present In-Office (Active)';
+                        }
                     } else {
-                        // Agar pichla din hai aur logout nahi kiya tab jaake HD do
-                        $status = 'half_day'; $remark = 'Missed Punch-Out';
+                        $status = 'half_day';
+                        $remark = 'Missed Punch-Out';
                     }
-                }
-                elseif (empty($att->login_time) && !empty($att->logout_time)) { $status = 'half_day'; $remark = 'Missed Punch-In'; }
-                elseif (empty($att->login_time) && empty($att->logout_time)) { $status = 'absent'; $remark = 'Did not punch In/Out'; }
-                else {
-                    // Dono Punches Maujud Hain
+                } elseif (empty($att->login_time) && !empty($att->logout_time)) {
+                    $status = 'half_day';
+                    $remark = 'Missed Punch-In';
+                } elseif (empty($att->login_time) && empty($att->logout_time)) {
+                    $status = 'absent';
+                    $remark = 'Did not punch In/Out';
+                } else {
                     $isLateToday = false;
                     if ($timeWindow) {
                         $actualLogin = Carbon::parse($dateStr . ' ' . $att->login_time);
                         $lateLimit = !empty($timeWindow->late_time) ? Carbon::parse($dateStr . ' ' . $timeWindow->late_time) : Carbon::parse($dateStr . ' ' . $timeWindow->login_start)->addMinutes(60);
-                        if ($actualLogin->gt($lateLimit)) { $isLateToday = true; }
-                    } elseif ($att->is_late_punch) { $isLateToday = true; }
+                        if ($actualLogin->gt($lateLimit)) {
+                            $isLateToday = true;
+                        }
+                    } elseif ($att->is_late_punch) {
+                        $isLateToday = true;
+                    }
 
                     if ($isLateToday) $lateCount++;
 
                     $minHoursRaw = $timeWindow ? $timeWindow->min_working_hours : 8.25;
                     $minHours = (strpos((string)$minHoursRaw, ':') !== false) ? (int)explode(':', $minHoursRaw)[0] + ((int)explode(':', $minHoursRaw)[1] / 60) : (float)$minHoursRaw;
 
-                    $in = Carbon::parse($dateStr . ' ' . $att->login_time); $out = Carbon::parse($dateStr . ' ' . $att->logout_time);
+                    $in = Carbon::parse($dateStr . ' ' . $att->login_time);
+                    $out = Carbon::parse($dateStr . ' ' . $att->logout_time);
                     $diffSeconds = $out->timestamp - $in->timestamp;
-                    if ($diffSeconds < 0) { $out->addDay(); $diffSeconds = $out->timestamp - $in->timestamp; }
-
-                   // 🔥 NAYA: Exact Working Hours aur Extra Minutes calculation 🔥
-                    $workedMins = round($diffSeconds / 60);
-                    $h = floor($workedMins / 60); $m = $workedMins % 60;
-                    $workedHoursStr = "{$h}h {$m}m";
-                    
-                    $isShortHours = ($workedMins < ($minHours * 60));
-                    
-                    if ($workedMins > ($minHours * 60) && (!$onLeave || $leaveType !== 'SL')) {
-                        $stats['extra_minutes'] = ($stats['extra_minutes'] ?? 0) + ($workedMins - ($minHours * 60));
+                    if ($diffSeconds < 0) {
+                        $out->addDay();
+                        $diffSeconds = $out->timestamp - $in->timestamp;
                     }
-                    if ($onLeave && $leaveType === 'SL') $isShortHours = false; // Bypass short hours rule for SL
 
-                    if ($isLateToday && $lateCount > 0 && ($lateCount % 3 == 0)) { $status = 'absent'; $remark = 'Absent (Penalty for 3 Late Punches)'; }
-                    elseif ($isShortHours) { $status = 'half_day'; $wHours = floor($workedHours); $wMins = round(($workedHours - $wHours) * 60); $remark = 'Short Working Hours (' . $wHours . 'h ' . $wMins . 'm)'; }
-                    elseif ($onLeave && $leaveType === 'SL') { $status = 'sl'; $remark = ($isLateToday ? 'Late In & ' : '') . 'Short Leave'; }
-                    elseif ($isLateToday) { $status = 'lt'; $remark = 'Late Punch In'; }
-                    else { $status = 'present'; $remark = $isLateToday ? 'Present (Late)' : 'On Time'; }
+                    $workedMins = round($diffSeconds / 60);
+                    $h = floor($workedMins / 60);
+                    $m = $workedMins % 60;
+                    $workedHoursStr = "{$h}h {$m}m";
+
+                    $isShortHours = ($workedMins < ($minHours * 60));
+
+                    // 🔥 NAYA: Dashboard modal ke liye daily extra time formatting
+                    $extraTimeStr = '0h 0m';
+                    if ($workedMins > ($minHours * 60) && (!$onLeave || $leaveType !== 'SL')) {
+                        $dailyExtraMins = $workedMins - ($minHours * 60);
+                        $stats['extra_minutes'] = ($stats['extra_minutes'] ?? 0) + $dailyExtraMins;
+                        $exH = floor($dailyExtraMins / 60);
+                        $exM = $dailyExtraMins % 60;
+                        $extraTimeStr = "{$exH}h {$exM}m";
+                    }
+                    if ($onLeave && $leaveType === 'SL') $isShortHours = false;
+
+                    if ($isLateToday && $lateCount > 0 && ($lateCount % 3 == 0)) {
+                        $status = 'absent';
+                        $remark = 'Absent (Penalty for 3 Late Punches)';
+                    } elseif ($isShortHours) {
+                        $status = 'half_day';
+                        $wHours = floor($workedHours ?? ($workedMins / 60));
+                        $wMins = round((($workedHours ?? ($workedMins / 60)) - $wHours) * 60);
+                        $remark = 'Short Working Hours (' . $wHours . 'h ' . $wMins . 'm)';
+                    } elseif ($onLeave && $leaveType === 'SL') {
+                        $status = 'sl';
+                        $remark = ($isLateToday ? 'Late In & ' : '') . 'Short Leave';
+                    } elseif ($isLateToday) {
+                        $status = 'lt';
+                        $remark = 'Late Punch In';
+                    } else {
+                        $status = 'present';
+                        $remark = $isLateToday ? 'Present (Late)' : 'On Time';
+                    }
                 }
             } elseif ($onLeave) {
+                // 🔥 NAYA: Priority yahan upar aane se future dates ki leave kabhi hide nahi hogi
                 if ($leaveType === 'SL' && !$isFuture && $dateStr < $todayDate) {
-                    $status = 'absent'; $remark = 'Absent (No punch on Short Leave day)';
+                    $status = 'absent';
+                    $remark = 'Absent (No punch on Short Leave day)';
                 } else {
-                    $status = $leaveType === 'SL' ? 'sl' : 'leave'; $remark = $leaveType === 'SL' ? 'Approved Short Leave' : 'Approved Leave';
+                    $status = $leaveType === 'SL' ? 'sl' : 'leave';
+                    $remark = $leaveType === 'SL' ? 'Approved Short Leave' : 'Approved Leave';
                 }
+            } elseif ($isFuture) {
+                $status = 'future';
+                $remark = $isTuesday ? 'Upcoming Weekly Off' : ($isHoliday ? 'Upcoming Holiday' : '-');
             } else {
-                if ($isTuesday) { $status = 'off'; $remark = 'Weekly Off'; } elseif ($isHoliday) { $status = 'holiday'; $remark = 'Holiday'; } else { $status = 'absent'; }
+                if ($isTuesday) {
+                    $status = 'off';
+                    $remark = 'Weekly Off';
+                } elseif ($isHoliday) {
+                    $status = 'holiday';
+                    $remark = 'Holiday';
+                } else {
+                    $status = 'absent';
+                }
             }
 
-          $rawStatuses[$dateStr] = ['status' => $status, 'remark' => $remark, 'login_time' => $inTime, 'logout_time' => $outTime, 'worked_time' => $workedHoursStr ?? '--'];
+            // Is line ko dhoondh kar aise update karein:
+        $rawStatuses[$dateStr] = ['status' => $status, 'remark' => $remark, 'login_time' => $inTime, 'logout_time' => $outTime, 'worked_time' => $workedHoursStr ?? '--', 'extra_time' => $extraTimeStr ?? '0h 0m'];
         }
 
-        $stats = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'extra_days' => 0, 'fine_amount' => 0, 'total_leave' => 0, 'late' => 0]; // cl_available hata diya
-        
+        $stats = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'extra_days' => 0, 'fine_amount' => 0, 'total_leave' => 0, 'late' => 0];
+
         $dateKeys = array_keys($rawStatuses);
         for ($i = 0; $i < count($dateKeys); $i++) {
-            $dStr = $dateKeys[$i]; $data = $rawStatuses[$dStr];
+            $dStr = $dateKeys[$i];
+            $data = $rawStatuses[$dStr];
 
-            // 🔥 FIX: Smarter Sandwich Rule (Ab lagatar 2-3 chutiyon ko bhi cross check karega)
             if ($data['status'] === 'off' || $data['status'] === 'holiday') {
                 $prevStatus = 'present';
                 for ($p = $i - 1; $p >= 0; $p--) {
@@ -663,7 +716,7 @@ class AuthController extends Controller
                         break;
                     }
                 }
-                
+
                 $nextStatus = 'present';
                 for ($n = $i + 1; $n < count($dateKeys); $n++) {
                     if (!in_array($rawStatuses[$dateKeys[$n]]['status'], ['off', 'holiday'])) {
@@ -673,29 +726,30 @@ class AuthController extends Controller
                 }
 
                 if (in_array($prevStatus, ['absent', 'leave', 'cl', 'sl']) && in_array($nextStatus, ['absent', 'leave', 'cl', 'sl'])) {
-                    $data['status'] = 'absent'; $data['remark'] = 'Sandwich Rule Applied';
+                    $data['status'] = 'absent';
+                    $data['remark'] = 'Sandwich Rule Applied';
                 }
             }
-
-            // 🔥 FIX: Yahan se "Auto CL Deduction" wala logic permanently HATA DIYA gaya hai 🔥
 
             if ($data['status'] === 'present') $stats['present']++;
             elseif ($data['status'] === 'half_day') $stats['half_day']++;
             elseif ($data['status'] === 'absent') $stats['absent']++;
             elseif (in_array($data['status'], ['leave', 'cl', 'sl'])) $stats['total_leave']++;
-            elseif ($data['status'] === 'lt') { $stats['late']++; $stats['present']++; }
-            elseif ($data['status'] === 'extra_day') $stats['extra_days']++;
+            elseif ($data['status'] === 'lt') {
+                $stats['late']++;
+                $stats['present']++;
+            } elseif ($data['status'] === 'extra_day') $stats['extra_days']++;
 
             $dailyData[$dStr] = $data;
         }
 
-      $salaryRecord = \App\Models\Salary::where('employee_id', $user->id)->first();
+        $salaryRecord = \App\Models\Salary::where('employee_id', $user->id)->first();
         $perDaySalary = ($salaryRecord && $salaryRecord->amount > 0) ? ($salaryRecord->amount / 30) : 0;
         $stats['fine_amount'] = round(($stats['absent'] + ($stats['half_day'] * 0.5)) * $perDaySalary, 2);
 
-        // 🔥 NAYA: Extra minutes ko Hours & Minutes me convert karein
         $totalExtMins = $stats['extra_minutes'] ?? 0;
-        $extH = floor($totalExtMins / 60); $extM = $totalExtMins % 60;
+        $extH = floor($totalExtMins / 60);
+        $extM = $totalExtMins % 60;
         $stats['extra_hours_str'] = "{$extH}h {$extM}m";
 
         return response()->json(['status' => 'success', 'month' => $month, 'year' => $year, 'stats' => $stats, 'daily_data' => $dailyData, 'time_window' => $timeWindow]);

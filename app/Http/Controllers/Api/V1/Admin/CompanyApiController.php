@@ -108,6 +108,7 @@ class CompanyApiController extends Controller
         $request->validate([
             'company_name' => 'required|string|max:255',
             'company_code' => 'required|string|max:10|unique:companies,company_code',
+          
             'cin_no'       => 'required|string|max:255',
             'company_logo' => 'nullable|mimes:jpeg,png,jpg,gif,webp,bmp|max:5120'
         ]);
@@ -140,6 +141,7 @@ class CompanyApiController extends Controller
             'logo_reg_no'   => $request->logo_reg_no,
             'parent_id'     => $request->parent_id ?: null,
             'phone'         => $request->phone,
+            'whatsapp_no'   => $request->whatsapp_no,
             'email'         => $request->email,
             'state'         => $request->state,
             'district'      => $request->district,
@@ -153,7 +155,7 @@ class CompanyApiController extends Controller
             'longitude'     => $mapData['longitude']
         ]);
 
-        if ($request->has('board_assignments')) {
+     if ($request->has('board_assignments')) {
             $boardData = json_decode($request->board_assignments, true);
             $insertData = [];
             foreach ($boardData as $board) {
@@ -165,6 +167,12 @@ class CompanyApiController extends Controller
                     'created_at'  => now(),
                     'updated_at'  => now(),
                 ];
+                
+                // 🔥 NAYA: Director table me company_id update
+                if (!empty($board['director_id']) && $board['role'] === 'Director') {
+                    \App\Models\Director::where('id', $board['director_id'])
+                                        ->update(['company_id' => $company->id]);
+                }
             }
             if (!empty($insertData)) {
                 \Illuminate\Support\Facades\DB::table('company_director')->insert($insertData);
@@ -263,6 +271,7 @@ if (!$user->can('company_edit')) {
             'logo_reg_no'   => $request->logo_reg_no,
             'parent_id'     => $request->parent_id ?: null,
             'phone'         => $request->phone,
+            'whatsapp_no'   => $request->whatsapp_no,
             'email'         => $request->email,
             'state'         => $request->state,
             'district'      => $request->district,
@@ -277,12 +286,15 @@ if (!$user->can('company_edit')) {
             'longitude'     => $mapData['longitude']
         ]);
 
-        // 🔥 NAYA: JSON PAYLOAD UPDATE LOGIC 🔥
+       // 🔥 NAYA: JSON PAYLOAD UPDATE LOGIC 🔥
         if ($request->has('board_assignments')) {
             $boardData = json_decode($request->board_assignments, true);
 
             // Purane records delete karo pivot table se
             DB::table('company_director')->where('company_id', $company->id)->delete();
+            
+            // Optional: Agar purane directors ka company_id NULL karna hai to yahan logic laga sakte hain
+            // \App\Models\Director::where('company_id', $company->id)->update(['company_id' => null]);
 
             $insertData = [];
             foreach ($boardData as $board) {
@@ -294,13 +306,18 @@ if (!$user->can('company_edit')) {
                     'created_at'  => now(),
                     'updated_at'  => now(),
                 ];
+
+                // 🔥 NAYA: Director table me company_id update (Update ke waqt bhi)
+                if (!empty($board['director_id']) && $board['role'] === 'Director') {
+                    \App\Models\Director::where('id', $board['director_id'])
+                                        ->update(['company_id' => $company->id]);
+                }
             }
 
             if (!empty($insertData)) {
                 DB::table('company_director')->insert($insertData);
             }
         }
-
         if ($oldStatus === 'active' && $newStatus === 'inactive') {
             Company::where('parent_id', $id)->update(['status' => 'inactive']);
             \App\Models\Branch::where('company_id', $id)->update(['branch_status' => 'inactive']);
