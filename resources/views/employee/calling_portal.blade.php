@@ -105,66 +105,63 @@
         </div>
 
         <div class="filter-bar shadow-sm">
-            <div class="row g-2 mb-2 pb-2 border-bottom">
+            <!-- 🔥 YAHAN CHANGE HAI: id="adminFiltersRow" aur class "d-none" add kiya hai -->
+            <div class="row g-2 mb-2 pb-2 border-bottom d-none" id="adminFiltersRow">
                 <div class="col-md-2">
                     <div class="d-flex justify-content-between"><label class="small fw-bold text-dark mb-0">Company</label>
-                        <div class="filter-actions"><a class="text-primary btn-all" data-target="companySelect">All</a>|<a
-                                class="text-danger btn-clear" data-target="companySelect">Clr</a></div>
+                        <div class="filter-actions"><a class="text-primary btn-all" data-target="companySelect">All</a>|<a class="text-danger btn-clear" data-target="companySelect">Clr</a></div>
                     </div>
-                    <select class="select2-multiple" id="companySelect" multiple
-                        data-placeholder="Select Company..."></select>
+                    <select class="select2-multiple" id="companySelect" multiple data-placeholder="Select Company..."></select>
                 </div>
                 <div class="col-md-2">
-                    <div class="d-flex justify-content-between"><label
-                            class="small fw-bold text-dark mb-0">Branch/HO</label>
-                        <div class="filter-actions"><a class="text-primary btn-all" data-target="branchSelect">All</a>|<a
-                                class="text-danger btn-clear" data-target="branchSelect">Clr</a></div>
+                    <div class="d-flex justify-content-between"><label class="small fw-bold text-dark mb-0">Branch/HO</label>
+                        <div class="filter-actions"><a class="text-primary btn-all" data-target="branchSelect">All</a>|<a class="text-danger btn-clear" data-target="branchSelect">Clr</a></div>
                     </div>
-                    <select class="select2-multiple" id="branchSelect" multiple
-                        data-placeholder="Select Branch..."></select>
+                    <select class="select2-multiple" id="branchSelect" multiple data-placeholder="Select Branch..."></select>
                 </div>
                 <div class="col-md-2">
-                    <div class="d-flex justify-content-between"><label
-                            class="small fw-bold text-dark mb-0">Department</label>
-                        <div class="filter-actions"><a class="text-primary btn-all" data-target="deptSelect">All</a>|<a
-                                class="text-danger btn-clear" data-target="deptSelect">Clr</a></div>
+                    <div class="d-flex justify-content-between"><label class="small fw-bold text-dark mb-0">Department</label>
+                        <div class="filter-actions"><a class="text-primary btn-all" data-target="deptSelect">All</a>|<a class="text-danger btn-clear" data-target="deptSelect">Clr</a></div>
                     </div>
                     <select class="select2-multiple" id="deptSelect" multiple data-placeholder="Select Dept..."></select>
                 </div>
                 <div class="col-md-2">
-                    <div class="d-flex justify-content-between"><label
-                            class="small fw-bold text-dark mb-0">Designation</label>
-                        <div class="filter-actions"><a class="text-primary btn-all" data-target="desigSelect">All</a>|<a
-                                class="text-danger btn-clear" data-target="desigSelect">Clr</a></div>
+                    <div class="d-flex justify-content-between"><label class="small fw-bold text-dark mb-0">Designation</label>
+                        <div class="filter-actions"><a class="text-primary btn-all" data-target="desigSelect">All</a>|<a class="text-danger btn-clear" data-target="desigSelect">Clr</a></div>
                     </div>
                     <select class="select2-multiple" id="desigSelect" multiple data-placeholder="Select Desig..."></select>
                 </div>
                 <div class="col-md-4">
-                    <div class="d-flex justify-content-between"><label class="small fw-bold text-danger mb-0">Telecaller /
-                            Assignee</label>
-                        <div class="filter-actions"><a class="text-primary btn-all" data-target="assigneeSelect">All</a>|<a
-                                class="text-danger btn-clear" data-target="assigneeSelect">Clr</a></div>
+                    <div class="d-flex justify-content-between"><label class="small fw-bold text-danger mb-0">Telecaller / Assignee</label>
+                        <div class="filter-actions"><a class="text-primary btn-all" data-target="assigneeSelect">All</a>|<a class="text-danger btn-clear" data-target="assigneeSelect">Clr</a></div>
                     </div>
-                    <select class="select2-multiple" id="assigneeSelect" multiple
-                        data-placeholder="Filter Telecaller..."></select>
+                    <select class="select2-multiple" id="assigneeSelect" multiple data-placeholder="Filter Telecaller..."></select>
                 </div>
             </div>
 
+            <!-- 🔥 NAYE FILTERS AUR WAPAS AAYA BUTTON 🔥 -->
             <div class="row g-2 align-items-end">
                 <div class="col-md-2">
-                    <label class="small fw-bold text-muted mb-1">Search Customer Name/Mobile</label>
-                    <input type="text" id="liveSearch" class="form-control form-control-sm shadow-none"
-                        placeholder="Type here...">
+                    <label class="small fw-bold text-muted mb-1">Search Name/Mobile</label>
+                    <input type="text" id="liveSearch" class="form-control form-control-sm shadow-none" placeholder="Type here...">
                 </div>
                 <div class="col-md-2">
-                    <label class="small fw-bold text-muted mb-1">Month</label>
-                    <input type="month" id="monthFilter" class="form-control form-control-sm shadow-none">
+                    <label class="small fw-bold text-muted mb-1">Preferred Location</label>
+                    <input type="text" id="locationFilter" class="form-control form-control-sm shadow-none" placeholder="Search location...">
                 </div>
                 <div class="col-md-2">
-                    <label class="small fw-bold text-muted mb-1">Date</label>
+                    <label class="small fw-bold text-muted mb-1">Date (Created/Mixed)</label>
                     <input type="date" id="dateFilter" class="form-control form-control-sm shadow-none">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="small fw-bold text-primary mb-1">Follow-up Date</label>
+                    <input type="date" id="followUpDateFilter" class="form-control form-control-sm shadow-none border-primary">
+                </div>
+                <div class="col-md-2">
+                    <label class="small fw-bold text-success mb-1">Called At Date</label>
+                    <input type="date" id="calledAtFilter" class="form-control form-control-sm shadow-none border-success">
+                </div>
+                <div class="col-md-2">
                     <label class="small fw-bold text-muted mb-1">Call Status</label>
                     <select id="statusFilter" class="form-select form-select-sm shadow-none">
                         <option value="">21. All Status (History)</option>
@@ -176,7 +173,7 @@
                         <option value="Not Reachable">5. Not Reachable call</option>
                         <option value="Number Doesn't Exists call">6. Number Doesn't Exists call</option>
                         <option value="Site visit Scheduled">7. Site visit Scheduled Call</option>
-                        <option value="Site Visit Done">8. Site Visit Done Call</option>
+                        <option value="Site Visit Done Call">8. Site Visit Done Call</option>
                         <option value="Booking Done">9. Booking Done</option>
                         <option value="Lost Lead">10. Lost Lead</option>
                         <option value="Booking Confirm">11. Booking Confirm</option>
@@ -192,12 +189,12 @@
                         <option value="Incoming Call Not Available">23. Incoming Call Not Available</option>
                     </select>
                 </div>
-                <div class="col-md-3 text-end d-flex justify-content-end gap-3">
+                <div class="col-md-2 text-end d-flex justify-content-end gap-2">
                     <button class="btn btn-sm btn-warning shadow-sm fw-bold text-dark" id="todayScheduledBtn">
                         <i class="fas fa-calendar-day"></i> Today's Scheduled
                     </button>
-                    <button class="btn btn-sm btn-primary shadow-sm fw-bold" id="applyFilterBtn">
-                        <i class="fas fa-filter"></i> Apply Filters
+                    <button class="btn btn-sm btn-primary shadow-sm fw-bold w-100" id="applyFilterBtn">
+                        <i class="fas fa-filter"></i> Apply
                     </button>
                 </div>
             </div>
@@ -353,7 +350,7 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Interested For</label>
+                                <label class="form-label small fw-bold text-muted">Interested For(Optional)</label>
                                 <select name="interested_for" id="interestedFor" class="form-select shadow-none">
                                     <option value="">-- Select --</option>
                                     <option value="Plot">Plot</option>
@@ -362,44 +359,75 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Estimated Budget</label>
+                                <label class="form-label small fw-bold text-muted">Estimated Budget(Optional)</label>
                                 <input type="text" name="budget" id="budget" class="form-control shadow-none"
                                     placeholder="e.g. 25 Lakhs">
                             </div>
 
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Alternate Mobile No.</label>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-muted">Alternate Mobile No.(Optional)</label>
                                 <input type="text" name="alternate_no" id="alternateNo"
                                     class="form-control shadow-none" placeholder="Optional">
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Email ID</label>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-muted">Email ID(Optional)</label>
                                 <input type="email" name="email" id="emailId" class="form-control shadow-none"
                                     placeholder="customer@domain.com">
                             </div>
-                            <div class="col-12">
-                                <label class="form-label small fw-bold text-muted">Customer Address</label>
-                                <input type="text" name="address" id="address" class="form-control shadow-none"
-                                    placeholder="Full address...">
-                            </div>
+                            
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Date of Birth</label>
+                                <label class="form-label small fw-bold text-muted">Date of Birth(Optional)</label>
                                 <input type="date" name="dob" id="dob" class="form-control shadow-none">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Anniversary Date</label>
+                                <label class="form-label small fw-bold text-muted">Anniversary Date(Optional)</label>
                                 <input type="date" name="anniversary_date" id="anniversaryDate"
                                     class="form-control shadow-none">
                             </div>
+                            <!-- 🔥 TIME COLUMN ADD HUA PAR OPTIONAL HAI 🔥 -->
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">Follow-up Date</label>
-                                <input type="date" name="followup_date" id="followupDate"
-                                    class="form-control shadow-none">
+                                <label class="small fw-bold text-dark mb-1">Next Follow-up Date *</label>
+                                <input type="date" id="followupDate" name="followup_date" class="form-control shadow-none border-info">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="small fw-bold text-dark mb-1">Follow-up Time (Optional)</label>
+                                <input type="time" id="followupTime" name="followup_time" class="form-control shadow-none border-info">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-muted">Preferred Location(Optional)</label>
+                                <input type="text" name="preferred_location" id="preferredLocation" class="form-control shadow-none" placeholder="e.g. South Delhi, Phase 1...">
+                            </div>
+
+                            <!-- 🔥 NAYE TEEN FIELDS 🔥 -->
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-muted">State (Optional)</label>
+                                <input type="text" name="state" id="customerState" class="form-control shadow-none" placeholder="e.g. Maharashtra">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold text-danger">Calling Time *</label>
+                                <input type="time" name="calling_time" id="callingTime" class="form-control shadow-none border-danger" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold text-danger">Call Duration (Mins) *</label>
+                                <input type="number" name="calling_duration" id="callingDuration" class="form-control shadow-none border-danger" placeholder="e.g. 2" min="1" required>
+                            </div>
+                            <!-- 🔥 END NAYE FIELDS 🔥 -->
+
+                            <div class="col-12">
+                                <label class="form-label small fw-bold text-muted">Customer Address(Optional)</label>
+                                <input type="text" name="address" id="address" class="form-control shadow-none" 
+                                    placeholder="Full address...">
+                            </div>
+                            <div class="col-12 mt-1">
+                                <small id="followup_error" class="text-danger fw-bold d-none">
+                                    * Is status ke liye Follow-up Date select karna zaroori hai!
+                                </small>
                             </div>
 
                             <div class="col-12 border-top pt-3 mt-3">
                                 <label class="form-label small fw-bold text-muted">Call Remarks / Note</label>
-                                <textarea name="remark" id="remark" class="form-control shadow-none" rows="3"></textarea>
+                                <textarea name="remark" id="remark" class="form-control shadow-none" rows="10"></textarea>
                             </div>
                         </div>
                     </form>
@@ -462,8 +490,55 @@
             </div>
         </div>
     </div>
-@endsection
 
+<!-- 🔥 NAYA: ADD SITE VISIT MODAL (From Calling Portal) 🔥 -->
+    <div class="modal fade" id="siteVisitModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-success text-white border-0">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-map-marker-alt me-2"></i> Schedule Site Visit</h5>
+                    <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="svForm" enctype="multipart/form-data">
+                    <div class="modal-body p-4 bg-light">
+                        <div class="row g-3">
+                            <h6 class="fw-bold text-primary border-bottom pb-2 mb-3">Telecaller / Assignee Details (Auto-filled)</h6>
+                            <!-- Readonly Selects for Hierarchy -->
+                            <div class="col-md-6"><label class="small fw-bold text-muted">Company</label><select name="company_id" id="sv_company_id" class="form-select pointer-none" style="background:#e9ecef;" readonly></select></div>
+                            <div class="col-md-6"><label class="small fw-bold text-muted">Branch</label><select name="branch_id" id="sv_branch_id" class="form-select pointer-none" style="background:#e9ecef;" readonly></select></div>
+                            <div class="col-md-6"><label class="small fw-bold text-muted">Department</label><select name="department_id" id="sv_department_id" class="form-select pointer-none" style="background:#e9ecef;" readonly></select></div>
+                            <div class="col-md-6"><label class="small fw-bold text-muted">Designation</label><select name="designation_id" id="sv_designation_id" class="form-select pointer-none" style="background:#e9ecef;" readonly></select></div>
+                            <div class="col-md-12"><label class="small fw-bold text-muted">Employee / Telecaller</label><select name="employee_id" id="sv_employee_id" class="form-select pointer-none" style="background:#e9ecef;" readonly></select></div>
+
+                            <h6 class="fw-bold text-success border-bottom pb-2 mt-4 mb-3">Customer & Visit Details</h6>
+                            <div class="col-md-6"><label class="small fw-bold">Customer Name *</label><input type="text" name="customer_name" id="sv_customer_name" class="form-control" required readonly></div>
+                            <div class="col-md-6"><label class="small fw-bold">Customer Contact *</label><input type="text" name="customer_contact_number" id="sv_customer_contact" class="form-control" required readonly></div>
+
+                            <div class="col-md-4"><label class="small fw-bold">Phase *</label><select name="phase_id" id="sv_phase_id" class="form-select pointer-none" style="background:#e9ecef;" required readonly></select></div>
+                            <div class="col-md-4"><label class="small fw-bold">Visit Date *</label><input type="date" name="visit_date" id="sv_visit_date" class="form-control" required></div>
+                            <div class="col-md-4"><label class="small fw-bold">Visit Time *</label><input type="time" name="visit_time" class="form-control" required></div>
+
+                            <div class="col-md-12">
+                                <label class="small fw-bold">Images / Proof (Optional)</label>
+                                <input type="file" name="images[]" class="form-control" multiple accept="image/*,.pdf">
+                            </div>
+                            <div class="col-md-12"><label class="small fw-bold">Description / Note</label>
+                                <textarea name="description" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success px-4 fw-bold" id="svSubmitBtn"><i class="fas fa-paper-plane me-2"></i> Save Site Visit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
+@endsection
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
@@ -508,58 +583,59 @@
                 return (v && v.length) ? v.join(',') : '';
             }
 
-            // --- RBAC & DEPENDENT DROPDOWNS ---
+         // 1. Initial Call: Admin ke liye auto-load band kiya gaya
             $.get(apiPrefix + '/context', function(res) {
                 userContext = res;
-                loadCompanies();
-
-                if (userContext.is_employee && !userContext.is_god && !userContext.is_director) {
-                    $('#companySelect, #branchSelect, #deptSelect, #desigSelect, #assigneeSelect').prop(
-                        'disabled', true);
+                if (userContext.is_god || userContext.is_director) {
+                    $('#adminFiltersRow').removeClass('d-none');
+                    loadCompanies();
+                    fetchAssigneeInitial();
+                    // 🔥 FIX: Yahan se loadAllocations() hata diya taaki Admin ko default empty page dikhe
+                } else {
+                    loadAllocations(false, false); 
                 }
             });
 
-            function fetchAssigneeInitial() {
-                $.get(apiPrefix + '/employees?length=-1', function(res) {
-                    let select = $('#assigneeFilter');
+          function fetchAssigneeInitial() {
+                $.get(apiPrefix + '/task-dependencies/employees?length=-1', function(res) {
+                    let select = $('#assigneeSelect');
                     if (res.data && res.data.length > 0) {
-                        if (res.data.length === 1) {
-                            let emp = res.data[0];
-                            select.html(
-                                `<option value="${emp.id}">${emp.full_name} (${emp.member_id})</option>`
-                                );
-                            select.prop('disabled', true);
-                        } else {
-                            let html = '<option value="">All Telecallers</option>';
-                            res.data.forEach(emp => {
-                                html +=
-                                    `<option value="${emp.id}">${emp.full_name} (${emp.member_id})</option>`;
-                            });
-                            select.html(html);
-                        }
-                    } else {
-                        select.html('<option value="">No Users Found</option>');
+                        let html = '';
+                        res.data.forEach(emp => {
+                            // 🔥 FIX: Dropdown value me STRICTLY emp.id (Integer) bhejenge, member_id (String) nahi.
+                            let empId = emp.id; 
+                            let empName = emp.full_name || emp.name;
+                            html += `<option value="${empId}">${empName} (${emp.member_id || 'N/A'})</option>`;
+                        });
+                        select.html(html).trigger('change');
                     }
-                    loadAllocations(false);
+                    // 🔥 FIX: Yahan se bhi loadAllocations hata diya gaya hai.
                 });
             }
 
-            fetchAssigneeInitial();
+
+            // 2. Button clicks par is_filter 'true' bhejenge
+            $('#applyFilterBtn').on('click', function() {
+                $('#todayScheduledBtn').removeClass('active-scheduled btn-danger').addClass('btn-warning').html('<i class="fas fa-calendar-day"></i> Today\'s Scheduled');
+                loadAllocations(false, true); // NAYA: User ne filter apply kiya
+            });
+
+            $('#loadMoreBtn').on('click', function() {
+                // Load more me wo state yaad rakhega jo us time chal rahi hai
+                let isFiltered = $('#dateFilter').val() || $('#monthFilter').val() || $('#statusFilter').val() !== 'pending' ? true : false;
+                loadAllocations(true, isFiltered); 
+            });
 
             function loadCompanies() {
                 $.get(apiPrefix + '/companies', function(res) {
                     let html = '';
                     res.data.forEach(c => {
-                        html +=
-                            `<option value="${c.id}" data-name="${c.company_name}">${c.company_name}</option>`;
+                        html += `<option value="${c.id}" data-name="${c.company_name}">${c.company_name}</option>`;
                     });
                     $('#companySelect').html(html);
 
                     if (userContext.is_director) {
-                        $('#companySelect').val([userContext.company_id]).trigger('change').prop('disabled',
-                            true);
-                    } else if (userContext.is_employee && !userContext.is_god) {
-                        $('#companySelect').val([userContext.company_id]).trigger('change');
+                        $('#companySelect').val([userContext.company_id]).trigger('change').prop('disabled', true);
                     }
                 });
             }
@@ -567,15 +643,13 @@
             $('#companySelect').on('change', function() {
                 let compIds = getSelected('companySelect');
                 if (!compIds) {
-                    $('#branchSelect, #deptSelect, #desigSelect, #assigneeSelect').html('').trigger(
-                        'change');
+                    $('#branchSelect, #deptSelect, #desigSelect, #assigneeSelect').html('').trigger('change');
                     return;
                 }
 
                 let html = '';
                 $('#companySelect option:selected').each(function() {
-                    html +=
-                        `<option value="HO_${$(this).val()}">Head Office (${$(this).data('name')})</option>`;
+                    html += `<option value="HO_${$(this).val()}">Head Office (${$(this).data('name')})</option>`;
                 });
 
                 $.get(apiPrefix + `/branches?company_ids=${compIds}`, function(res) {
@@ -583,13 +657,6 @@
                         html += `<option value="${b.id}">${b.branch_name}</option>`;
                     });
                     $('#branchSelect').html(html);
-
-                    if (userContext.is_employee && !userContext.is_god && !userContext
-                        .is_director) {
-                        let bVal = userContext.branch_id ? userContext.branch_id : ('HO_' +
-                            userContext.company_id);
-                        $('#branchSelect').val([bVal]).trigger('change');
-                    }
                     loadAssignees();
                 });
             });
@@ -605,18 +672,13 @@
                 $.get(apiPrefix + `/departments?branch_ids=${branchIds}`, function(res) {
                     let html = '';
                     res.data.forEach(d => {
-                        html += `<option value="${d.id}">${d.department_name}</option>`;
+                        // 🔥 ADMIN FILTER: Sirf Telecaller ya Customer waale department hi dikhenge
+                        let deptName = d.department_name.toLowerCase();
+                        if (deptName.includes('telecaller') || deptName.includes('customer')) {
+                            html += `<option value="${d.id}">${d.department_name}</option>`;
+                        }
                     });
                     $('#deptSelect').html(html);
-
-                    if (userContext.is_employee && !userContext.is_god && !userContext
-                        .is_director) {
-                        if (userContext.department_id) {
-                            $('#deptSelect').val([userContext.department_id]).trigger('change');
-                        } else {
-                            $('#deptSelect').trigger('change');
-                        }
-                    }
                     loadAssignees();
                 });
             });
@@ -635,15 +697,6 @@
                         html += `<option value="${d.id}">${d.designation_name}</option>`;
                     });
                     $('#desigSelect').html(html);
-
-                    if (userContext.is_employee && !userContext.is_god && !userContext
-                        .is_director) {
-                        if (userContext.designation_id) {
-                            $('#desigSelect').val([userContext.designation_id]).trigger('change');
-                        } else {
-                            $('#desigSelect').trigger('change');
-                        }
-                    }
                     loadAssignees();
                 });
             });
@@ -652,67 +705,83 @@
                 loadAssignees();
             });
 
-            function loadAssignees() {
+           function loadAssignees() {
+                let rawBranch = getSelected('branchSelect');
+                let validBranchIds = [];
+                
+                if (rawBranch) {
+                    rawBranch.split(',').forEach(b => {
+                        if (!b.startsWith('HO_')) {
+                            validBranchIds.push(b);
+                        }
+                    });
+                }
+
                 let params = {
                     length: -1,
                     company_ids: getSelected('companySelect'),
-                    branch_ids: getSelected('branchSelect'),
+                    branch_ids: validBranchIds.join(','), 
                     department_ids: getSelected('deptSelect'),
                     designation_ids: getSelected('desigSelect'),
                     status: 'active'
                 };
-                $.get(apiPrefix + '/employees', params, function(res) {
+                
+                $.get(apiPrefix + '/task-dependencies/employees', params, function(res) {
                     let select = $('#assigneeSelect');
                     let html = '';
-                    res.data.forEach(emp => {
-                        html +=
-                            `<option value="${emp.id}">${emp.full_name} (${emp.member_id})</option>`;
-                    });
-                    select.html(html);
-
-                    if (userContext.is_employee && !userContext.is_god && !userContext.is_director) {
-                        if (res.data.length === 1) select.val([res.data[0].id]).trigger('change.select2');
+                    
+                    if (res.data && res.data.length > 0) {
+                        res.data.forEach(emp => {
+                            // 🔥 FIX: Yahan bhi strictly emp.id integer value set ki hai
+                            html += `<option value="${emp.id}">${emp.full_name} (${emp.member_id})</option>`;
+                        });
                     }
-
-                    if (currentOffset === 0 && $('#callTableBody').is(':empty')) loadAllocations(false);
+                    
+                    select.html(html).trigger('change');
                 });
             }
-
-            // --- MAIN DATA LOADING ---
-            // --- MAIN DATA LOADING ---
-            function loadAllocations(append = false) {
+           // 3. MAIN DATA LOADING FUNCTION
+            function loadAllocations(append = false, isFilterApplied = false) {
                 if (!append) {
                     currentOffset = 0;
-                    $('#callTableBody').html(
-                        '<tr><td colspan="6" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Fetching data...</td></tr>'
-                    );
-                    $('#mobileCardsContainer').html(
-                        '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
+                    $('#callTableBody').html('<tr><td colspan="7" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Fetching data...</td></tr>');
+                    $('#mobileCardsContainer').html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
                 }
 
                 let payload = {
-                    offset: currentOffset,
-                    company_ids: getSelected('companySelect'),
-                    branch_ids: getSelected('branchSelect'),
-                    department_ids: getSelected('deptSelect'),
-                    designation_ids: getSelected('desigSelect'),
-                    assignee_ids: $('#assigneeSelect').val() ? $('#assigneeSelect').val().join(',') : $(
-                        '#assigneeFilter').val(),
-                    call_status: $('#statusFilter').val(),
-                    month: $('#monthFilter').val(),
-                    date: $('#dateFilter').val(),
-                    search: $('#liveSearch').val(),
-                    // 🔥 YAHAN NAYA PARAMETER ADD KIYA HAI 🔥
-                    scheduled_today: $('#todayScheduledBtn').hasClass('active-scheduled') ? 1 : 0
-                };
+    offset: currentOffset,
+    is_filter: isFilterApplied ? 1 : 0, 
+    company_ids: getSelected('companySelect'),
+    branch_ids: getSelected('branchSelect'),
+    department_ids: getSelected('deptSelect'),
+    designation_ids: getSelected('desigSelect'),
+    assignee_ids: $('#assigneeSelect').val() ? $('#assigneeSelect').val().join(',') : $('#assigneeFilter').val(),
+    call_status: $('#statusFilter').val(),
+    month: $('#monthFilter').val(),
+    date: $('#dateFilter').val(),
+    preferred_location: $('#locationFilter').val(),
+    
+    // 🔥 YE DONO LINES MISSING THI YAHAN 🔥
+    followup_date_filter: $('#followUpDateFilter').val(),
+    called_at_filter: $('#calledAtFilter').val(),
+    
+    search: $('#liveSearch').val(),
+    scheduled_today: $('#todayScheduledBtn').hasClass('active-scheduled') ? 1 : 0
+};
 
                 $.ajax({
                     url: apiPrefix + '/telecalling/allocations',
                     type: 'GET',
                     data: payload,
                     success: function(res) {
-                        if (!append) {
+                      if (!append) {
                             $('#callTableBody, #mobileCardsContainer').empty();
+                            if (userContext.is_god || userContext.is_director) {
+                                if ($('#telecallerTh').length === 0) {
+                                    // Customer Name ke turant baad column insert karega
+                                    $('#callTable thead tr').find('th:eq(1)').after('<th id="telecallerTh">Telecaller Name</th>');
+                                }
+                            }
                         }
 
                         if (res.success && res.data.length > 0) {
@@ -720,113 +789,151 @@
                             currentOffset += res.data.length;
                             $('#loadMoreContainer').toggleClass('d-none', !res.has_more);
 
-                            // ==========================================
-                            // 🔥 Summary UI Update Logic
-                            // ==========================================
+                            // 🔥 SUMMARY UI LOGIC (BINA COUNT KE)
                             if (!append) {
-                                $('#totalLeadsCount').text(res.total_count || res.data.length);
+                                // "Total Leads" badge hide kar diya kyunki ab total count backend ginega hi nahi
+                              // 🔥 FIX: Total Leads ab count hokar properly dikhega
+$('#totalLeadsCount').text(res.total_count);
+$('#totalLeadsCount').parent().removeClass('d-none');
 
                                 if (res.employee_summary && res.employee_summary.length > 0) {
                                     let empHtml = '';
                                     res.employee_summary.forEach(emp => {
                                         empHtml += `
-                                        <div class="bg-white border rounded shadow-sm px-3 py-2 d-flex align-items-center emp-summary-badge" data-empid="${emp.id}" data-emptype="${emp.type}" data-empname="${emp.name}" style="cursor: pointer; transition: 0.2s;">
+                                        <div class="bg-white border rounded shadow-sm px-3 py-2 d-flex align-items-center emp-summary-badge" 
+                                             data-empid="${emp.id}" data-emptype="${emp.type}" data-empname="${emp.name}" 
+                                             style="cursor: pointer; transition: 0.2s;" title="Click to view full summary">
                                             <i class="fas fa-user-circle text-info fs-5 me-2"></i>
                                             <div class="lh-1">
                                                 <small class="text-muted d-block fw-bold" style="font-size: 10px;">TELECALLER</small>
                                                 <span class="fw-bold text-dark fs-6">${emp.name}</span>
                                             </div>
-                                            <div class="ms-3 ps-3 border-start">
-                                                <span class="badge bg-danger fs-6">${emp.count}</span>
-                                            </div>
-                                        </div>`;
+                                        </div>`; // <-- Yahan se lal (red) badge hata diya gaya hai
                                     });
                                     $('#employeeSplitContainer').html(empHtml);
                                 } else {
-                                    $('#employeeSplitContainer').html(
-                                        '<span class="text-muted small">No specific telecaller split available.</span>'
-                                        );
+                                    $('#employeeSplitContainer').html('<span class="text-muted small">No specific telecallers found.</span>');
                                 }
                                 $('#summaryCard').removeClass('d-none');
                             }
-
                         } else if (!append) {
-                            $('#callTableBody').html(
-                                '<tr><td colspan="6" class="text-center py-4 text-muted">No calls found in this filter.</td></tr>'
-                            );
-                            $('#mobileCardsContainer').html(
-                                '<div class="text-center py-4 text-muted bg-white rounded shadow-sm">No calls found.</div>'
-                            );
+                            $('#callTableBody').html('<tr><td colspan="7" class="text-center py-4 text-muted">No calls found in this filter.</td></tr>');
+                            $('#mobileCardsContainer').html('<div class="text-center py-4 text-muted bg-white rounded shadow-sm">No calls found.</div>');
                             $('#loadMoreContainer').addClass('d-none');
                             $('#summaryCard').addClass('d-none');
                         }
-                        updateBulkActionBar();
-                        if (typeof window.applyPermissions === 'function') window.applyPermissions();
                     }
                 });
             }
 
-            function renderData(dataList) {
+            // 🔥 NAYA LOGIC: OPTIONS KE NUMBER SE VALIDATION
+            function checkMandatoryStatus() {
+                let optionText = $('#callStatus option:selected').text().trim();
+                let match = optionText.match(/^(\d+)\./); 
+                let point = match ? parseInt(match[1]) : 0; 
+                
+                // Aapke bataye gaye points
+                let mandatoryPoints = [2, 7, 8, 9, 11, 12, 13, 14, 15, 16, 20];
+                
+                if (mandatoryPoints.includes(point)) {
+                    // SIRF Date required banega
+                    $('#followupDate').prop('required', true).addClass('border-danger shadow-sm');
+                    $('#followup_error').removeClass('d-none');
+                } else {
+                    $('#followupDate').prop('required', false).removeClass('border-danger shadow-sm');
+                    $('#followup_error').addClass('d-none');
+                }
+            }
+            
+            $('#callStatus').on('change', checkMandatoryStatus);
+
+           function renderData(dataList) {
+                // 🔥 FIX: Agar Admin ya Director hai, toh 'secured-item' class mat lagao, warna DOM se uda dega.
+                let securityClass = (userContext.is_god || userContext.is_director) ? '' : 'secured-item';
+
                 dataList.forEach(item => {
                     let cust = item.customer || {};
                     let cName = cust.cust_name || 'Unknown';
+                    
+                    let emp = item.assignee || {};
                     let cPhone = cust.mobile || 'N/A';
-                    let cAltPhone = cust.alternate_no ?
-                        `<br><small class="text-muted"><i class="fas fa-phone-alt" style="font-size:10px;"></i> ${cust.alternate_no}</small>` :
-                        '';
+                    
+                    let telecallerTd = '';
+                    let telecallerMobileInfo = '';
+                    
+                    if (userContext.is_god || userContext.is_director) {
+                        let tName = emp.full_name || emp.member_name || 'Unknown';
+                        let tId = emp.member_id || '';
+                        
+                        telecallerTd = `<td>
+                                            <span class="fw-bold text-dark" style="font-size: 12px;">${tName}</span><br>
+                                            <span class="badge bg-secondary shadow-sm" style="font-size: 10px;">${tId}</span>
+                                        </td>`;
+                                        
+                        telecallerMobileInfo = `<div class="mb-2"><span class="badge bg-secondary shadow-sm" style="font-size: 10px;"><i class="fas fa-headset me-1"></i>${tName} (${tId})</span></div>`;
+                    }
+                    
+                    let cAltPhone = cust.alternate_no ? `<br><small class="text-muted"><i class="fas fa-phone-alt" style="font-size:10px;"></i> ${cust.alternate_no}</small>` : '';
 
                     let phaseName = item.phase ? item.phase.phase_name : 'General Task';
-                    let phaseDesc = item.phase ? (item.phase.phase_details || 'No description available') :
-                        'N/A';
+                    let phaseDesc = item.phase ? (item.phase.phase_details || 'No description available') : 'N/A';
                     let phaseImg = item.phase ? (item.phase.phase_image || '') : '';
 
-                    let phaseBtn = item.phase ?
-                        `<br><button class="btn btn-sm btn-outline-info mt-1 py-0 px-2 fw-bold show-phase-btn" data-name="${phaseName}" data-desc="${phaseDesc}" data-img="${phaseImg}"><i class="fas fa-info-circle"></i> View Details</button>` :
-                        '';
+                    let phaseBtn = item.phase ? `<br><button class="btn btn-sm btn-outline-info mt-1 py-0 px-2 fw-bold show-phase-btn" data-name="${phaseName}" data-desc="${phaseDesc}" data-img="${phaseImg}"><i class="fas fa-info-circle"></i> View Details</button>` : '';
 
-                    let systemRemark = item.remark ?
-                        `<br><small class="text-danger fw-bold" style="font-size: 11px; background: #fff5f5; padding: 2px 4px; border-radius: 4px; border: 1px solid #ffcccc;"><i class="fas fa-info-circle"></i> ${item.remark}</small>` :
-                        '';
+                    let systemRemark = item.remark ? `<br><small class="text-danger fw-bold" style="font-size: 11px; background: #fff5f5; padding: 2px 4px; border-radius: 4px; border: 1px solid #ffcccc;"><i class="fas fa-info-circle"></i> ${item.remark}</small>` : '';
 
-                    let bgClass = item.call_status === 'Pending' ? 'warning' : (item.call_status ===
-                        'Connected' ? 'success' : (item.call_status === 'Lost' ? 'danger' : 'info'));
-                    let statusBadge =
-                        `<span class="badge bg-${bgClass} status-badge shadow-sm">${item.call_status}</span>`;
-                    let followUp = item.followup_date ?
-                        `<br><small class="text-danger fw-bold"><i class="far fa-clock"></i> Follow: ${item.followup_date}</small>` :
-                        '';
+                    let bgClass = item.call_status === 'Pending' ? 'warning' : (item.call_status === 'Connected' ? 'success' : (item.call_status === 'Lost' ? 'danger' : 'info'));
+                    let statusBadge = `<span class="badge bg-${bgClass} status-badge shadow-sm">${item.call_status}</span>`;
+                    let followUp = item.followup_date ? `<br><small class="text-danger fw-bold"><i class="far fa-clock"></i> Follow: ${item.followup_date}</small>` : '';
 
                     let safeName = cName.replace(/"/g, '&quot;');
                     let safeAlt = cust.alternate_no || '';
                     let safeEmail = cust.email || '';
+                    let safeState = cust.state || item.state || '';
                     let safeAddress = cust.address ? cust.address.replace(/"/g, '&quot;') : '';
                     let safeDob = cust.dob || item.dob || '';
                     let safeAnniv = cust.anniversary_date || item.anniversary_date || '';
 
-                    // Desktop Row
-                    $('#callTableBody').append(`
+                    let svButton = '';
+                    if (item.call_status === 'Site visit Scheduled' || item.call_status === 'Site visit Scheduled Call') {
+                        let safeEmpData = encodeURIComponent(JSON.stringify(emp));
+                        let safePhaseData = encodeURIComponent(JSON.stringify(item.phase || {}));
+                        
+                        svButton = `<button class="btn btn-outline-success shadow-sm add-sv-btn mt-1 w-100"
+                                        data-name="${safeName}" data-phone="${cPhone}" 
+                                        data-emp="${safeEmpData}" data-phase="${safePhaseData}">
+                                        <i class="fas fa-map-marker-alt"></i> Add Visit
+                                    </button>`;
+                    }
+
+                    // Desktop Row Update 
+                 $('#callTableBody').append(`
                     <tr class="data-row">
                         <td class="ps-4"><input type="checkbox" class="form-check-input row-checkbox shadow-none" value="${item.id}"></td>
                         <td class="fw-bold text-dark">${cName} ${systemRemark}</td>
+                        ${telecallerTd}
                         <td>
                             <a href="tel:${cPhone}" class="text-decoration-none fw-bold text-primary"><i class="fas fa-phone-square-alt me-1"></i>${cPhone}</a>
                             ${cAltPhone}
                         </td>
                         <td class="small text-muted"><strong>${phaseName}</strong> ${phaseBtn}<br>${item.task ? item.task.title : ''}</td>
                         <td>${statusBadge} ${followUp}</td>
-                        <td class="text-end pe-4 action-btn-group">
-                            <button class="btn btn-outline-primary shadow-sm update-btn secured-item" data-permission="tele_edit" 
+                    <td class="text-end pe-4">
+                            <!-- 🔥 FIX: yahan se 'secured-item' aur 'data-permission' puri tarah hata diya hai -->
+                            <button class="btn btn-outline-primary btn-sm shadow-sm update-btn" 
                                 data-id="${item.id}" data-name="${safeName}" data-phone="${cPhone}" 
                                 data-status="${item.call_status}" data-int="${item.interested_for || ''}" 
                                 data-bud="${item.budget || ''}" data-fdate="${item.followup_date || ''}" data-rem="${item.remark || ''}"
-                                data-alt="${safeAlt}" data-email="${safeEmail}" data-addr="${safeAddress}" data-dob="${safeDob}" data-anniv="${safeAnniv}">
+                               data-alt="${safeAlt}" data-email="${safeEmail}" data-addr="${safeAddress}" data-dob="${safeDob}" data-anniv="${safeAnniv}" data-prefloc="${cust.preferred_location || item.preferred_location || ''}" data-state="${safeState}">
                                 <i class="fas fa-pencil-alt"></i> Update
                             </button>
+                            ${svButton}
                         </td>
                     </tr>
-                `);
+                    `);
 
-                    // Mobile Card
+                    // Mobile Card Update
                     $('#mobileCardsContainer').append(`
                     <div class="card shadow-sm mb-3 data-row border-0" style="border-left: 4px solid var(--bs-${bgClass});">
                         <div class="card-body p-3">
@@ -834,6 +941,7 @@
                                 <h6 class="mb-0 fw-bold text-dark"><input type="checkbox" class="form-check-input row-checkbox shadow-none me-2" value="${item.id}">${cName}</h6>
                                 ${statusBadge}
                             </div>
+                            ${telecallerMobileInfo}
                             ${item.remark ? `<div class="mb-2">${systemRemark}</div>` : ''}
                             <div class="mb-2">
                                 <a href="tel:${cPhone}" class="text-decoration-none fw-bold text-primary"><i class="fas fa-phone-alt me-1"></i>${cPhone}</a>
@@ -842,17 +950,19 @@
                             <div class="small text-muted mb-2"><i class="fas fa-building me-1"></i> ${phaseName} ${phaseBtn}</div>
                             ${followUp ? `<div class="small mb-2">${followUp}</div>` : ''}
                             <div class="text-end border-top pt-2">
-                                <button class="btn btn-outline-primary shadow-sm update-btn secured-item" data-permission="tele_edit" 
+                                <!-- 🔥 FIX: yahan bhi ${securityClass} add kiya gaya hai -->
+                                <button class="btn btn-outline-primary shadow-sm update-btn ${securityClass} w-100 mb-1" data-permission="tele_edit" 
                                     data-id="${item.id}" data-name="${safeName}" data-phone="${cPhone}" 
                                     data-status="${item.call_status}" data-int="${item.interested_for || ''}" 
                                     data-bud="${item.budget || ''}" data-fdate="${item.followup_date || ''}" data-rem="${item.remark || ''}"
-                                    data-alt="${safeAlt}" data-email="${safeEmail}" data-addr="${safeAddress}" data-dob="${safeDob}" data-anniv="${safeAnniv}">
+                                    data-alt="${safeAlt}" data-email="${safeEmail}" data-addr="${safeAddress}" data-dob="${safeDob}"   data-prefloc="${cust.preferred_location || item.preferred_location || ''}" data-anniv="${safeAnniv}" data-state="${safeState}"> 
                                     <i class="fas fa-pencil-alt"></i> Feedback
                                 </button>
+                                ${svButton}
                             </div>
                         </div>
                     </div>
-                `);
+                    `);
                 });
             }
 
@@ -860,35 +970,26 @@
                 loadAllocations(false);
             });
 
-        // 🔥 NAYA CODE: Today's Scheduled Quick Filter (Smart Toggle) 🔥
-            $('#todayScheduledBtn').on('click', function() {
+         // Quick Filter (Smart Toggle)
+            $('#todayScheduledBtn').off('click').on('click', function() {
                 $(this).toggleClass('active-scheduled');
                 
                 if ($(this).hasClass('active-scheduled')) {
-                    // Button ko red karke active dikhao
                     $(this).removeClass('btn-warning').addClass('btn-danger').html('<i class="fas fa-calendar-check"></i> Showing Scheduled');
-                    
-                    // Baaki normal filters clear kar do taaki dates clash na karein
                     $('#dateFilter').val('');
                     $('#statusFilter').val('');
                     $('#monthFilter').val('');
                     $('#liveSearch').val('');
                 } else {
-                    // Wapas normal mode
                     $(this).removeClass('btn-danger').addClass('btn-warning').html('<i class="fas fa-calendar-day"></i> Today\'s Scheduled');
                 }
-                
-                loadAllocations(false);
+                loadAllocations(false, true); // 🔥 FIX: `true` bhejna zaroori hai
             });
 
-            $('#applyFilterBtn').on('click', function() {
-                // Agar normal filter apply kiya toh Scheduled wala toggle band kar do
+            // Apply Filters Button
+            $('#applyFilterBtn').off('click').on('click', function() {
                 $('#todayScheduledBtn').removeClass('active-scheduled btn-danger').addClass('btn-warning').html('<i class="fas fa-calendar-day"></i> Today\'s Scheduled');
-                loadAllocations(false);
-            });
-
-            $('#loadMoreBtn').on('click', function() {
-                loadAllocations(true);
+                loadAllocations(false, true); // 🔥 FIX: Yahan `true` jayega taaki backend All-time data laye agar date nahi hai
             });
 
             $('#loadMoreBtn').on('click', function() {
@@ -915,41 +1016,104 @@
                 $('#imageZoomModal').modal('show');
             });
 
-            // Feedback Modal Open
+            // Dropdown change hone par Date field ko required karna
+            $('#callStatus').on('change', function() {
+                let status = $(this).val();
+                let strictStatuses = ['Follow Up', 'FollowUp Required', 'Interested', 'Interested Call', 'Highly Interested'];
+
+                if (strictStatuses.includes(status)) {
+                    $('#followupDate').prop('required', true).addClass('border-danger shadow-sm');
+                    $('#followup_error').removeClass('d-none');
+                } else {
+                    $('#followupDate').prop('required', false).removeClass('border-danger shadow-sm');
+                    $('#followup_error').addClass('d-none');
+                }
+            });
+
+           // Feedback Modal Open
             $(document).on('click', '.update-btn', function() {
                 let b = $(this);
                 $('#allocationId').val(b.data('id'));
                 $('#modalCustomerName').text(b.data('name'));
                 $('#modalMobile').html(`<i class="fas fa-phone-alt me-1"></i> ${b.data('phone')}`);
 
-                // Existing Fields
+                // Existing Fields...
                 $('#callStatus').val(b.data('status'));
                 $('#interestedFor').val(b.data('int'));
                 $('#budget').val(b.data('bud'));
                 $('#followupDate').val(b.data('fdate'));
                 $('#remark').val(b.data('rem'));
-
-                // New Customer Data Fields
                 $('#alternateNo').val(b.data('alt'));
                 $('#emailId').val(b.data('email'));
                 $('#address').val(b.data('addr'));
                 $('#dob').val(b.data('dob'));
                 $('#anniversaryDate').val(b.data('anniv'));
+                $('#preferredLocation').val(b.data('prefloc'));
 
+                // 🔥 NAYA: Naye fields ka data set karna
+                $('#customerState').val(b.data('state') || ''); // State pre-fill hogi agar pehle se hai
+                $('#callingTime').val('');     // Har baar modal khulne par blank rahega
+                $('#callingDuration').val(''); // Har baar modal khulne par blank rahega
+
+                $('#callStatus').trigger('change'); 
+                
                 $('#feedbackModal').modal('show');
             });
 
-            // Save Feedback
+         // Save Feedback 
             $('#feedbackForm').on('submit', function(e) {
                 e.preventDefault();
+
+                let status = $('#callStatus').val();
+              // Form Submit ke andar ka date check
+                let optionText = $('#callStatus option:selected').text().trim();
+                let match = optionText.match(/^(\d+)\./);
+                let point = match ? parseInt(match[1]) : 0;
+                let mandatoryPoints = [2, 7, 8, 9, 11, 12, 13, 14, 15, 16, 20];
+
+                let fDate = $('#followupDate').val();
+
+                // 1. Sirf Date Validation
+                if (mandatoryPoints.includes(point) && !fDate) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Date Missing!',
+                        text: 'Aapne jo status select kiya hai, uske liye Follow-up Date bharna zaroori hai!'
+                    });
+                    $('#followupDate').focus();
+                    return; 
+                }
+
+               // 2. 🔥 REMARKS 30 CHARACTERS STRICT CHECK (Except specific statuses) 🔥
+let remarkText = $('#remark').val().trim();
+let selectedStatus = $('#callStatus').val();
+
+// Yeh teeno statuses hain jin par 30 characters ki restriction nahi lagegi
+let skipStatuses = [
+    "Number Doesn't Exists call", 
+    "Incoming Call Not Available", 
+    "Switched Off"
+];
+
+// Agar selected status in teeno me nahi hai, tabhi 30 chars ka check chalega
+if (!skipStatuses.includes(selectedStatus) && remarkText.length < 30) {
+    Swal.fire({
+        icon: 'warning',
+        title: 'Remarks Too Short!',
+        html: `Remarks mandatory hain aur kam se kam <b>30 characters</b> ke hone chahiye.<br><br><small class="text-danger">Current Length: ${remarkText.length} / 30</small>`
+    });
+    $('#remark').focus();
+    return; 
+}
+
                 let btn = $('#saveFeedbackBtn');
                 btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
+                
                 $.ajax({
-                    url: apiPrefix + '/telecalling/allocations/' + $('#allocationId').val() +
-                        '/feedback',
+                    url: apiPrefix + '/telecalling/allocations/' + $('#allocationId').val() + '/feedback',
                     type: 'POST',
                     data: $(this).serialize(),
-                    success: function(res) {
+                  success: function(res) {
                         Swal.fire({
                             icon: 'success',
                             title: 'Updated!',
@@ -958,11 +1122,54 @@
                             showConfirmButton: false
                         });
                         $('#feedbackModal').modal('hide');
-                        loadAllocations(false);
+                        
+                        // ✅ BINA RELOAD KIYE INSTANT UPDATE
+                        let allocId = $('#allocationId').val();
+                        let newStatus = $('#callStatus').val();
+                        let newFDate = $('#followupDate').val();
+                        let newRemark = $('#remark').val();
+                        
+                        // Button dhundho aur uske attributes update karo
+                        let updateBtn = $(`.update-btn[data-id='${allocId}']`);
+                        updateBtn.data('status', newStatus);
+                        updateBtn.data('fdate', newFDate);
+                        updateBtn.data('rem', newRemark);
+
+                        // Table row (Tr) aur Mobile card ko select karo
+                        let row = updateBtn.closest('.data-row');
+                        
+                        // 🔥 NAYA LOGIC: Hiding the row if it doesn't match the active filter
+                        let activeFilter = $('#statusFilter').val(); 
+                        
+                        // Agar koi filter laga hai (blank nahi hai) aur naya status filter se match nahi kar raha
+                        if (activeFilter !== "" && activeFilter.toLowerCase() !== newStatus.toLowerCase()) {
+                            // Row ko smoothly hide karke remove kar do
+                            row.fadeOut(400, function() {
+                                $(this).remove();
+                            });
+                            
+                            // "Total Leads" count ko bhi ek minus kar do
+                            let currentTotal = parseInt($('#totalLeadsCount').text()) || 0;
+                            if (currentTotal > 0) {
+                                $('#totalLeadsCount').text(currentTotal - 1);
+                            }
+                        } else {
+                            // Agar "All Status" wala filter hai ya same status me update hua hai, toh bas UI update karo
+                            let bgClass = newStatus === 'Pending' ? 'warning' : (newStatus === 'Connected' ? 'success' : (newStatus === 'Lost Lead' ? 'danger' : 'info'));
+                            row.find('.status-badge').removeClass('bg-warning bg-success bg-danger bg-info').addClass('bg-' + bgClass).text(newStatus);
+                            
+                            if (newFDate) {
+                                let followUpHtml = `<br><small class="text-danger fw-bold"><i class="far fa-clock"></i> Follow: ${newFDate}</small>`;
+                                if(row.is('tr')) { 
+                                    row.find('td:nth-child(5)').html(`<span class="badge bg-${bgClass} status-badge shadow-sm">${newStatus}</span> ${followUpHtml}`);
+                                } else {
+                                    // Mobile view ke liye (optional if you have specific div)
+                                }
+                            }
+                        }
                     },
                     complete: function() {
-                        btn.prop('disabled', false).html(
-                            '<i class="fas fa-save me-1"></i> Save');
+                        btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i> Save');
                     }
                 });
             });
@@ -975,6 +1182,7 @@
 
                let payload = {
                     offset: currentOffset,
+                    is_filter: ($('#dateFilter').val() || $('#monthFilter').val() || $('#statusFilter').val() !== 'pending') ? 1 : 0, // ✅ FIX
                     company_ids: getSelected('companySelect'),
                     branch_ids: getSelected('branchSelect'),
                     department_ids: getSelected('deptSelect'),
@@ -983,8 +1191,13 @@
                     call_status: $('#statusFilter').val(),
                     month: $('#monthFilter').val(),
                     date: $('#dateFilter').val(),
+                    preferred_location: $('#locationFilter').val(),
+                    
+                    // 🔥 NAYE FILTERS BHEJE JA RAHE HAIN 🔥
+                    followup_date_filter: $('#followUpDateFilter').val(),
+                    called_at_filter: $('#calledAtFilter').val(),
+                    
                     search: $('#liveSearch').val(),
-                    // 🔥 NAYA PARAMETER
                     scheduled_today: $('#todayScheduledBtn').hasClass('active-scheduled') ? 1 : 0
                 };
                 
@@ -994,8 +1207,7 @@
                     data: payload,
                     success: function(res) {
                         if (res.data && res.data.length > 0) {
-                            let csv =
-                                "Company,Branch,Department,Designation,Telecaller Name,Telecaller ID,Customer Name,Mobile,Alternate Mobile,Email,Address,DOB,Anniversary,Phase,Task,Status,Interested For,Budget,Follow-up,Remarks,Called At\n";
+                          let csv = "Company,Branch,Department,Designation,Telecaller Name,Telecaller ID,Customer Name,Mobile,Alternate Mobile,Email,Address,DOB,Anniversary,Preferred Location,Phase,Task,Status,Interested For,Budget,Follow-up,Remarks,Called At\n";
 
                             res.data.forEach(item => {
                                 let emp = item.assignee || {};
@@ -1019,9 +1231,9 @@
                                 let emailId = (cust.email || '').replace(/,/g, " ");
                                 let address = (cust.address || '').replace(/\n/g, " ")
                                     .replace(/,/g, " ");
-                                let dob = (cust.dob || item.dob || '');
-                                let anniv = (cust.anniversary_date || item
-                                    .anniversary_date || '');
+                               let dob = (cust.dob || item.dob || '');
+let anniv = (cust.anniversary_date || item.anniversary_date || '');
+let prefLoc = (cust.preferred_location || item.preferred_location || '').replace(/,/g, " "); // 🔥 YE ADD KIYA
 
                                 let phase = (item.phase ? item.phase.phase_name :
                                     'General Task').replace(/,/g, " ");
@@ -1034,8 +1246,8 @@
                                     .replace(/,/g, " ");
                                 let calledAt = (item.called_at || '');
 
-                                csv +=
-                                    `${cName},${bName},${dName},${dgName},${tName},${tId},${custName},${custMob},${altMob},${emailId},${address},${dob},${anniv},${phase},${task},${item.call_status},${intFor},${bud},${item.followup_date || ''},${rem},${calledAt}\n`;
+                               // '${anniv}' ke baad '${prefLoc}' add kiya hai:
+csv += `${cName},${bName},${dName},${dgName},${tName},${tId},${custName},${custMob},${altMob},${emailId},${address},${dob},${anniv},${prefLoc},${phase},${task},${item.call_status},${intFor},${bud},${item.followup_date || ''},${rem},${calledAt}\n`;
                             });
 
                             let link = document.createElement("a");
@@ -1112,6 +1324,7 @@
                     designation_ids: getSelected('desigSelect'),
                     assignee_ids: $('#assigneeSelect').val() ? $('#assigneeSelect').val().join(',') : $(
                         '#assigneeFilter').val(),
+                        preferred_location: $('#locationFilter').val(),
                     call_status: $('#statusFilter').val(),
                     month: $('#monthFilter').val(),
                     date: $('#dateFilter').val(),
@@ -1141,14 +1354,11 @@
                 });
             });
 
-          // 🔥 Print Detailed Summary Logic (FIXED: AJAX ke zariye taaki Token jaye aur redirect na ho) 🔥
-          // 🔥 Print Detailed Summary Logic (FIXED: Current Employee Ka Data Bhejega) 🔥
             $('#printSummaryBtn').on('click', function() {
                 let btn = $(this);
                 let originalHtml = btn.html();
                 btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Print...');
 
-                // Modal ke title se pehle hum data- attributes set karenge
                 let empId = btn.data('empid'); 
                 let empType = btn.data('emptype');
                 
@@ -1183,7 +1393,6 @@
                 });
             });
 
-          
            // 🔥 Unified Detailed Summary Button Click Logic 🔥
             $(document).on('click', '.emp-summary-badge', function() {
                 let btn = $(this);
@@ -1192,10 +1401,8 @@
                 let empType = btn.data('emptype');
                 let empName = btn.data('empname');
                 
-                // NAYA: Print button me current employee ka ID store kar rahe hain taaki print usika nikle
                 $('#printSummaryBtn').data('empid', empId).data('emptype', empType);
 
-                // Header Name Update
                 $('#summaryEmpName').text(empName);
 
                 let originalText = btn.html();
@@ -1208,58 +1415,103 @@
                         emp_id: empId,
                         emp_type: empType,
                         date: $('#dateFilter').val(),
-                        month: $('#monthFilter').val()
+                        month: $('#monthFilter').val(),
+                        call_status: $('#statusFilter').val(),
+                        
+                        // 🔥 YE 3 LINES NAYI ADD KARNI HAIN YAHAN 🔥
+                        followup_date_filter: $('#followUpDateFilter').val(),
+                        called_at_filter: $('#calledAtFilter').val(),
+                        is_filter: 1 // Backend ko batane ke liye ki filter laga hai
                     },
-                    success: function(res) {
+                 success: function(res) {
                         if (res.status === 'success') {
-                            // 1. Table me Summary dalo
                             let summaryHtml = '';
-                            let tAssigned = 0,
-                                tCalled = 0,
-                                tLeft = 0;
-                            $.each(res.summary, function(status, counts) {
-                                summaryHtml += `<tr>
-                                    <td class="text-start fw-bold ps-3">${status}</td>
-                                    <td class="text-primary fw-bold">${counts.assigned}</td>
-                                    <td class="text-success fw-bold">${counts.called}</td>
-                                    <td class="text-danger fw-bold">${counts.left}</td>
-                                </tr>`;
-                                tAssigned += counts.assigned;
-                                tCalled += counts.called;
-                                tLeft += counts.left;
+                            let tAssigned = 0, tCalled = 0, tLeft = 0;
+                            
+                            let returnedStatuses = Object.keys(res.summary);
+                            
+                            // 🔥 SELECTED FILTER VALUE FETCH KAR RAHE HAIN 🔥
+                            let selectedCallStatus = $('#statusFilter').val().trim().toLowerCase();
+
+                            returnedStatuses.forEach(function(status) {
+                                let currentStatus = status.trim().toLowerCase();
+                                
+                                // Pending normalization
+                                if (selectedCallStatus === 'pending status') selectedCallStatus = 'pending';
+                                if (currentStatus === 'pending status') currentStatus = 'pending';
+
+                                // 🔥 FILTER CHECK: Agar koi status selected hai, toh bas wahi dikhega, baaki skip!
+                                if (selectedCallStatus !== '' && selectedCallStatus !== currentStatus) {
+                                    return; 
+                                }
+
+                                let counts = res.summary[status];
+                                
+                                if (counts) {
+                                    summaryHtml += `<tr>
+                                        <td class="text-start fw-bold ps-3">${status}</td>
+                                        <td class="text-primary fw-bold">${counts.assigned || 0}</td>
+                                        <td class="text-success fw-bold">${counts.called || 0}</td>
+                                        <td class="text-danger fw-bold">${counts.left || 0}</td>
+                                    </tr>`;
+                                    tAssigned += (counts.assigned || 0);
+                                    tCalled += (counts.called || 0);
+                                    tLeft += (counts.left || 0);
+                                }
                             });
 
-                            if (tAssigned === 0) {
-                                summaryHtml =
-                                    '<tr><td colspan="4" class="text-muted py-3">No summary data found for applied filters.</td></tr>';
-                            } else {
-                                summaryHtml += `<tr class="table-dark">
-                                    <td class="text-end fw-bold">TOTAL:</td>
-                                    <td class="fw-bold fs-6 text-primary">${tAssigned}</td>
-                                    <td class="fw-bold fs-6 text-success">${tCalled}</td>
-                                    <td class="fw-bold fs-6 text-danger">${tLeft}</td>
-                                </tr>`;
-                            }
+                            summaryHtml += `<tr class="table-dark">
+                                <td class="text-end fw-bold">TOTAL:</td>
+                                <td class="fw-bold fs-6 text-primary">${tAssigned}</td>
+                                <td class="fw-bold fs-6 text-success">${tCalled}</td>
+                                <td class="fw-bold fs-6 text-danger">${tLeft}</td>
+                            </tr>`;
+                            
                             $('#modalSummaryTable tbody').html(summaryHtml);
 
-                            // 2. Table me Interested Leads dalo
                             let intHtml = '';
-                            if (res.interested_customers.length > 0) {
-                                $.each(res.interested_customers, function(i, cust) {
+                            
+                            // 1. Fresh Interested (Pehli baar assign aur direct interested)
+                            if (res.fresh_interested_customers && res.fresh_interested_customers.length > 0) {
+                                $.each(res.fresh_interested_customers, function(i, cust) {
                                     intHtml += `<tr>
-                                        <td class="fw-bold text-dark">${cust.name}</td>
+                                        <td class="fw-bold text-dark">${cust.name} <span class="badge bg-danger shadow-sm ms-2" style="font-size: 10px; border-radius: 4px;">New Hot Lead 🔥</span></td>
                                         <td>${cust.mobile}</td>
-                                        <td>${cust.refer_by}</td>
+                                        <td>${cust.refer_by || 'N/A'}</td>
                                         <td><span class="badge bg-success shadow-sm">${cust.status}</span></td>
                                     </tr>`;
                                 });
-                            } else {
-                                intHtml =
-                                    `<tr><td colspan="4" class="text-center text-muted py-3">No interested leads found in this filter.</td></tr>`;
+                            }
+
+                            // 2. Old/Rollover Interested (Khud ki hi purani assign ki hui lead)
+                            if (res.old_interested_customers && res.old_interested_customers.length > 0) {
+                                $.each(res.old_interested_customers, function(i, cust) {
+                                    intHtml += `<tr>
+                                        <td class="fw-bold text-dark">${cust.name} <span class="badge bg-secondary shadow-sm ms-2" style="font-size: 10px; border-radius: 4px;">Follow-up / Old 🗓️</span></td>
+                                        <td>${cust.mobile}</td>
+                                        <td>${cust.refer_by || 'N/A'}</td>
+                                        <td><span class="badge bg-success shadow-sm">${cust.status}</span></td>
+                                    </tr>`;
+                                });
+                            }
+
+                            // 3. Other's Lead (Kisi aur ki lead thi, isne convert ki)
+                            if (res.others_interested_customers && res.others_interested_customers.length > 0) {
+                                $.each(res.others_interested_customers, function(i, cust) {
+                                    intHtml += `<tr>
+                                        <td class="fw-bold text-dark">${cust.name} <span class="badge bg-info text-dark shadow-sm ms-2" style="font-size: 10px; border-radius: 4px;">Transferred / Other's 🔄</span></td>
+                                        <td>${cust.mobile}</td>
+                                        <td>${cust.refer_by || 'N/A'}</td>
+                                        <td><span class="badge bg-success shadow-sm">${cust.status}</span></td>
+                                    </tr>`;
+                                });
+                            }
+
+                            if (intHtml === '') {
+                                intHtml = `<tr><td colspan="4" class="text-center text-muted py-3">No hot leads found in this filter.</td></tr>`;
                             }
                             $('#modalInterestedTable tbody').html(intHtml);
 
-                            // Modal Open karo
                             $('#summaryDetailsModal').modal('show');
                         }
                     },
@@ -1267,6 +1519,74 @@
                         btn.css('pointer-events', 'auto').animate({
                             opacity: 1
                         }, 200);
+                    }
+                });
+            });
+
+            // ====================================================
+            // 🔥 ADD SITE VISIT FROM CALLING PORTAL LOGIC
+            // ====================================================
+            $(document).on('click', '.add-sv-btn', function() {
+                let name = $(this).data('name');
+                let phone = $(this).data('phone');
+                let emp = JSON.parse(decodeURIComponent($(this).data('emp')));
+                let phase = JSON.parse(decodeURIComponent($(this).data('phase')));
+
+                $('#svForm')[0].reset();
+                
+                // Customer Autofill
+                $('#sv_customer_name').val(name);
+                $('#sv_customer_contact').val(phone);
+
+                // Date Autofill
+                $('#sv_visit_date').val(new Date().toLocaleDateString('en-CA'));
+
+                // Employee Hierarchy Autofill
+                $('#sv_company_id').empty().append(new Option(emp.company?.company_name || 'N/A', emp.company_id, true, true));
+                
+                if(emp.branch_id) {
+                    $('#sv_branch_id').empty().append(new Option(emp.branch?.branch_name, emp.branch_id, true, true));
+                } else {
+                    $('#sv_branch_id').empty().append(new Option('Head Office', 'null', true, true));
+                }
+
+                $('#sv_department_id').empty().append(new Option(emp.department?.department_name || 'N/A', emp.department_id, true, true));
+                $('#sv_designation_id').empty().append(new Option(emp.designation?.designation_name || 'N/A', emp.designation_id, true, true));
+                $('#sv_employee_id').empty().append(new Option(emp.full_name || emp.member_name, emp.id, true, true));
+                $('#sv_phase_id').empty().append(new Option(phase.phase_name || 'N/A', phase.id || '', true, true));
+
+                $('#siteVisitModal').modal('show');
+            });
+
+            // Form Submission (Calls SiteVisit API)
+            $('#svForm').on('submit', function(e) {
+                e.preventDefault();
+                let btn = $('#svSubmitBtn');
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
+                
+                let formData = new FormData(this);
+                
+                $.ajax({
+                    url: apiPrefix + '/site-visits',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        $('#siteVisitModal').modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: res.message, 
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', xhr.responseJSON?.message || 'Failed to request site visit.', 'error');
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i> Save Site Visit');
                     }
                 });
             });

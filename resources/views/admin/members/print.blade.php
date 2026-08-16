@@ -93,7 +93,7 @@
                     <td>{{ $member->member_id }}</td>
                     <td>{{ strtoupper($member->member_name ?? $member->full_name) }}</td>
                     <td>{{ $member->mobile }}</td>
-                    <td>{{ $member->designation ? strtoupper($member->designation->designation_name) : 'N/A' }}</td>
+                    <td class="text-center">{{ is_object($member->designation) ? strtoupper($member->designation->designation_name) : strtoupper($member->designation ?? 'N/A') }}</td>
                     <td>{{ $member->company ? strtoupper($member->company->company_name) : 'N/A' }}</td>
                     <td class="text-center">{{ ucfirst($member->status) }}</td>
                 </tr>

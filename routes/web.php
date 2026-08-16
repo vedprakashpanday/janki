@@ -5,7 +5,7 @@ use App\Http\Controllers\Admin\DebitVoucherWebController;
 use App\Http\Controllers\Admin\CompanyWebController;
 use App\Http\Controllers\Admin\CustomerWebController;
 use App\Http\Controllers\Api\V1\Admin\InterestedCustomerController;
-
+use App\Http\Controllers\Api\V1\Admin\MemberController;
 
 
 
@@ -21,9 +21,18 @@ use App\Http\Controllers\Api\V1\Admin\InterestedCustomerController;
 // 1. PUBLIC ROUTES & REDIRECTS
 // ==========================================
 Route::get('/', function () {
-  return view('coming_soon');
-    // return view('welcome');
+  //return view('coming_soon');
+    return view('welcome');
 });
+
+// Naye About Pages ke routes yahan add karein
+Route::get('/about-company', function () {
+    return view('about-company'); 
+})->name('about.company');
+
+Route::get('/about-director', function () {
+    return view('about-director');
+})->name('about.director');
 
 Route::get('/employee-print', [\App\Http\Controllers\Api\V1\Admin\EmployeeController::class, 'printPage'])->name('employee.print');
 
@@ -218,9 +227,16 @@ Route::get('/interested-leads', function () {
     })->name('tasks.associates');
 
     // 🟢 Print & Utilities
-    Route::get('/letterheads', function () {
-        return view('admin.letterheads');
-    })->name('letterheads');
+   // Daily View (Current Date)
+Route::get('/letterheads', function () {
+    return view('admin.letterhead_daily', ['view_type' => 'daily']);
+})->name('letterheads.index');
+
+// Directory View (All Time)
+Route::get('/letterheads-directory', function () {
+    return view('admin.letterheads', ['view_type' => 'directory']);
+})->name('letterheads.directory');
+
     Route::get('/letterheads/print/{id}', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'printPreview'])->name('letterheads.print');
     Route::get('/id-cards', function () {
         return view('admin.id_cards');
@@ -434,6 +450,147 @@ Route::get('/salaries/print', [\App\Http\Controllers\Api\V1\Admin\SalaryApiContr
 
     Route::get('/interested-customers/import-template', [InterestedCustomerController::class, 'downloadImportTemplate']);
 Route::get('/interested-customers/next-provider-id', [InterestedCustomerController::class, 'getNextProviderId']);
+
+
+// ==========================================
+    // 🔥 SITE VISIT MODULE UI ROUTES 🔥
+    // ==========================================
+    
+    // Site Visit Settings (Payout Logic)
+    Route::get('/site-visit-settings', function () {
+        return view('admin.site_visits.settings');
+    })->name('site_visit_settings.index');
+
+    // Main Site Visit Details Page
+    Route::get('/site-visits', function () {
+        return view('admin.site_visits.index');
+    })->name('site_visits.index');
+
+    // ==========================================
+    // 🔥 VISITOR MANAGEMENT UI ROUTES 🔥
+    // ==========================================
+    
+    // 1. Today's Data (Slug: visitors_*)
+    Route::get('/visitors', function () {
+        return view('shared.visitors.index'); 
+    })->name('visitors.index');
+
+    // 2. All-Time Directory (Slug: visitors_dir_*)
+    Route::get('/visitors-directory', function () {
+        return view('shared.visitors.directory');
+    })->name('visitors.directory');
+
+ Route::get('/visitors/print', [\App\Http\Controllers\Api\V1\Admin\VisitorController::class, 'printPreview'])->name('visitors.print');
+
+Route::get('/debug-stats', [App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'debugTodayStats']);
+
+
+//Faqs
+
+    Route::get('/faqs-dir', function () {
+        return view('faqs.index');
+    })->name('faqs.index');
+
+    // Property Module UI Routes
+    Route::get('/property-types', function () {
+        return view('admin.property_types.index'); // Folder create karna hoga
+    })->name('property_types.index');
+
+    Route::get('/property-types/print', [\App\Http\Controllers\Api\V1\Admin\PropertyTypeApiController::class, 'printPreview'])->name('property_types.print');
+    Route::get('/property-types/export', [\App\Http\Controllers\Api\V1\Admin\PropertyTypeApiController::class, 'exportExcel'])->name('property_types.export');
+
+    Route::get('/property-categories', function () { return view('admin.property_categories.index'); })->name('property_categories.index');
+Route::get('/property-categories/print', [\App\Http\Controllers\Api\V1\Admin\PropertyCategoryApiController::class, 'printPreview'])->name('property_categories.print');
+Route::get('/property-categories/export', [\App\Http\Controllers\Api\V1\Admin\PropertyCategoryApiController::class, 'exportExcel'])->name('property_categories.export');
+
+
+
+
+Route::get('/property-areas', function () { return view('admin.property_areas.index'); })->name('property_areas.index');
+Route::get('/property-areas/print', [\App\Http\Controllers\Api\V1\Admin\PropertyAreaApiController::class, 'printPreview'])->name('property_areas.print');
+Route::get('/property-areas/export', [\App\Http\Controllers\Api\V1\Admin\PropertyAreaApiController::class, 'exportExcel'])->name('property_areas.export');
+
+Route::get('/property-rates', function () { return view('admin.property_rates.index'); })->name('property_rates.index');
+Route::get('/property-rates/print', [\App\Http\Controllers\Api\V1\Admin\PropertyRateApiController::class, 'printPreview'])->name('property_rates.print');
+Route::get('/property-rates/export', [\App\Http\Controllers\Api\V1\Admin\PropertyRateApiController::class, 'exportExcel'])->name('property_rates.export');
+
+// --- Member Print & Export (Shared for All Portals) ---
+    Route::get('/members/export-excel', [MemberController::class, 'exportExcel'])->name('members.export');
+    Route::get('/members/print', [MemberController::class, 'printMembers'])->name('members.print');
+
+
+Route::get('/property-emi-plans', function () { return view('admin.property_emi_plans.index'); })->name('property_emi_plans.index');
+Route::get('/property-emi-plans/print', [\App\Http\Controllers\Api\V1\Admin\PropertyEmiPlanApiController::class, 'printPreview'])->name('property_emi_plans.print');
+Route::get('/property-emi-plans/export', [\App\Http\Controllers\Api\V1\Admin\PropertyEmiPlanApiController::class, 'exportExcel'])->name('property_emi_plans.export');
+
+
+Route::get('/property-charges', function () { return view('admin.property_charges.index'); })->name('property_charges.index');
+Route::get('/property-charges/print', [\App\Http\Controllers\Api\V1\Admin\PropertyChargeApiController::class, 'printPreview'])->name('property_charges.print');
+Route::get('/property-charges/export', [\App\Http\Controllers\Api\V1\Admin\PropertyChargeApiController::class, 'exportExcel'])->name('property_charges.export');
+
+Route::get('/property-units', function () { return view('admin.property_units.index'); })->name('property_units.index');
+Route::get('/property-units/print', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'printPreview'])->name('property_units.print');
+Route::get('/property-units/export', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'exportExcel'])->name('property_units.export');
+
+
+
+
+
+// 🟢 Stock Management
+Route::get('/stocks', function () {
+    return view('admin.stocks.index'); 
+})->name('stocks.index');
+
+// Print Route
+Route::get('/stocks/print-report', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'printPreview'])->name('stocks.print');
+Route::get('/stocks/print', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'printReport'])->name('stocks.print');
+
+// Stock Master Settings
+    Route::get('/stock-masters', function () {
+        return view('admin.stocks.masters'); 
+    })->name('stock_masters');
+
+
+// Daily Stock Entry Page
+    Route::get('/stock-entry', function () {
+        return view('admin.stocks.daily_entry'); 
+    })->name('stock_entry');
+
+  Route::get('/signatory-master', [\App\Http\Controllers\Admin\SignatoryMasterWebController::class, 'index'])->name('admin.signatory_master');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 };
 

@@ -66,6 +66,12 @@
                 <i class="fas fa-file-download me-1"></i> Template
             </a>
 
+            <!-- 🔥 TEMPORARY BLUNDER FIX BUTTON 🔥 -->
+<button type="button" class="btn text-white px-3 py-2 shadow-sm" style="background-color: #dc3545;" id="blunderFixBtn">
+    <i class="fas fa-tools me-1"></i> Fix Blunder (Upload)
+</button>
+<input type="file" id="blunderExcelUpload" accept=".xlsx, .xls, .csv" style="display: none;">
+
             <!-- 2. Naya Upload Excel Button -->
             <button type="button" class="btn text-white px-3 py-2 shadow-sm secured-item"
                 data-permission="interested_leads_add_direct" style="background-color: #10b981;"
@@ -1575,6 +1581,106 @@
                     });
                 }
                 uploadNextChunk();
-            }        }); // END OF DOCUMENT READY
+
+            }   
+        
+    // ==========================================
+    // 🔥 TEMPORARY BLUNDER FIX LOGIC (UPDATED) 🔥
+    // ==========================================
+    $('#blunderFixBtn').on('click', function() {
+        $('#blunderExcelUpload').click(); // Button dabane par hidden file input khulega
+    });
+
+    $('#blunderExcelUpload').on('change', function(e) {
+        let file = e.target.files[0];
+        if (!file) return;
+
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            let data = new Uint8Array(e.target.result);
+            let workbook = XLSX.read(data, {type: 'array'});
+            let firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            
+            // 🔥 NAYA LOGIC: Data ko 'array of arrays' me padhein taaki upar ka title row problem na kare
+            let excelData = XLSX.utils.sheet_to_json(firstSheet, {header: 1, defval: ""});
+            
+            let mobileIndex = -1;
+            let headerRowIndex = -1;
+
+            // 1. Dhoondho ki 'Mobile' heading kis row aur kis column me hai (Upar ki 10 lines me search karega)
+            for (let i = 0; i < Math.min(10, excelData.length); i++) {
+                let row = excelData[i];
+                for (let j = 0; j < row.length; j++) {
+                    if (String(row[j]).trim().toLowerCase() === 'mobile') {
+                        mobileIndex = j;
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+                if (mobileIndex !== -1) break;
+            }
+
+            if (mobileIndex === -1) {
+                Swal.fire('Error', 'Excel file me mobile heading nahi mili. Kripya check karein.', 'error');
+                $('#blunderExcelUpload').val('');
+                return;
+            }
+
+            // 2. Heading ke theek neeche wali lines se saare mobile numbers nikal lo
+            let mobiles = [];
+            for (let i = headerRowIndex + 1; i < excelData.length; i++) {
+                let mob = String(excelData[i][mobileIndex]).trim();
+                // Check if it's a valid number
+                if (mob && mob !== "") {
+                    mobiles.push(mob);
+                }
+            }
+
+            if (mobiles.length === 0) {
+                Swal.fire('Error', 'Mobile column mil gaya lekin usme numbers nahi hain.', 'error');
+                $('#blunderExcelUpload').val('');
+                return;
+            }
+
+            // Processing popup
+            Swal.fire({
+                title: 'Fixing Blunder...',
+                text: 'Please wait, updating tables in database...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            // Backend par bhej rahe hain
+            $.ajax({
+                url: '/api/v1/fix-allocation-blunder',
+                type: 'POST',
+                data: { mobiles: mobiles },
+                success: function(res) {
+                    Swal.fire({
+                        title: 'Blunder Fixed Successfully!',
+                        html: `
+                            <div class="text-start mt-3">
+                                <p class="mb-1 text-primary"><i class="fas fa-check-circle"></i> <b>Interested Customers Updated:</b> ${res.customer_count}</p>
+                                <p class="mb-0 text-success"><i class="fas fa-check-double"></i> <b>Telecaller Allocations Updated:</b> ${res.allocation_count}</p>
+                            </div>
+                        `,
+                        icon: 'success'
+                    }).then(() => {
+                        if(typeof loadAllData === 'function') loadAllData(); 
+                    });
+                    $('#blunderExcelUpload').val(''); 
+                },
+                error: function(xhr) {
+                    Swal.fire('Error', 'Something went wrong during update.', 'error');
+                    $('#blunderExcelUpload').val('');
+                }
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
+        
+        
+        
+        }); // END OF DOCUMENT READY
     </script>
 @endpush

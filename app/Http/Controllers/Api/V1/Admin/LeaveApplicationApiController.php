@@ -15,20 +15,53 @@ use Illuminate\Support\Facades\Notification;
 
 class LeaveApplicationApiController extends Controller
 {
-   public function index(Request $request)
+    public function index(Request $request)
     {
         $context = $this->getGlobalContext();
         $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter']);
 
-        // 🔥 FIX: Soft Deleted records sirf Admin, CEO, aur Director ko hi fetch honge
-        if ($context->is_god || $context->is_director) {
+        if ($context && ($context->is_god || $context->is_director)) {
             $query->withTrashed();
         }
 
-        // 🔥 Filter based on requested User Type (Employee or Member)
         if ($request->has('req_user_type') && in_array($request->req_user_type, ['employee', 'member'])) {
             $query->where('user_type', $request->req_user_type);
         }
+
+        // ==========================================
+        // 🔥 NAYA FIX: ADVANCED FILTERS LOGIC 🔥
+        // ==========================================
+        if ($request->filled('filter_company')) {
+            $query->where('company_id', $request->filter_company);
+        }
+        if ($request->filled('filter_branch')) {
+            if ($request->filter_branch === 'HO') {
+                $query->whereNull('branch_id');
+            } else {
+                $query->where('branch_id', $request->filter_branch);
+            }
+        }
+        if ($request->filled('filter_department')) {
+            $query->where('department_id', $request->filter_department);
+        }
+        if ($request->filled('filter_designation')) {
+            $query->where('designation_id', $request->filter_designation);
+        }
+        if ($request->filled('filter_employee')) {
+            $query->where('user_id', $request->filter_employee);
+        }
+
+        // Date Filters (Based on Application Created Date)
+        if ($request->filled('filter_start_date') && $request->filled('filter_end_date')) {
+            $start = Carbon::parse($request->filter_start_date)->startOfDay();
+            $end = Carbon::parse($request->filter_end_date)->endOfDay();
+            $query->whereBetween('created_at', [$start, $end]);
+        } elseif ($request->filled('filter_month')) {
+            $month = Carbon::parse($request->filter_month . '-01');
+            $query->whereMonth('created_at', $month->month)
+                ->whereYear('created_at', $month->year);
+        }
+        // ==========================================
 
         if (!$context->is_god && $context->role_level !== 'ceo') {
             if ($context->is_director) {
@@ -59,7 +92,7 @@ class LeaveApplicationApiController extends Controller
                         $subQ->where('full_name', 'like', "%{$search}%");
                     })
                     ->orWhereHas('member', function ($subQ) use ($search) {
-                        $subQ->where('full_name', 'like', "%{$search}%");
+                        $subQ->where('member_name', 'like', "%{$search}%");
                     });
             });
         }
@@ -73,20 +106,12 @@ class LeaveApplicationApiController extends Controller
         $validator = Validator::make($request->all(), [
             'application_type' => 'required|in:Leave,Short Leave,Other',
             'reason' => 'required|string|min:300',
-            
-            // 🔥 NAYA: Custom dates ke validation rules
             'is_custom_date' => 'nullable',
             'custom_dates' => 'required_if:is_custom_date,1|array',
-            
-            // 🔥 FIX: Agar Custom Date (1) hai YA type Other hai, toh in fields ko validation se bahar (exclude) nikal do
             'start_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date',
             'end_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date|after_or_equal:start_datetime',
-            
             'user_type' => 'required|in:employee,member',
-            
-            // 🔥 FIX: Resume date ko bhi Other me exclude kar diya
             'resume_datetime' => 'exclude_if:application_type,Other|required|date',
-            
             'emergency_contact' => 'required|string|max:50',
             'applied_to' => 'required|string',
             'proof_attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
@@ -110,17 +135,15 @@ class LeaveApplicationApiController extends Controller
             $data['user_id'] = auth()->id();
         }
 
-       $data['is_custom_date'] = $request->has('is_custom_date') && $request->is_custom_date ? 1 : 0;
+        $data['is_custom_date'] = $request->has('is_custom_date') && $request->is_custom_date ? 1 : 0;
 
         if ($data['application_type'] !== 'Other') {
             if ($data['is_custom_date']) {
-                // 🔥 NAYA: Custom Dates Logic
                 $data['custom_dates'] = $request->custom_dates;
                 $data['start_datetime'] = null;
                 $data['end_datetime'] = null;
-                $data['duration'] = count($request->custom_dates); // Har select ki hui date 1 din mani jayegi
+                $data['duration'] = count($request->custom_dates);
             } else {
-                // Purana Normal Range Logic
                 $data['custom_dates'] = null;
                 $start = Carbon::parse($data['start_datetime']);
                 $end = Carbon::parse($data['end_datetime']);
@@ -136,7 +159,6 @@ class LeaveApplicationApiController extends Controller
             $data['custom_dates'] = null;
         }
 
-        // NAYA FILE UPLOAD LOGIC
         if ($request->hasFile('proof_attachments')) {
             $attachments = [];
             foreach ($request->file('proof_attachments') as $file) {
@@ -149,21 +171,14 @@ class LeaveApplicationApiController extends Controller
 
         $leave = LeaveApplication::create($data);
 
-       // 🔥 1. NEW LEAVE NOTIFICATION LOGIC (Dynamic URL & Name Fix) 🔥
         $applicantName = auth()->user()->member_name ?? auth()->user()->full_name ?? auth()->user()->name ?? 'An Applicant';
-
-        // Target list uthao jinke pass Leave Approve ka power hai
         $targets = NotificationHelper::getTargets($leave->company_id, $leave->branch_id, 'leave_appr');
-
-        // Khud ko list se nikal do
         $targets = $targets->reject(function ($target) {
             return $target->id === auth()->id();
         });
 
         if ($targets->count() > 0) {
-            // 🔥 NAYA: User type ke hisaab se URL decide hoga
             $redirectUrl = $leave->user_type === 'member' ? '/admin/member-leave-applications' : '/admin/leave-applications';
-            
             Notification::send($targets, new SystemAlertNotification(
                 'New Leave Request',
                 "{$applicantName} has applied for a {$leave->application_type}.",
@@ -180,12 +195,11 @@ class LeaveApplicationApiController extends Controller
     {
         $context = $this->getGlobalContext();
         $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter']);
-        
-        // 🔥 FIX: Conditional withTrashed
+
         if ($context->is_god || $context->is_director) {
             $query->withTrashed();
         }
-        
+
         $application = $query->findOrFail($id);
 
         if (!$context->is_god && $context->role_level !== 'ceo') {
@@ -216,23 +230,15 @@ class LeaveApplicationApiController extends Controller
 
     public function update(Request $request, $id)
     {
-       $validator = Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
             'application_type' => 'required|in:Leave,Short Leave,Other',
             'reason' => 'required|string|min:300',
-            
-            // 🔥 NAYA: Custom dates ke validation rules
             'is_custom_date' => 'nullable',
             'custom_dates' => 'required_if:is_custom_date,1|array',
-            
-            // 🔥 FIX: Agar Custom Date (1) hai YA type Other hai, toh in fields ko validation se bahar (exclude) nikal do
             'start_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date',
             'end_datetime' => 'exclude_if:is_custom_date,1|exclude_if:application_type,Other|required|date|after_or_equal:start_datetime',
-            
             'user_type' => 'required|in:employee,member',
-            
-            // 🔥 FIX: Resume date ko bhi Other me exclude kar diya
             'resume_datetime' => 'exclude_if:application_type,Other|required|date',
-            
             'emergency_contact' => 'required|string|max:50',
             'applied_to' => 'required|string',
             'proof_attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
@@ -260,7 +266,6 @@ class LeaveApplicationApiController extends Controller
         $data = $request->all();
         $data['is_paid_leave'] = $request->has('is_paid_leave') ? 1 : 0;
 
-        // NAYA FILE UPLOAD LOGIC
         if ($request->hasFile('proof_attachments')) {
             $attachments = [];
             foreach ($request->file('proof_attachments') as $file) {
@@ -284,13 +289,11 @@ class LeaveApplicationApiController extends Controller
 
         if ($data['application_type'] !== 'Other') {
             if ($data['is_custom_date']) {
-                // 🔥 NAYA: Custom Dates Logic
                 $data['custom_dates'] = $request->custom_dates;
                 $data['start_datetime'] = null;
                 $data['end_datetime'] = null;
-                $data['duration'] = count($request->custom_dates); // Har select ki hui date 1 din mani jayegi
+                $data['duration'] = count($request->custom_dates);
             } else {
-                // Purana Normal Range Logic
                 $data['custom_dates'] = null;
                 $start = Carbon::parse($data['start_datetime']);
                 $end = Carbon::parse($data['end_datetime']);
@@ -311,10 +314,9 @@ class LeaveApplicationApiController extends Controller
         return response()->json(['success' => true, 'message' => 'Application updated successfully', 'data' => $leave]);
     }
 
- public function destroy($id)
+    public function destroy($id)
     {
         $context = $this->getGlobalContext();
-        // 🔥 FIX: withTrashed() joda gaya taaki soft deleted record bhi mil sake
         $leave = LeaveApplication::withTrashed()->findOrFail($id);
 
         $userPerms = method_exists(auth()->user(), 'getAllPermissions') ? auth()->user()->getAllPermissions()->pluck('name')->toArray() : [];
@@ -324,7 +326,6 @@ class LeaveApplicationApiController extends Controller
         $isExactOwner = ($leave->user_id == auth()->id() && $leave->user_type === $userType);
 
         if ($isExactOwner && !$hasDeletePerm) {
-            // Owner can only delete if it's pending and not already trashed
             if ($leave->status !== 'pending' && !$leave->trashed()) {
                 return response()->json(['success' => false, 'message' => 'You cannot delete this application because it has already been processed.'], 403);
             }
@@ -332,7 +333,6 @@ class LeaveApplicationApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized to delete!'], 403);
         }
 
-        // 🔥 NAYA LOGIC: Agar pehle se delete (soft delete) hai, toh ab Hard Delete (forceDelete) karo
         if ($leave->trashed()) {
             $leave->forceDelete();
             return response()->json(['success' => true, 'message' => 'Application permanently deleted from database.']);
@@ -342,9 +342,8 @@ class LeaveApplicationApiController extends Controller
         }
     }
 
- public function approve(Request $request, $id)
+    public function approve(Request $request, $id)
     {
-        // 🔥 FIX: start_datetime aur end_datetime ko 'nullable' kiya gaya, aur custom_dates array ko allowed me daala gaya
         $validator = Validator::make($request->all(), [
             'approved_duration' => 'required|numeric|min:0.5',
             'approved_start_datetime' => 'nullable|date',
@@ -353,7 +352,7 @@ class LeaveApplicationApiController extends Controller
             'remarks' => 'nullable|string',
             'approved_custom_dates' => 'nullable|array'
         ]);
-        
+
         if ($validator->fails()) return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
 
         $leave = LeaveApplication::findOrFail($id);
@@ -365,7 +364,6 @@ class LeaveApplicationApiController extends Controller
             }
         }
 
-        // 🔥 PICHLE STEP ME JO HUMNE UPDATE KIYA THA WAHI SAME LOGIC YAHAN AAYEGA
         $updateData = [
             'status' => 'approved',
             'remarks' => $request->remarks,
@@ -373,7 +371,6 @@ class LeaveApplicationApiController extends Controller
             'approved_by' => auth()->id()
         ];
 
-        // Check if it's a Custom Dates application
         if ($leave->is_custom_date) {
             $updateData['approved_custom_dates'] = $request->approved_custom_dates ?? [];
             $updateData['approved_duration'] = count($request->approved_custom_dates ?? []);
@@ -388,7 +385,6 @@ class LeaveApplicationApiController extends Controller
 
         $leave->update($updateData);
 
-        // 🔥 Iske aage aapka Notification bhejney ka purana code waisa hi rahega...
         $modelClass = $leave->user_type === 'member' ? \App\Models\Member::class : \App\Models\Employee::class;
         $applicant = $modelClass::find($leave->user_id);
 
@@ -409,7 +405,7 @@ class LeaveApplicationApiController extends Controller
 
     public function reject(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), ['remarks' => 'required|string|min:10']);
+        $validator = Validator::make($request->all(), ['remarks' => 'required|string|min:4']);
         if ($validator->fails()) return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
 
         $leave = LeaveApplication::findOrFail($id);
@@ -421,7 +417,6 @@ class LeaveApplicationApiController extends Controller
             }
         }
 
-        // 🔥 NAYA: Agar approved chhutti reject ho rahi hai, toh uski purani approved details NULL kar do
         $leave->update([
             'status' => 'rejected',
             'remarks' => $request->remarks,
@@ -433,7 +428,6 @@ class LeaveApplicationApiController extends Controller
             'approved_resume_datetime' => null
         ]);
 
-        // 🔥 3. LEAVE REJECT NOTIFICATION (Dynamic Model Find) 🔥
         $modelClass = $leave->user_type === 'member' ? \App\Models\Member::class : \App\Models\Employee::class;
         $applicant = $modelClass::find($leave->user_id);
 
@@ -485,7 +479,6 @@ class LeaveApplicationApiController extends Controller
                     if (!empty($branchId)) $q->where('branch_id', $branchId);
                     else $q->whereNull('branch_id');
                 })
-                // 🔥 FIX: 'full_name' ki jagah 'member_name as full_name' kar diya gaya hai
                 ->select('id', 'member_name as full_name', 'member_id')
                 ->get();
         }
@@ -493,16 +486,15 @@ class LeaveApplicationApiController extends Controller
         return response()->json(['success' => true, 'data' => $users]);
     }
 
-  public function printPreview($id)
+    public function printPreview($id)
     {
         $context = $this->getGlobalContext();
         $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver', 'rejecter']);
-        
-        // 🔥 FIX: Conditional withTrashed
+
         if ($context && ($context->is_god || $context->is_director)) {
             $query->withTrashed();
         }
-        
+
         $application = $query->findOrFail($id);
 
         if ($context) {
@@ -516,16 +508,15 @@ class LeaveApplicationApiController extends Controller
         return view('admin.leave_applications.print', compact('application'));
     }
 
-  public function viewHtml($id)
+    public function viewHtml($id)
     {
         $context = $this->getGlobalContext();
         $query = LeaveApplication::with(['company', 'branch', 'department', 'designation', 'employee', 'member', 'approver']);
-        
-        // 🔥 FIX: Conditional withTrashed
+
         if ($context && ($context->is_god || $context->is_director)) {
             $query->withTrashed();
         }
-        
+
         $app = $query->findOrFail($id);
 
         return view('admin.leave_applications.view_partial', [
@@ -534,7 +525,7 @@ class LeaveApplicationApiController extends Controller
             'branch' => $app->branch
         ]);
     }
-    
+
     public function getApplyToOptions(Request $request)
     {
         $companyId = $request->company_id;
@@ -545,29 +536,29 @@ class LeaveApplicationApiController extends Controller
             'id' => 'Management (admin@jankivilla.com)',
             'name' => 'Management (admin@jankivilla.com) - Master Admin'
         ];
-        
+
         if ($appType === 'Other') {
-        $ceos = \Illuminate\Support\Facades\DB::table('super_admins')->where('status', 'active')->get();
-        foreach ($ceos as $ceo) {
-            $options[] = ['id' => $ceo->full_name . ' (' . $ceo->ceo_id . ')', 'name' => $ceo->full_name . ' (' . $ceo->ceo_id . ') - CEO'];
-        }
+            $ceos = \Illuminate\Support\Facades\DB::table('super_admins')->where('status', 'active')->get();
+            foreach ($ceos as $ceo) {
+                $options[] = ['id' => $ceo->full_name . ' (' . $ceo->ceo_id . ')', 'name' => $ceo->full_name . ' (' . $ceo->ceo_id . ') - CEO'];
+            }
 
-        if ($companyId) {
-            $directors = \Illuminate\Support\Facades\DB::table('directors')
-                ->join('company_director', 'directors.id', '=', 'company_director.director_id')
-                ->where('company_director.company_id', $companyId)
-                ->where('directors.status', 'active')
-                ->select('directors.*')
-                ->get();
+            if ($companyId) {
+                $directors = \Illuminate\Support\Facades\DB::table('directors')
+                    ->join('company_director', 'directors.id', '=', 'company_director.director_id')
+                    ->where('company_director.company_id', $companyId)
+                    ->where('directors.status', 'active')
+                    ->select('directors.*')
+                    ->get();
 
-            foreach ($directors as $dir) {
-                $options[] = [
-                    'id' => $dir->full_name . ' (' . $dir->director_id . ')',
-                    'name' => $dir->full_name . ' (' . $dir->director_id . ') - Director'
-                ];
+                foreach ($directors as $dir) {
+                    $options[] = [
+                        'id' => $dir->full_name . ' (' . $dir->director_id . ')',
+                        'name' => $dir->full_name . ' (' . $dir->director_id . ') - Director'
+                    ];
+                }
             }
         }
-    }
 
         if ($companyId && $branchId) {
             $employees = Employee::permission(['leave_appr', 'leave_rej'])
@@ -583,7 +574,6 @@ class LeaveApplicationApiController extends Controller
         return response()->json(['success' => true, 'data' => $options]);
     }
 
-    // 🔥 NAYA FUNCTION: Other applications me sirf remark dene ke liye
     public function addRemark(Request $request, $id)
     {
         $validator = Validator::make($request->all(), ['remarks' => 'required|string']);
@@ -591,14 +581,12 @@ class LeaveApplicationApiController extends Controller
 
         $leave = LeaveApplication::findOrFail($id);
 
-        // Status ko approved karenge taaki pending queue se bahar nikal jaye (Frontend pe 'Reviewed' dikhayenge)
         $leave->update([
-            'status' => 'approved', 
+            'status' => 'approved',
             'remarks' => $request->remarks,
             'approved_by' => auth()->id()
         ]);
 
-        // Notification Bhejna
         $modelClass = $leave->user_type === 'member' ? \App\Models\Member::class : \App\Models\Employee::class;
         $applicant = $modelClass::find($leave->user_id);
 
@@ -617,4 +605,89 @@ class LeaveApplicationApiController extends Controller
         return response()->json(['success' => true, 'message' => 'Remark added successfully.']);
     }
 
+    // ==========================================
+    // 🔥 CASCADING DROPDOWN FILTER APIs 🔥
+    // ==========================================
+
+    public function getFilterCompanies(Request $request)
+    {
+        $companies = \App\Models\Company::select('id', 'company_name')->where('status', 'active')->get();
+        return response()->json(['success' => true, 'data' => $companies]);
+    }
+
+    public function getFilterBranches(Request $request)
+    {
+        $query = \App\Models\Branch::select('id', 'branch_name')->where('branch_status', 'active');
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+        $branches = $query->get();
+        return response()->json(['success' => true, 'data' => $branches]);
+    }
+
+    public function getFilterDepartments(Request $request)
+    {
+        $companyId = $request->company_id;
+        $branchId = $request->branch_id;
+
+        $query = \App\Models\Department::select('id', 'department_name')->where('status', 'active');
+
+        if ($companyId) {
+            $query->where(function ($q) use ($companyId) {
+                $q->whereJsonContains('company_ids', "all")
+                    ->orWhereJsonContains('company_ids', (string)$companyId);
+            });
+        }
+
+        if ($branchId && $branchId !== 'HO') {
+            $query->where(function ($q) use ($branchId) {
+                $q->whereNull('branch_ids')
+                    ->orWhereJsonContains('branch_ids', "all")
+                    ->orWhereJsonContains('branch_ids', (string)$branchId);
+            });
+        } else {
+            $query->where(function ($q) {
+                $q->whereNull('branch_ids')
+                    ->orWhereJsonContains('branch_ids', "all");
+            });
+        }
+
+        $departments = $query->get();
+        return response()->json(['success' => true, 'data' => $departments]);
+    }
+
+    public function getFilterDesignations(Request $request)
+    {
+        $query = \App\Models\Designation::select('id', 'designation_name')->where('status', 'active');
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+        $designations = $query->get();
+        return response()->json(['success' => true, 'data' => $designations]);
+    }
+
+    public function getFilterEmployees(Request $request)
+    {
+        $query = Employee::select('id', 'full_name', 'member_id')->where('emp_status', 'active');
+
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+        if ($request->filled('branch_id')) {
+            if ($request->branch_id === 'HO') {
+                $query->whereNull('branch_id');
+            } else {
+                $query->where('branch_id', $request->branch_id);
+            }
+        }
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+        if ($request->filled('designation_id')) {
+            $query->where('designation_id', $request->designation_id);
+        }
+
+        $employees = $query->get();
+        return response()->json(['success' => true, 'data' => $employees]);
+    }
 }

@@ -661,7 +661,7 @@
 
     <script>
         $(document).ready(function() {
-            const apiToken = localStorage.getItem('admin_token');
+           const apiToken = localStorage.getItem('emp_token') || localStorage.getItem('admin_token');
             let mode = 'add';
             let branchMap = {}; // Datalist map ke liye
 

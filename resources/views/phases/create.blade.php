@@ -67,10 +67,19 @@
                                 </div>
 
                                 <div class="col-md-6 col-12">
+                                    <label class="form-label fw-semibold">Base Map / Khatiyan</label>
+                                    <input type="file" class="form-control shadow-none" id="khatiyan_map" name="khatiyan_map" accept="image/*">
+                                    <small class="text-muted">Ye map Unit/Plot distribution ke liye use hoga.</small>
+                                </div>
+
+                                <div class="col-md-6 col-12">
                                     <label class="form-label fw-semibold">Google Map URL (Optional)</label>
                                     <input type="url" name="phase_google_map_url" class="form-control shadow-none"
                                         placeholder="https://maps.google.com/...">
                                 </div>
+
+                                
+                                
                             </div>
 
                             <div class="mt-4 text-end">

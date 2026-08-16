@@ -124,6 +124,16 @@
                     data-permission="member_add" style="background-color: var(--brand-primary);" onclick="openModal('add')">
                     <i class="fas fa-plus me-1"></i> Add New Member
                 </button> --}}
+
+                <!-- 🔥 NAYA EXPORT/PRINT DIV -->
+    <div id="exportPrintDiv" class="align-items-center gap-2 d-none">
+        <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm" id="btnExportExcel">
+            <i class="fas fa-file-excel me-1"></i> Excel
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm fw-bold shadow-sm" id="btnPrintMembers">
+            <i class="fas fa-print me-1"></i> Print
+        </button>
+    </div>
             </div>
         </div>
 
@@ -679,6 +689,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
+    <script>
+        // Agar URL "jankivilla.com/admin/members" hai, toh ye "admin" dega.
+        // Agar "jankivilla.com/employee/members" hai, toh "employee" dega.
+        const currentPortal = "{{ Request::segment(1) }}"; 
+    </script>
+
    <script>
 $(document).ready(function() {
     $.fn.dataTable.ext.errMode = 'none';
@@ -1082,6 +1098,27 @@ $(document).ready(function() {
     let p = (sysContext && sysContext.permissions) ? sysContext.permissions : (window.userPerms || []);
     // 🔥 ROOT CAUSE FIX: Kewal mem_dir_view check karega
     let hasView = isMasterAdmin || p.includes('mem_dir_view');
+
+    // 🔥 Naya Permission Check for Buttons
+let hasExport = isMasterAdmin || p.includes('member_export') || p.includes('mem_dir_export');
+let hasPrint = isMasterAdmin || p.includes('member_print') || p.includes('mem_dir_print');
+
+if (hasExport || hasPrint) {
+    $('#exportPrintDiv').removeClass('d-none').addClass('d-flex');
+    
+    // Sirf wahi dikhega jiski permission hai, warna hide
+    if (!hasExport) {
+        $('#btnExportExcel').hide();
+        $('#mobileExcelBtn').hide(); // Mobile wala bhi hide
+    } else {
+        $('#mobileExcelBtn').show();
+    }
+    
+    if (!hasPrint) {
+        $('#btnPrintMembers').hide();
+    }
+}
+
     let table = null;
 
     if (!hasView) {
@@ -1347,13 +1384,16 @@ $(document).ready(function() {
     $('#addBankBtn').on('click', function() { appendBankRow(); });
     $(document).on('click', '.remove-bank-btn', function() { $(this).closest('.bank-row').remove(); });
 
-    $('#btnExportExcel').on('click', function() {
+$('#btnExportExcel').on('click', function() {
         let companyId = $('#hidden_company_id').val() || '';
         let branchId = $('#hidden_branch_id').val() || '';
         let selectedIds = [];
         $('.member-checkbox:checked').each(function() { selectedIds.push($(this).val()); });
-        let url = `/api/v1/members/export-excel?company_id=${companyId}&branch_id=${branchId}`;
+        
+        // 🔥 FIX: Ab ye har portal ke hisaab se dynamically route banayega
+        let url = `/${currentPortal}/members/export-excel?company_id=${companyId}&branch_id=${branchId}`;
         if(selectedIds.length > 0) url += `&ids=${selectedIds.join(',')}`;
+        
         window.location.href = url;
     });
 
@@ -1362,8 +1402,11 @@ $(document).ready(function() {
         let branchId = $('#hidden_branch_id').val() || '';
         let selectedIds = [];
         $('.member-checkbox:checked').each(function() { selectedIds.push($(this).val()); });
-        let url = `/api/v1/members/print?company_id=${companyId}&branch_id=${branchId}`;
+        
+        // 🔥 FIX: Dynamic Print Route
+        let url = `/${currentPortal}/members/print?company_id=${companyId}&branch_id=${branchId}`;
         if(selectedIds.length > 0) url += `&ids=${selectedIds.join(',')}`;
+        
         window.open(url, '_blank', 'width=900,height=800');
     });
 // ==========================================

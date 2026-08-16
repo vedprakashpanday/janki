@@ -535,20 +535,27 @@ $members = $query->orderByRaw("CAST(SUBSTRING_INDEX(member_id, '/', -1) AS UNSIG
         $converter = new MediaConverterService();
         $convertibleExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'mp4', 'mov', 'avi', 'mkv', 'webm'];
 
-        foreach ($fileFields as $field) {
-            if ($request->hasFile($field)) {
-                $file = $request->file($field);
-                $extension = strtolower($file->getClientOriginalExtension());
-                if (in_array($extension, $convertibleExtensions)) {
-                    $media = $converter->uploadAndConvert($file);
-                    if ($media) $data[$field] = $media->file_path;
-                } else {
-                    $filename = time() . '_' . uniqid() . '.' . $extension;
-                    $file->move(public_path('uploads/members'), $filename);
-                    $data[$field] = 'uploads/members/' . $filename;
-                }
-            }
+foreach ($fileFields as $field) {
+    if ($request->hasFile($field)) {
+        
+        // 🔥 NAYA: Purani file ko server se delete karein agar wo exist karti hai
+        if (!empty($member->$field) && \Illuminate\Support\Facades\File::exists(public_path($member->$field))) {
+            \Illuminate\Support\Facades\File::delete(public_path($member->$field));
         }
+
+        $file = $request->file($field);
+        $extension = strtolower($file->getClientOriginalExtension());
+        
+        if (in_array($extension, $convertibleExtensions)) {
+            $media = $converter->uploadAndConvert($file);
+            if ($media) $data[$field] = $media->file_path;
+        } else {
+            $filename = time() . '_' . uniqid() . '.' . $extension;
+            $file->move(public_path('uploads/members'), $filename);
+            $data[$field] = 'uploads/members/' . $filename;
+        }
+    }
+}
 
         DB::beginTransaction();
         try {
@@ -779,64 +786,62 @@ $members = $query->orderByRaw("CAST(SUBSTRING_INDEX(member_id, '/', -1) AS UNSIG
     }
 
 
-    // ==========================================
-    // EXCEL EXPORT FUNCTION
-    // ==========================================
-    public function exportExcel(Request $request)
+   public function exportExcel(Request $request)
     {
-        // Permission check (agar aapne RBAC lagaya hai)
-        // if (!$this->checkPermission('view')) abort(403, 'Unauthorized');
-
         $query = Member::with(['branch', 'company', 'department', 'designation']);
 
-        // Agar specific IDs select ki hain
         if ($request->filled('ids')) {
             $ids = explode(',', $request->ids);
             $query->whereIn('id', $ids);
         } else {
-            // Varna baaki filters apply karo (Company, Branch, etc.)
             if ($request->filled('company_id')) $query->where('company_id', $request->company_id);
             if ($request->filled('branch_id')) $query->where('branch_id', $request->branch_id);
             if ($request->filled('status')) $query->where('status', $request->status);
         }
 
         $members = $query->get();
-
-        // CSV/Excel Generate karna (Native approach)
         $fileName = 'Members_Export_' . date('Y-m-d_H-i-s') . '.csv';
-        $headers = [
-            "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
-        ];
 
-        $columns = ['S.No', 'Member ID', 'Name', 'Mobile', 'Designation', 'Company', 'Branch', 'Status'];
-
-        $callback = function() use($members, $columns) {
+        return response()->streamDownload(function() use ($members) {
+            
+            if (ob_get_level() > 0) {
+                ob_clean(); 
+            }
+            
             $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
+            
+            // 🔥 NAYA: Yahan Header me 'Sponsor Name' add kiya gaya hai
+            fputcsv($file, ['S.No', 'Member ID', 'Name', 'Mobile', 'Sponsor Name', 'Designation', 'Company', 'Branch', 'Status']);
             
             $count = 1;
             foreach ($members as $member) {
+                
+                $designation = is_object($member->designation) ? ($member->designation->designation_name ?? 'N/A') : ($member->designation ?? 'N/A');
+                $company = is_object($member->company) ? ($member->company->company_name ?? 'N/A') : 'N/A';
+                $branch = is_object($member->branch) ? ($member->branch->branch_name ?? 'HO') : 'HO';
+                $status = ucfirst((string)($member->status ?? ''));
+
                 fputcsv($file, [
                     $count++,
-                    $member->member_id,
-                    $member->member_name ?? $member->full_name,
-                    $member->mobile,
-                    $member->designation ? $member->designation->designation_name : ($member->designation_text ?? 'N/A'),
-                    $member->company ? $member->company->company_name : 'N/A',
-                    $member->branch ? $member->branch->branch_name : 'HO',
-                    ucfirst($member->status)
+                    $member->member_id ?? 'N/A',
+                    $member->member_name ?? $member->member_name ?? 'N/A',
+                    $member->mobile ?? 'N/A',
+                    
+                    // 🔥 NAYA: Yahan data me sponsor_name pass kar diya hai
+                    $member->sponsor_name ?? 'N/A',
+                    
+                    $designation,
+                    $company,
+                    $branch,
+                    $status
                 ]);
             }
             fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+            
+        }, $fileName, [
+            "Content-type" => "text/csv",
+        ]);
     }
-
     // ==========================================
     // PRINT FUNCTION WITH COMPONENT & WATERMARK
     // ==========================================

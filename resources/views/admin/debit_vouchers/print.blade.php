@@ -36,14 +36,12 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            /* Top aur Bottom content ko unke edges par stretch karega */
             overflow: hidden;
-                border-radius: 10px;
+            border-radius: 10px;
         }
 
         .voucher-content {
             flex-grow: 1;
-            /* Bacha hua saara space content wrap le lega */
         }
 
        /* 💧 WATERMARK (Existing) */
@@ -70,7 +68,7 @@
             left: 50%;
             font-size: 80px;
             font-weight: 900;
-            color: rgba(255, 0, 0, 0.15); /* Light red, semi-transparent */
+            color: rgba(255, 0, 0, 0.15);
             transform: translate(-50%, -50%) rotate(-45deg);
             pointer-events: none;
             z-index: 0; 
@@ -231,7 +229,6 @@
             /* 🔥 FIX: Left Border Cut Issue */
             .print-container {
                 padding: 0 5mm !important;
-                /* Left & Right margin for hardware margins */
                 max-width: 100%;
                 margin: 0 auto;
             }
@@ -259,7 +256,6 @@
             .sig-line {
                 font-size: 9px !important;
                 white-space: nowrap !important;
-                /* Forces signature title to 1 line */
             }
         }
     </style>
@@ -268,9 +264,77 @@
 <body>
 
     @if ($mode == 'view')
+        <!-- 🔥 FLOATING ACTION PANEL (View Mode Only) -->
+        <div class="no-print" style="max-width: 1000px; margin: 15px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-left: 5px solid #0d6efd;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-primary fw-bold mb-0"><i class="fas fa-tasks me-2"></i>Voucher Action Panel</h5>
+                <div>
+                    <button onclick="window.close()" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm">Close Window</button>
+                </div>
+            </div>
+            
+            @if(strtolower($voucher->status) == 'pending' && ((isset($canApprove) && $canApprove) || (isset($canReject) && $canReject)))
+                <div class="mb-3">
+                    <label class="fw-bold small text-dark mb-1">Checker Remarks / Note (Mandatory for Reject) *</label>
+                    <textarea id="checker_remarks" class="form-control border-primary" rows="2" placeholder="Write your internal remarks here..."></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    @if(isset($canApprove) && $canApprove)
+                        <button onclick="takeAction('approve')" class="btn btn-success fw-bold px-4 shadow-sm" id="btnApprove">
+                            <i class="fas fa-check-circle me-1"></i> Approve Voucher
+                        </button>
+                    @endif
+                    @if(isset($canReject) && $canReject)
+                        <button onclick="takeAction('reject')" class="btn btn-danger fw-bold px-4 shadow-sm" id="btnReject">
+                            <i class="fas fa-times-circle me-1"></i> Reject Voucher
+                        </button>
+                    @endif
+                </div>
+            @else
+                <div class="alert alert-info mb-0 border-info">
+                    <i class="fas fa-info-circle me-1"></i> This voucher is currently <strong>{{ strtoupper($voucher->status) }}</strong>. No actions available.
+                </div>
+            @endif
+        </div>
+
+        <script>
+            function takeAction(action) {
+                let remarks = document.getElementById('checker_remarks').value.trim();
+                if (action === 'reject' && !remarks) {
+                    alert('Error: Please enter remarks before rejecting the voucher.');
+                    return;
+                }
+                
+                let token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                if(document.getElementById('btnApprove')) document.getElementById('btnApprove').disabled = true;
+                if(document.getElementById('btnReject')) document.getElementById('btnReject').disabled = true;
+
+                fetch(`/api/v1/debit_vouchers/{{$voucher->id}}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ checker_remarks: remarks })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        alert(data.message);
+                        if(window.opener) window.opener.location.reload(); // Parent tab reload
+                        window.close(); // Current tab close
+                    } else {
+                        alert(data.message);
+                        window.location.reload();
+                    }
+                })
+                .catch(err => alert("Something went wrong!"));
+            }
+        </script>
+    @else
+        <!-- Print Button Only in Print Mode -->
         <div class="text-center my-3 no-print">
-            <button onclick="window.print()" class="btn btn-dark fw-bold px-4"><i class="fas fa-print me-2"></i> PRINT
-                VOUCHER</button>
+            <button onclick="window.print()" class="btn btn-dark fw-bold px-4"><i class="fas fa-print me-2"></i> PRINT VOUCHER</button>
             <button onclick="window.close()" class="btn btn-outline-danger fw-bold ms-2">CLOSE</button>
         </div>
     @endif
@@ -278,7 +342,6 @@
     <div class="print-container">
 
         <!-- 📄 VOUCHER 1 (Office Copy) -->
-       <!-- 📄 VOUCHER 1 (Office Copy) -->
         <div class="voucher-wrapper {{ strtolower($voucher->status) === 'cancelled' ? 'cancelled-voucher' : '' }}">
             <div class="voucher-content">
                 <x-print-header :company="$company" :branch="$branch" />
@@ -309,9 +372,9 @@
                         <td class="value-text">{{ number_format($voucher->amount, 2) }}</td>
                     </tr>
                     <tr>
-                        <td class="label-text">(Rupees</td>
+                        <td class="label-text">Rupees</td>
                         <td class="value-text" colspan="3">{{ $voucher->amount_words }} <span class="label-text"
-                                style="float: right; border: none;">only)</span></td>
+                                style="float: right; border: none;"></span></td>
                     </tr>
                     <tr>
                         <td class="label-text">by Cash/Chq./UPI/NEFT No.</td>
@@ -368,100 +431,101 @@
             </div>
         </div>
 
-        <div class="copy-divider no-print">
-            <span><i class="fas fa-scissors"></i> Detach Here</span>
-        </div>
+        @if ($mode == 'print')
+            <div class="copy-divider no-print">
+                <span><i class="fas fa-scissors"></i> Detach Here</span>
+            </div>
 
-        
-     <!-- 📄 VOUCHER 2 (Client Copy) -->
-        <div class="voucher-wrapper {{ strtolower($voucher->status) === 'cancelled' ? 'cancelled-voucher' : '' }}">
-            <div class="voucher-content">
-                <x-print-header :company="$company" :branch="$branch" />
+            <!-- 📄 VOUCHER 2 (Client Copy) - Only visible when printing -->
+            <div class="voucher-wrapper {{ strtolower($voucher->status) === 'cancelled' ? 'cancelled-voucher' : '' }}">
+                <div class="voucher-content">
+                    <x-print-header :company="$company" :branch="$branch" />
 
-                <div class="title-section">
-                    <h1 class="main-title">DEBIT VOUCHER</h1>
-                    <div class="sub-title">(Payment Authorization Voucher)</div>
+                    <div class="title-section">
+                        <h1 class="main-title">DEBIT VOUCHER</h1>
+                        <div class="sub-title">(Payment Authorization Voucher)</div>
+                    </div>
+
+                    <div class="meta-row">
+                        <div>Voucher No.: <span class="text-danger">{{ $formattedDvNo }}</span></div>
+                        <div>Date: <span
+                                style="font-weight: normal;">{{ date('d-M-Y', strtotime($voucher->voucher_date)) }}</span>
+                        </div>
+                    </div>
+
+                    <table class="form-table">
+                        <tr>
+                            <td class="label-text" style="width: 15%;">Head of Account</td>
+                            <td class="value-text" style="width: 55%;">{{ $ledgerName }}</td>
+                            <td class="label-text" style="width: 8%; text-align: right;">Project</td>
+                            <td class="value-text" style="width: 22%;">{{ $voucher->project_name ?? 'JANKI VILLA' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">Paid to Mr./Ms.</td>
+                            <td class="value-text">{{ $paidToName }}</td>
+                            <td class="label-text" style="text-align: right;">Rs.</td>
+                            <td class="value-text">{{ number_format($voucher->amount, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">Rupees</td>
+                            <td class="value-text" colspan="3">{{ $voucher->amount_words }} <span class="label-text"
+                                    style="float: right; border: none;"></span></td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">by Cash/Chq./UPI/NEFT No.</td>
+                            <td class="value-text">{{ $displayMode }} - {{ $paymentRef ?: 'N/A' }}</td>
+                            <td class="label-text" style="text-align: right;">Dated</td>
+                            <td class="value-text">
+                                {{ $voucher->bank_date ? date('d-M-Y', strtotime($voucher->bank_date)) : 'N/A' }}</td>
+                        </tr>
+                    </table>
+
+                <table class="form-table" style="margin-top: 1px;">
+                        <tr>
+                            <td class="label-text" style="width: 15%;">On (Comp. Bank)</td>
+                            <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->sender_bank ?? 'N/A') }}</td>
+                            <td class="label-text" style="width: 15%; text-align: right;">Receiver's A/c No.</td>
+                            <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->account_no ?? 'N/A') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">Bank Name</td>
+                            <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_name ?? 'N/A') }}</td>
+                            <td class="label-text" style="text-align: right;">Branch</td>
+                            <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_branch ?? 'N/A') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">IFSC Code</td>
+                            <td class="value-text" colspan="3">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->ifsc_code ?? 'N/A') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text" style="vertical-align: top; padding-top: 8px;">Purpose / Remarks</td>
+                            <td class="value-text" colspan="3" style="border: none; padding-top: 8px;">
+                                <div class="narration-box">{{ $voucher->narration ?? '-' }}</div>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
 
-                <div class="meta-row">
-                    <div>Voucher No.: <span class="text-danger">{{ $formattedDvNo }}</span></div>
-                    <div>Date: <span
-                            style="font-weight: normal;">{{ date('d-M-Y', strtotime($voucher->voucher_date)) }}</span>
+                <div class="signature-row">
+                    <div class="sig-block">
+                        <div class="sig-name">{{ $approverName }}</div>
+                        <div class="sig-line">Prepared by (Account)</div>
+                    </div>
+                    <div class="sig-block">
+                        <div class="sig-name">{{ $approverName }}</div>
+                        <div class="sig-line">Verified by</div>
+                    </div>
+                    <div class="sig-block">
+                        <div class="sig-name">{{ $signatoryName }}</div>
+                        <div class="sig-line">Approved by (Director)</div>
+                    </div>
+                    <div class="sig-block">
+                        <div class="sig-name"></div>
+                        <div class="sig-line">Receiver's Signature & Mob. No.</div>
                     </div>
                 </div>
-
-                <table class="form-table">
-                    <tr>
-                        <td class="label-text" style="width: 15%;">Head of Account</td>
-                        <td class="value-text" style="width: 55%;">{{ $ledgerName }}</td>
-                        <td class="label-text" style="width: 8%; text-align: right;">Project</td>
-                        <td class="value-text" style="width: 22%;">{{ $voucher->project_name ?? 'JANKI VILLA' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-text">Paid to Mr./Ms.</td>
-                        <td class="value-text">{{ $paidToName }}</td>
-                        <td class="label-text" style="text-align: right;">Rs.</td>
-                        <td class="value-text">{{ number_format($voucher->amount, 2) }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-text">(Rupees</td>
-                        <td class="value-text" colspan="3">{{ $voucher->amount_words }} <span class="label-text"
-                                style="float: right; border: none;">only)</span></td>
-                    </tr>
-                    <tr>
-                        <td class="label-text">by Cash/Chq./UPI/NEFT No.</td>
-                        <td class="value-text">{{ $displayMode }} - {{ $paymentRef ?: 'N/A' }}</td>
-                        <td class="label-text" style="text-align: right;">Dated</td>
-                        <td class="value-text">
-                            {{ $voucher->bank_date ? date('d-M-Y', strtotime($voucher->bank_date)) : 'N/A' }}</td>
-                    </tr>
-                </table>
-
-               <table class="form-table" style="margin-top: 1px;">
-                    <tr>
-                        <td class="label-text" style="width: 15%;">On (Comp. Bank)</td>
-                        <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->sender_bank ?? 'N/A') }}</td>
-                        <td class="label-text" style="width: 15%; text-align: right;">Receiver's A/c No.</td>
-                        <td class="value-text" style="width: 35%;">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->account_no ?? 'N/A') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-text">Bank Name</td>
-                        <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_name ?? 'N/A') }}</td>
-                        <td class="label-text" style="text-align: right;">Branch</td>
-                        <td class="value-text">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->bank_branch ?? 'N/A') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-text">IFSC Code</td>
-                        <td class="value-text" colspan="3">{{ strtoupper($voucher->payment_mode) === 'CASH' ? 'N/A' : ($voucher->ifsc_code ?? 'N/A') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-text" style="vertical-align: top; padding-top: 8px;">Purpose / Remarks</td>
-                        <td class="value-text" colspan="3" style="border: none; padding-top: 8px;">
-                            <div class="narration-box">{{ $voucher->narration ?? '-' }}</div>
-                        </td>
-                    </tr>
-                </table>
             </div>
-
-            <div class="signature-row">
-                <div class="sig-block">
-                    <div class="sig-name">{{ $approverName }}</div>
-                    <div class="sig-line">Prepared by (Account)</div>
-                </div>
-                <div class="sig-block">
-                    <div class="sig-name">{{ $approverName }}</div>
-                    <div class="sig-line">Verified by</div>
-                </div>
-                <div class="sig-block">
-                    <div class="sig-name">{{ $signatoryName }}</div>
-                    <div class="sig-line">Approved by (Director)</div>
-                </div>
-                <div class="sig-block">
-                    <div class="sig-name"></div>
-                    <div class="sig-line">Receiver's Signature & Mob. No.</div>
-                </div>
-            </div>
-        </div>
+        @endif
 
     </div>
 

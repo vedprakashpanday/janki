@@ -35,51 +35,93 @@ class AuthController extends Controller
         return "$os - $browser";
     }
 
-    public function requestLogin(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-            'session_id' => 'required'
-        ]);
+  // 1. requestLogin function ko update karein
+public function requestLogin(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required',
+        'session_id' => 'required'
+    ]);
 
-        $user = User::where('email', $request->email)->first();
+    $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['status' => 'error', 'message' => 'Invalid credentials'], 401);
-        }
-
-        if ($user->role !== 'admin') {
-            return response()->json(['status' => 'error', 'message' => 'Only admins can access this panel'], 403);
-        }
-
-        // NAYA: Device ka naam nikal kar payload me save karein
-        $deviceName = $this->getDeviceName($request->header('User-Agent')) . ' (' . now()->format('d M H:i') . ')';
-
-        $actionId = DB::table('pending_actions')->insertGetId([
-            'action_type' => 'admin_login',
-            'user_id' => $user->id,
-            'payload' => json_encode([
-                'session_id' => $request->session_id,
-                'device_info' => $deviceName // Store Device Name
-            ]),
-            'status' => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $approveUrl = URL::signedRoute('admin.action.approve', ['id' => $actionId]);
-        $rejectUrl = URL::signedRoute('admin.action.reject', ['id' => $actionId]);
-
-        //abdeveloperspl
-
-        Mail::to('abdeveloperspl@gmail.com')
-    ->bcc('ved526543@gmail.com')
-    ->send(new AdminActionMail('Admin Login Request', $user->email, $approveUrl, $rejectUrl));
-
-        return response()->json(['status' => 'success', 'message' => 'Approval email sent. Please wait.']);
+    if (!$user || !Hash::check($request->password, $user->password)) {
+        return response()->json(['status' => 'error', 'message' => 'Invalid credentials'], 401);
     }
 
+    if ($user->role !== 'admin') {
+        return response()->json(['status' => 'error', 'message' => 'Only admins can access this panel'], 403);
+    }
+
+    // 🔥 NAYA LOGIC: Har din ka ek hi OTP (Passkey) rahega
+    $today = now()->toDateString();
+    if ($user->passkey_date === $today && $user->passkey) {
+        $otp = $user->passkey; // Aaj ka purana OTP hi use karein
+    } else {
+        $otp = mt_rand(100000, 999999); // Naya 6-digit OTP banayein
+        $user->passkey = $otp;
+        $user->passkey_date = $today;
+        $user->save();
+    }
+
+    $deviceName = $this->getDeviceName($request->header('User-Agent')) . ' (' . now()->format('d M H:i') . ')';
+
+    $actionId = DB::table('pending_actions')->insertGetId([
+        'action_type' => 'admin_login',
+        'user_id' => $user->id,
+        'payload' => json_encode([
+            'session_id' => $request->session_id,
+            'device_info' => $deviceName
+        ]),
+        'status' => 'pending',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $approveUrl = URL::signedRoute('admin.action.approve', ['id' => $actionId]);
+    $rejectUrl = URL::signedRoute('admin.action.reject', ['id' => $actionId]);
+
+    // ⚠️ NOTE: Aapko apni AdminActionMail class mein $otp variable bhi bhejna hoga taaki email me OTP dikhe
+    Mail::to('ved526pandit@gmail.com')
+        ->send(new AdminActionMail('Admin Login Request', $user->email, $approveUrl, $rejectUrl, $otp));
+
+    return response()->json(['status' => 'success', 'message' => 'Approval email sent. Please wait.']);
+}
+
+// 2. NAYA FUNCTION ADD KAREIN (Direct Passkey Login ke liye)
+public function verifyPasskey(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'passkey' => 'required'
+    ]);
+
+    $user = User::where('email', $request->email)->first();
+
+    if (!$user) {
+        return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+    }
+
+    // Check karein ki passkey sahi hai aur aaj ki hi date ka hai
+    if ($user->passkey == $request->passkey && $user->passkey_date === now()->toDateString()) {
+        $token = $user->createToken('admin_token')->plainTextToken;
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Login Successful via Passkey!',
+            'token' => $token,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role
+            ]
+        ]);
+    }
+
+    return response()->json(['status' => 'error', 'message' => 'Invalid or Expired Passkey!'], 400);
+}
     // ================== NAYE SESSION MANAGEMENT APIs ==================
 
     // 1. Saare active devices ki list bheje

@@ -17,8 +17,15 @@
 
         $realUser = \Illuminate\Support\Facades\DB::table($user->getTable())->where('id', $user->id)->first();
 
+        // 🔥 FIX: Backend Global Context ke sath Developer Emails ka strict check
+        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
+        $isGodOverride =
+            (isset($user->email) && in_array(strtolower($user->email), $developerEmails)) ||
+            (method_exists($user, 'hasRole') && $user->hasRole('CEO')) ||
+            !empty($context->is_god);
+
         $userContext = [
-            'is_god' => $context->is_god ?? false,
+            'is_god' => $isGodOverride,
             'role_level' => $context->role_level ?? 'unknown',
             'is_director' => $context->is_director ?? false,
             'user_type' => $uType,
@@ -43,6 +50,69 @@
         </div>
 
         <div id="table-container">
+            <!-- 🔥 NAYA: Advanced Cascading Filters (JS se visible hoga) 🔥 -->
+            <div class="card shadow-sm border-0 mb-3 bg-light d-none" id="advancedFiltersBlock"
+                style="border-left: 4px solid #0d6efd !important;">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold text-primary mb-3"><i class="fas fa-filter me-1"></i> Advanced Application Filters
+                    </h6>
+                    <div class="row g-2">
+                        <div class="col-md-2">
+                            <label class="small fw-bold text-muted">Company</label>
+                            <select class="form-select form-select-sm border-primary fw-bold" id="filter_company">
+                                <option value="">All Companies</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="small fw-bold text-muted">Branch</label>
+                            <select class="form-select form-select-sm border-primary fw-bold" id="filter_branch">
+                                <option value="">All Branches</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="small fw-bold text-muted">Department</label>
+                            <select class="form-select form-select-sm" id="filter_department">
+                                <option value="">All Departments</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="small fw-bold text-muted">Designation</label>
+                            <select class="form-select form-select-sm" id="filter_designation">
+                                <option value="">All Designations</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="small fw-bold text-muted">Employee / Applicant</label>
+                            <select class="form-select form-select-sm" id="filter_employee">
+                                <option value="">All Employees</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="small fw-bold text-muted">Select Month</label>
+                            <input type="month" class="form-control form-control-sm border-warning" id="filter_month">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small fw-bold text-muted">Or Exact Date Range</label>
+                            <div class="input-group input-group-sm">
+                                <input type="date" class="form-control" id="filter_start_date">
+                                <span class="input-group-text bg-white border-0">to</span>
+                                <input type="date" class="form-control" id="filter_end_date">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-sm btn-primary w-100 fw-bold shadow-sm" onclick="loadLeaveData(1)"><i
+                                    class="fas fa-search me-1"></i> Apply Filters</button>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-sm btn-outline-secondary w-100 fw-bold"
+                                onclick="resetAdvancedFilters()"><i class="fas fa-sync-alt me-1"></i> Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card shadow-sm border-0 mb-3">
                 <div class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <div class="d-flex align-items-center gap-2">
@@ -69,7 +139,8 @@
                 <table class="table table-hover align-middle mb-0" id="leaveTable">
                     <thead class="bg-light">
                         <tr>
-                            <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="checkAllDesktop"></th>
+                            <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="checkAllDesktop">
+                            </th>
                             <th>Employee Name & Code</th>
                             <th>Type</th>
                             <th>Duration</th>
@@ -108,7 +179,8 @@
 
                         <div class="row g-3 mb-3 pb-3 border-bottom">
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold">User Type <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-bold">User Type <span
+                                        class="text-danger">*</span></label>
                                 <select class="form-select form-select-sm" id="user_type" name="user_type" required>
                                     <option value="employee">Employee</option>
                                     <option value="member">Member</option>
@@ -165,12 +237,14 @@
                                     <option value="">Select Approver...</option>
                                 </select>
                             </div>
-                          
-                          <!-- 🔥 NAYA: Custom Dates Toggle Switch -->
+
+                            <!-- 🔥 NAYA: Custom Dates Toggle Switch -->
                             <div class="col-12 mt-1 mb-1" id="customDateToggleBox">
                                 <div class="form-check form-switch border p-2 rounded bg-light">
-                                    <input class="form-check-input ms-1" type="checkbox" id="is_custom_date" name="is_custom_date" value="1" style="cursor: pointer;">
-                                    <label class="form-check-label fw-bold small text-primary ms-2" for="is_custom_date" style="cursor: pointer;">
+                                    <input class="form-check-input ms-1" type="checkbox" id="is_custom_date"
+                                        name="is_custom_date" value="1" style="cursor: pointer;">
+                                    <label class="form-check-label fw-bold small text-primary ms-2" for="is_custom_date"
+                                        style="cursor: pointer;">
                                         Apply for Multiple Alternate Dates (Custom Dates)
                                     </label>
                                 </div>
@@ -178,37 +252,48 @@
 
                             <!-- 🔥 PURANA: Continuous Dates (Hide ho jayega agar custom tick hoga) -->
                             <div class="col-md-4 date-time-fields">
-                                <label class="form-label small fw-bold" id="start_label">Date From <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control form-control-sm" id="start_datetime" name="start_datetime" onchange="calculateDuration()">
+                                <label class="form-label small fw-bold" id="start_label">Date From <span
+                                        class="text-danger">*</span></label>
+                                <input type="date" class="form-control form-control-sm" id="start_datetime"
+                                    name="start_datetime" onchange="calculateDuration()">
                             </div>
                             <div class="col-md-4 date-time-fields">
-                                <label class="form-label small fw-bold" id="end_label">Date To <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control form-control-sm" id="end_datetime" name="end_datetime" onchange="calculateDuration()">
+                                <label class="form-label small fw-bold" id="end_label">Date To <span
+                                        class="text-danger">*</span></label>
+                                <input type="date" class="form-control form-control-sm" id="end_datetime"
+                                    name="end_datetime" onchange="calculateDuration()">
                             </div>
 
                             <!-- 🔥 NAYA: Custom Dates Input Area (Hidden by default) -->
                             <div class="col-md-8 custom-date-fields" style="display:none;">
-                                <label class="form-label small fw-bold">Select Alternate Dates <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-bold">Select Alternate Dates <span
+                                        class="text-danger">*</span></label>
                                 <div class="d-flex gap-2 mb-2">
-                                    <input type="date" class="form-control form-control-sm w-auto" id="custom_date_input">
-                                    <button type="button" class="btn btn-sm btn-primary" onclick="addCustomDate()"><i class="fas fa-plus"></i> Add Date</button>
+                                    <input type="date" class="form-control form-control-sm w-auto"
+                                        id="custom_date_input">
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="addCustomDate()"><i
+                                            class="fas fa-plus"></i> Add Date</button>
                                 </div>
-                                <div id="custom_dates_list" class="d-flex flex-wrap gap-2 border p-2 rounded bg-white min-h-50px"></div>
+                                <div id="custom_dates_list"
+                                    class="d-flex flex-wrap gap-2 border p-2 rounded bg-white min-h-50px"></div>
                                 <div id="hidden_custom_dates"></div> <!-- Form submit ke liye hidden inputs -->
                             </div>
 
                             <!-- Duration (Dono ke liye same rahega) -->
                             <div class="col-md-4 duration-box">
                                 <label class="form-label small fw-bold">Duration</label>
-                                <input type="text" class="form-control form-control-sm bg-light" id="duration_display" readonly placeholder="Auto">
+                                <input type="text" class="form-control form-control-sm bg-light" id="duration_display"
+                                    readonly placeholder="Auto">
                             </div>
 
-                          
-        <!-- 🔥 NAYA: resume-duty-box class add ki -->
-        <div class="col-md-4 resume-duty-box">
-            <label class="form-label small fw-bold">Resume Duty Date & Time <span class="text-danger" id="resume_label_star">*</span></label>
-            <input type="datetime-local" class="form-control form-control-sm" id="resume_datetime" name="resume_datetime" required>
-        </div>
+
+                            <!-- 🔥 NAYA: resume-duty-box class add ki -->
+                            <div class="col-md-4 resume-duty-box">
+                                <label class="form-label small fw-bold">Resume Duty Date & Time <span class="text-danger"
+                                        id="resume_label_star">*</span></label>
+                                <input type="datetime-local" class="form-control form-control-sm" id="resume_datetime"
+                                    name="resume_datetime" required>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">Emergency Contact <span
                                         class="text-danger">*</span></label>
@@ -239,14 +324,16 @@
                                 <div class="form-text text-end" id="charCount">0 / 300 Letters</div>
                             </div>
 
-              <div class="col-12 mb-3">
-    <label class="form-label small fw-bold">Proof Attachments (Optional, Images/PDF, Max 2MB)</label>
-    <input type="file" class="form-control form-control-sm" id="proof_attachments" name="proof_attachments[]" multiple accept=".jpg,.jpeg,.png,.pdf">
-    
-    <div id="file_size_error" class="text-danger small fw-bold mt-1 d-none"></div>
-    
-    <div id="attachment_previews" class="d-flex flex-wrap gap-3 mt-2"></div>
-</div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label small fw-bold">Proof Attachments (Optional, Images/PDF, Max
+                                    2MB)</label>
+                                <input type="file" class="form-control form-control-sm" id="proof_attachments"
+                                    name="proof_attachments[]" multiple accept=".jpg,.jpeg,.png,.pdf">
+
+                                <div id="file_size_error" class="text-danger small fw-bold mt-1 d-none"></div>
+
+                                <div id="attachment_previews" class="d-flex flex-wrap gap-3 mt-2"></div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -294,18 +381,22 @@
                     <!-- Standard Continuous Dates -->
                     <div class="row g-2 mb-3" id="approve_date_area">
                         <div class="col-6">
-                            <label class="form-label fw-bold small">Approved From <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control form-control-sm" id="approve_start_datetime" onchange="checkDurationMismatch()">
+                            <label class="form-label fw-bold small">Approved From <span
+                                    class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-sm" id="approve_start_datetime"
+                                onchange="checkDurationMismatch()">
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-bold small">Approved To <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control form-control-sm" id="approve_end_datetime" onchange="checkDurationMismatch()">
+                            <input type="date" class="form-control form-control-sm" id="approve_end_datetime"
+                                onchange="checkDurationMismatch()">
                         </div>
                     </div>
 
                     <!-- 🔥 NAYA: Custom Dates Checkboxes for Admin -->
                     <div class="mb-3 custom-approve-fields" style="display:none;">
-                        <label class="form-label fw-bold small">Select Dates to Approve <span class="text-danger">*</span></label>
+                        <label class="form-label fw-bold small">Select Dates to Approve <span
+                                class="text-danger">*</span></label>
                         <div id="approve_custom_dates_list" class="d-flex flex-wrap gap-3 p-2 border rounded bg-light">
                             <!-- JS se checkboxes aayenge yahan -->
                         </div>
@@ -326,6 +417,13 @@
                         <small id="approve_duration_warning" class="text-danger fw-bold d-none mt-1 d-block"><i
                                 class="fas fa-exclamation-triangle"></i> Warning: Date range mismatches with
                             duration!</small>
+                    </div>
+                    <!-- 🔥 NAYA: Applicant's Reason Box -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-primary"><i class="fas fa-comment-alt me-1"></i>
+                            Applicant's Reason</label>
+                        <div class="p-2 border rounded bg-light text-dark" id="approve_applicant_reason"
+                            style="font-size: 13px; min-height: 50px; max-height: 100px; overflow-y: auto;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small">Remarks / Approver Note (Optional)</label>
@@ -351,6 +449,13 @@
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="reject_leave_id">
+                    <!-- 🔥 NAYA: Applicant's Reason Box -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-primary"><i class="fas fa-comment-alt me-1"></i>
+                            Applicant's Reason</label>
+                        <div class="p-2 border rounded bg-light text-dark" id="reject_applicant_reason"
+                            style="font-size: 13px; min-height: 50px; max-height: 100px; overflow-y: auto;"></div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small">Reason for Rejection <span
                                 class="text-danger">*</span></label>
@@ -375,16 +480,25 @@
                     <h5 class="modal-title"><i class="fas fa-comment-dots me-2"></i>Add Official Reply/Remark</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
+                <!-- 🔥 NAYA: Applicant's Reason Box -->
+                <div class="mb-3 px-3 mt-3">
+                    <label class="form-label fw-bold small text-primary"><i class="fas fa-comment-alt me-1"></i>
+                        Applicant's Reason</label>
+                    <div class="p-2 border rounded bg-light text-dark" id="remark_applicant_reason"
+                        style="font-size: 13px; min-height: 50px; max-height: 100px; overflow-y: auto;"></div>
+                </div>
                 <div class="modal-body">
                     <input type="hidden" id="remark_only_leave_id">
                     <div class="mb-3">
                         <label class="form-label fw-bold small">Your Response <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="remark_only_text" rows="4" required placeholder="Type your response to this application here..."></textarea>
+                        <textarea class="form-control" id="remark_only_text" rows="4" required
+                            placeholder="Type your response to this application here..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer bg-light p-2">
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-sm btn-info text-white" onclick="submitRemarkOnly()"><i class="fas fa-paper-plane"></i> Submit Reply</button>
+                    <button type="button" class="btn btn-sm btn-info text-white" onclick="submitRemarkOnly()"><i
+                            class="fas fa-paper-plane"></i> Submit Reply</button>
                 </div>
             </div>
         </div>
@@ -398,10 +512,10 @@
         let currentPage = 1;
         let selectedIds = [];
         let globalProfile = null;
-        
+
         // 🔥 Custom Dates Global Variable
         let customDatesArr = [];
-        
+
         // 🔥 Panel ke hisaab se exact token nikalna
         let authApiUrl = '/api/v1/admin/auth/me';
         let apiToken = localStorage.getItem('admin_token');
@@ -412,7 +526,7 @@
             apiToken = localStorage.getItem('emp_token');
             panelType = 'employee';
         } else if (window.location.pathname.startsWith('/customer') || window.location.pathname.startsWith('/member')) {
-            authApiUrl = '/api/v1/member/auth/me'; 
+            authApiUrl = '/api/v1/member/auth/me';
             apiToken = localStorage.getItem('member_token');
             panelType = 'member';
         }
@@ -483,7 +597,7 @@
             if (!companyId) return Promise.resolve($('#department_id').html('<option value="">Select Department</option>'));
             return $.get(`/api/v1/get-departments-by-company?company_id=${companyId}&branch_id=${bId}`).then(res => {
                 let arr = getArray(res);
-                
+
                 // Filter OUT departments having "associate" in name (Case Insensitive)
                 arr = arr.filter(d => !/associate/i.test(d.department_name));
 
@@ -512,7 +626,8 @@
                 let arr = getArray(res);
                 let opts = '<option value="">Select Applicant</option>';
                 arr.forEach(u => {
-                    let name = type === 'member' ? `${u.full_name || u.name} (${u.member_id})` : (u.full_name || u.name);
+                    let name = type === 'member' ? `${u.full_name || u.name} (${u.member_id})` : (u
+                        .full_name || u.name);
                     opts += `<option value="${u.id}">${name}</option>`;
                 });
                 $('#user_id').html(opts);
@@ -522,7 +637,9 @@
         function loadApplyToAsync(companyId, branchId) {
             let bId = branchId !== null && branchId !== undefined ? branchId : '';
             if (!companyId) return Promise.resolve($('#applied_to').html('<option value="">Select Approver...</option>'));
-            return $.get(`/api/v1/leave-applications/dropdown/apply-to?company_id=${companyId}&branch_id=${bId}&application_type=${$('#application_type').val()}`).then(
+            return $.get(
+                `/api/v1/leave-applications/dropdown/apply-to?company_id=${companyId}&branch_id=${bId}&application_type=${$('#application_type').val()}`
+            ).then(
                 res => {
                     let arr = getArray(res);
                     let opts = '<option value="">Select Approver...</option>';
@@ -548,7 +665,8 @@
                 loadDesignationsAsync($(this).val()).then(() => $('#designation_id').trigger('change'));
             });
             $('#designation_id, #user_type').change(function() {
-                loadUsersAsync($('#designation_id').val(), $('#branch_id').val(), $('#company_id').val(), $('#user_type').val());
+                loadUsersAsync($('#designation_id').val(), $('#branch_id').val(), $('#company_id').val(), $(
+                    '#user_type').val());
             });
         }
 
@@ -577,8 +695,10 @@
                 let role = (u.role || '').toLowerCase();
                 let desig = (u.designation_name || '').toLowerCase();
                 let email = (u.email || '').toLowerCase();
-                
-                let isGod = panelType === 'admin' && (['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'].includes(email) || role === 'ceo' || desig.includes('ceo'));
+
+                let isGod = panelType === 'admin' && (['admin@jankivilla.com', 'superadmin@example.com',
+                    'vedprakash@infoera.in'
+                ].includes(email) || role === 'ceo' || desig.includes('ceo'));
                 let isDirector = panelType === 'admin' && (role === 'director' || desig.includes('director'));
 
                 globalProfile = {
@@ -598,7 +718,7 @@
                 return null;
             }
         }
-        
+
         function applyLocks(u) {
             $('.form-select').css('pointer-events', 'auto').removeClass('bg-light');
             if (!u || u.is_god) return;
@@ -612,15 +732,15 @@
 
         async function openLeaveModal() {
             $('#leaveApplicationForm')[0].reset();
-            $('#attachment_previews').empty(); 
+            $('#attachment_previews').empty();
             leaveAttachmentsDt = new DataTransfer();
             $('#leave_id').val('');
             $('#charCount').text('0 / 300 Letters').addClass('text-danger');
-            
+
             customDatesArr = [];
             renderCustomDates();
             $('#is_custom_date').prop('checked', false).trigger('change');
-            
+
             handleAppTypeChange();
 
             $('#btnSaveLeave').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Loading Data...');
@@ -628,8 +748,8 @@
 
             setupDropdowns(false);
 
-           let u = await fetchProfile(); 
-            if(u) $('#user_type').val(u.user_type);
+            let u = await fetchProfile();
+            if (u) $('#user_type').val(u.user_type);
             await loadCompaniesAsync();
 
             if (u && !u.is_god) {
@@ -682,12 +802,12 @@
             let data = res.data;
 
             $('#leaveApplicationForm')[0].reset();
-            $('#attachment_previews').empty(); 
+            $('#attachment_previews').empty();
             leaveAttachmentsDt = new DataTransfer();
             $('#leave_id').val(data.id);
             $('#leaveModalTitle').text('Edit Leave / Request');
             $('#application_type').val(data.application_type);
-            
+
             if (data.is_custom_date) {
                 $('#is_custom_date').prop('checked', true).trigger('change');
                 customDatesArr = data.custom_dates || [];
@@ -698,7 +818,7 @@
                 if (data.start_datetime) $('#start_datetime').val(getLocalInputFormat(data.start_datetime, isShort));
                 if (data.end_datetime) $('#end_datetime').val(getLocalInputFormat(data.end_datetime, isShort));
             }
-            
+
             handleAppTypeChange();
 
             $('#reason').val(data.reason).trigger('input');
@@ -730,7 +850,7 @@
                 'Designation');
             $('#designation_id').val(data.designation_id || '');
 
-           $('#user_type').val('employee').css('pointer-events', 'none').addClass('bg-light');
+            $('#user_type').val('employee').css('pointer-events', 'none').addClass('bg-light');
 
             await loadUsersAsync(data.designation_id, data.branch_id, data.company_id, data.user_type);
             let uName = data.user_type === 'employee' ? data.employee?.full_name : data.member?.full_name;
@@ -754,11 +874,11 @@
                 $('.date-time-fields').hide();
                 $('#start_datetime, #end_datetime').val('').removeAttr('required');
                 $('#duration_display').val('N/A');
-                
+
                 $('.resume-duty-box').hide();
                 $('#resume_datetime').removeAttr('required');
                 $('#resume_label_star').hide();
-                
+
                 $('#customDateToggleBox').hide();
                 $('#is_custom_date').prop('checked', false).trigger('change');
             } else {
@@ -773,7 +893,7 @@
                     $('#start_label').html('Time From <span class="text-danger">*</span>');
                     $('#end_label').html('Time To <span class="text-danger">*</span>');
                     $('#start_datetime, #end_datetime').attr('required', true);
-                    
+
                     $('#customDateToggleBox').hide();
                     $('#is_custom_date').prop('checked', false).trigger('change');
                 } else {
@@ -781,7 +901,7 @@
                     $('#end_datetime').attr('type', 'date');
                     $('#start_label').html('Date From <span class="text-danger">*</span>');
                     $('#end_label').html('Date To <span class="text-danger">*</span>');
-                    
+
                     $('#customDateToggleBox').show();
                     if (!$('#is_custom_date').is(':checked')) {
                         $('.date-time-fields').show();
@@ -795,7 +915,7 @@
 
         function calculateDuration() {
             let type = $('#application_type').val();
-            
+
             if (type === 'Other') {
                 $('#duration_display').val('');
                 return;
@@ -857,13 +977,13 @@
         function addCustomDate() {
             let dateVal = $('#custom_date_input').val();
             if (!dateVal) return Swal.fire('Error', 'Please select a date first', 'warning');
-            
+
             if (customDatesArr.includes(dateVal)) {
                 return Swal.fire('Error', 'Date is already added!', 'warning');
             }
 
             customDatesArr.push(dateVal);
-            customDatesArr.sort(); 
+            customDatesArr.sort();
             $('#custom_date_input').val('');
             renderCustomDates();
         }
@@ -877,7 +997,11 @@
             let html = '';
             let hiddenHtml = '';
             customDatesArr.forEach(d => {
-                let formatted = new Date(d).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+                let formatted = new Date(d).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
                 html += `<span class="badge bg-primary fs-6 fw-normal d-flex align-items-center gap-2">
                             ${formatted} <i class="fas fa-times text-white" style="cursor:pointer;" onclick="removeCustomDate('${d}')"></i>
                          </span>`;
@@ -885,8 +1009,8 @@
             });
             $('#custom_dates_list').html(html || '<span class="text-muted small">No dates added yet.</span>');
             $('#hidden_custom_dates').html(hiddenHtml);
-            
-            calculateDuration(); 
+
+            calculateDuration();
         }
 
         function viewApplication(id) {
@@ -909,7 +1033,23 @@
 
         function loadLeaveData(page = 1) {
             let search = $('#searchBox').val();
-            $.get(`/api/v1/leave-applications?page=${page}&search=${search}&req_user_type=employee`, function(res) {
+
+            // 🔥 NAYA: Advanced filters ki values collect kar rahe hain
+            let url = `/api/v1/leave-applications?page=${page}&search=${search}&req_user_type=employee`;
+
+            // 🔥 FIX: check visibility via globalProfile which correctly uses token API
+            if (globalProfile && globalProfile.is_god) {
+                if ($('#filter_company').val()) url += `&filter_company=${$('#filter_company').val()}`;
+                if ($('#filter_branch').val()) url += `&filter_branch=${$('#filter_branch').val()}`;
+                if ($('#filter_department').val()) url += `&filter_department=${$('#filter_department').val()}`;
+                if ($('#filter_designation').val()) url += `&filter_designation=${$('#filter_designation').val()}`;
+                if ($('#filter_employee').val()) url += `&filter_employee=${$('#filter_employee').val()}`;
+                if ($('#filter_month').val()) url += `&filter_month=${$('#filter_month').val()}`;
+                if ($('#filter_start_date').val()) url += `&filter_start_date=${$('#filter_start_date').val()}`;
+                if ($('#filter_end_date').val()) url += `&filter_end_date=${$('#filter_end_date').val()}`;
+            }
+
+            $.get(url, function(res) {
                 currentPage = page;
                 renderDesktopTable(res.data.data);
                 renderMobileCards(res.data.data);
@@ -933,82 +1073,101 @@
         }
 
         function getActionButtons(row) {
-            let isOwner = globalProfile && (row.user_id == globalProfile.user_id && row.user_type === globalProfile.user_type);
+            let isOwner = globalProfile && (row.user_id == globalProfile.user_id && row.user_type === globalProfile
+                .user_type);
             let html = `<div class="btn-group">`;
 
             let uPerms = window.userPerms || [];
             let isGod = globalProfile ? globalProfile.is_god : (window.userGodMode || false);
             let safeRemarks = (row.remarks || '').replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, "");
-            
+
             let isDeleted = (row.deleted_at && row.deleted_at !== 'null') ? true : false;
 
-            html += `<button class="btn btn-sm btn-outline-info" onclick="viewApplication(${row.id})" title="View"><i class="fas fa-eye"></i></button>`;
+            // 🔥 STRICT FIX: Added .replace(/'/g, "%27") taaki text ke andar ka koi bhi single quote code na tode
+            let reasonEnc = encodeURIComponent(row.reason || 'No reason provided.').replace(/'/g, "%27");
+
+            html +=
+                `<button class="btn btn-sm btn-outline-info" onclick="viewApplication(${row.id})" title="View"><i class="fas fa-eye"></i></button>`;
 
             if (!isDeleted) {
-                if (row.status === 'pending' && (isOwner || uPerms.includes('leave_edit') || uPerms.includes('mem_app_edit') || isGod)) {
-                    html += `<button class="btn btn-sm btn-outline-primary" onclick="editApplication(${row.id})" title="Edit Request"><i class="fas fa-edit"></i></button>`;
+                if (row.status === 'pending' && (isOwner || uPerms.includes('leave_edit') || uPerms.includes(
+                        'mem_app_edit') || isGod)) {
+                    html +=
+                        `<button class="btn btn-sm btn-outline-primary" onclick="editApplication(${row.id})" title="Edit Request"><i class="fas fa-edit"></i></button>`;
                 }
 
-                let reqDatesStr = encodeURIComponent(JSON.stringify(row.custom_dates || []));
-                let appDatesStr = encodeURIComponent(JSON.stringify(row.approved_custom_dates || []));
+                // 🔥 STRICT FIX: Yahan bhi same replace lagaya gaya hai
+                let reqDatesStr = encodeURIComponent(JSON.stringify(row.custom_dates || [])).replace(/'/g, "%27");
+                let appDatesStr = encodeURIComponent(JSON.stringify(row.approved_custom_dates || [])).replace(/'/g, "%27");
                 let isCustom = row.is_custom_date ? 1 : 0;
 
-                // 🔥 Other Type Logic
+                // Other Type Logic
                 if (row.application_type === 'Other' && !isOwner) {
                     if (row.status === 'pending') {
                         if (uPerms.includes('leave_appr') || uPerms.includes('mem_app_appr') || isGod) {
-                            html += `<button class="btn btn-sm btn-outline-info" onclick="openRemarkOnlyModal(${row.id})" title="Add Official Reply"><i class="fas fa-comment-dots"></i> Reply</button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-info" onclick="openRemarkOnlyModal(${row.id}, '', false, '${reasonEnc}')" title="Add Official Reply"><i class="fas fa-comment-dots"></i> Reply</button>`;
                         }
                     } else if (row.status === 'approved') {
                         if (uPerms.includes('leave_appr') || uPerms.includes('mem_app_appr') || isGod) {
-                            html += `<button class="btn btn-sm btn-outline-warning" onclick="openRemarkOnlyModal(${row.id}, '${safeRemarks}')" title="Edit Reply"><i class="fas fa-edit"></i> Edit Reply</button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-warning" onclick="openRemarkOnlyModal(${row.id}, '${safeRemarks}', true, '${reasonEnc}')" title="Edit Reply"><i class="fas fa-edit"></i> Edit Reply</button>`;
                         }
                     }
-                } 
-                // 🔥 Leave / Short Leave Logic
+                }
+                // Leave / Short Leave Logic
                 else {
                     if (row.status === 'pending' && !isOwner) {
                         if (uPerms.includes('leave_appr') || uPerms.includes('mem_app_appr') || isGod) {
                             let resumeDt = row.resume_datetime || '';
-                            html += `<button class="btn btn-sm btn-outline-success" onclick="openApproveModal(${row.id}, '${row.duration}', '${row.application_type}', '${row.start_datetime}', '${row.end_datetime}', '${resumeDt}', '', false, ${isCustom}, '${reqDatesStr}', '${appDatesStr}')" title="Approve"><i class="fas fa-check"></i></button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-success" onclick="openApproveModal(${row.id}, '${row.duration}', '${row.application_type}', '${row.start_datetime}', '${row.end_datetime}', '${resumeDt}', '', false, ${isCustom}, '${reqDatesStr}', '${appDatesStr}', '${reasonEnc}')" title="Approve"><i class="fas fa-check"></i></button>`;
                         }
                         if (uPerms.includes('leave_rej') || uPerms.includes('mem_app_rej') || isGod) {
-                            html += `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id})" title="Reject"><i class="fas fa-times"></i></button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id}, '', false, '${reasonEnc}')" title="Reject"><i class="fas fa-times"></i></button>`;
                         }
-                    }
-                    else if (row.status === 'approved' && !isOwner) {
+                    } else if (row.status === 'approved' && !isOwner) {
                         if (uPerms.includes('leave_appr') || uPerms.includes('mem_app_appr') || isGod) {
                             let resumeDt = row.approved_resume_datetime || row.resume_datetime || '';
                             let startDt = row.approved_start_datetime || row.start_datetime || '';
                             let endDt = row.approved_end_datetime || row.end_datetime || '';
                             let duration = row.approved_duration || row.duration || '';
-                            html += `<button class="btn btn-sm btn-outline-warning" onclick="openApproveModal(${row.id}, '${duration}', '${row.application_type}', '${startDt}', '${endDt}', '${resumeDt}', '${safeRemarks}', true, ${isCustom}, '${reqDatesStr}', '${appDatesStr}')" title="Edit Approval"><i class="fas fa-user-edit"></i></button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-warning" onclick="openApproveModal(${row.id}, '${duration}', '${row.application_type}', '${startDt}', '${endDt}', '${resumeDt}', '${safeRemarks}', true, ${isCustom}, '${reqDatesStr}', '${appDatesStr}', '${reasonEnc}')" title="Edit Approval"><i class="fas fa-user-edit"></i></button>`;
                         }
                         if (uPerms.includes('leave_rej') || uPerms.includes('mem_app_rej') || isGod) {
-                            html += `<button class="btn btn-sm btn-outline-danger ms-1" onclick="openRejectModal(${row.id}, '', false)" title="Revoke & Reject"><i class="fas fa-ban"></i></button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-danger ms-1" onclick="openRejectModal(${row.id}, '', false, '${reasonEnc}')" title="Revoke & Reject"><i class="fas fa-ban"></i></button>`;
                         }
-                    }
-                    else if (row.status === 'rejected' && !isOwner) {
+                    } else if (row.status === 'rejected' && !isOwner) {
                         if (uPerms.includes('leave_appr') || uPerms.includes('mem_app_appr') || isGod) {
                             let resumeDt = row.resume_datetime || '';
-                            html += `<button class="btn btn-sm btn-outline-success me-1" onclick="openApproveModal(${row.id}, '${row.duration}', '${row.application_type}', '${row.start_datetime}', '${row.end_datetime}', '${resumeDt}', '', false, ${isCustom}, '${reqDatesStr}', '${appDatesStr}')" title="Revoke Rejection & Approve"><i class="fas fa-check-double"></i></button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-success me-1" onclick="openApproveModal(${row.id}, '${row.duration}', '${row.application_type}', '${row.start_datetime}', '${row.end_datetime}', '${resumeDt}', '', false, ${isCustom}, '${reqDatesStr}', '${appDatesStr}', '${reasonEnc}')" title="Revoke Rejection & Approve"><i class="fas fa-check-double"></i></button>`;
                         }
                         if (uPerms.includes('leave_rej') || uPerms.includes('mem_app_rej') || isGod) {
-                            html += `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id}, '${safeRemarks}', true)" title="Edit Rejection Remark"><i class="fas fa-edit"></i></button>`;
+                            html +=
+                                `<button class="btn btn-sm btn-outline-danger" onclick="openRejectModal(${row.id}, '${safeRemarks}', true, '${reasonEnc}')" title="Edit Rejection Remark"><i class="fas fa-edit"></i></button>`;
                         }
                     }
                 }
-            } 
-
-            if (!isDeleted && row.status !== 'pending' && (uPerms.includes('leave_print') || uPerms.includes('mem_app_print') || isGod)) {
-                html += `<button class="btn btn-sm btn-outline-secondary" onclick="printApplication(${row.id})" title="Print"><i class="fas fa-print"></i></button>`;
             }
 
-            if ((isOwner && row.status === 'pending' && !isDeleted) || uPerms.includes('leave_delete') || uPerms.includes('mem_app_delete') || isGod) {
+            if (!isDeleted && row.status !== 'pending' && (uPerms.includes('leave_print') || uPerms.includes(
+                    'mem_app_print') || isGod)) {
+                html +=
+                    `<button class="btn btn-sm btn-outline-secondary" onclick="printApplication(${row.id})" title="Print"><i class="fas fa-print"></i></button>`;
+            }
+
+            if ((isOwner && row.status === 'pending' && !isDeleted) || uPerms.includes('leave_delete') || uPerms.includes(
+                    'mem_app_delete') || isGod) {
                 if (isDeleted) {
-                    html += `<button class="btn btn-sm btn-danger" onclick="deleteSingleApplication(${row.id})" title="Permanent Delete"><i class="fas fa-trash-alt"></i></button>`;
+                    html +=
+                        `<button class="btn btn-sm btn-danger" onclick="deleteSingleApplication(${row.id})" title="Permanent Delete"><i class="fas fa-trash-alt"></i></button>`;
                 } else {
-                    html += `<button class="btn btn-sm btn-outline-danger" onclick="deleteSingleApplication(${row.id})" title="Delete to Trash"><i class="fas fa-trash"></i></button>`;
+                    html +=
+                        `<button class="btn btn-sm btn-outline-danger" onclick="deleteSingleApplication(${row.id})" title="Delete to Trash"><i class="fas fa-trash"></i></button>`;
                 }
             }
 
@@ -1024,9 +1183,11 @@
                 return;
             }
 
-           data.forEach(item => {
-                let baseName = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member?.member_name || item.member?.full_name || 'N/A');
-                let code = item.user_type === 'employee' ? (item.employee?.member_id || '') : (item.member?.member_id || '');
+            data.forEach(item => {
+                let baseName = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member
+                    ?.member_name || item.member?.full_name || 'N/A');
+                let code = item.user_type === 'employee' ? (item.employee?.member_id || '') : (item.member
+                    ?.member_id || '');
                 let name = code ? `${baseName} (${code})` : baseName;
                 let typeSuffix = item.application_type === 'Short Leave' ? 'Hrs' : 'Days';
                 let durationStr = item.duration ? `${item.duration} ${typeSuffix}` : 'N/A';
@@ -1043,12 +1204,14 @@
                     }
                 }
 
-               let paidBadge = item.is_paid_leave ?
-                    '<span class="badge bg-success ms-1" style="font-size: 10px;"><i class="fas fa-rupee-sign"></i> Paid</span>' : '';
+                let paidBadge = item.is_paid_leave ?
+                    '<span class="badge bg-success ms-1" style="font-size: 10px;"><i class="fas fa-rupee-sign"></i> Paid</span>' :
+                    '';
 
                 let cDate = new Date(item.created_at);
                 let pad = (n) => n < 10 ? '0' + n : n;
-                let appliedOnStr = `${pad(cDate.getDate())}/${pad(cDate.getMonth() + 1)}/${cDate.getFullYear()} ${cDate.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}`;
+                let appliedOnStr =
+                    `${pad(cDate.getDate())}/${pad(cDate.getMonth() + 1)}/${cDate.getFullYear()} ${cDate.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}`;
 
                 let tr = `<tr>
                     <td><input type="checkbox" class="form-check-input row-checkbox" value="${item.id}"></td>
@@ -1070,11 +1233,13 @@
             if (data.length === 0) {
                 container.html('<div class="text-center py-4 text-muted">No records found.</div>');
                 return;
-            } 
+            }
 
             data.forEach(item => {
-                let baseName = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member?.member_name || item.member?.full_name || 'N/A');
-                let code = item.user_type === 'employee' ? (item.employee?.member_id || '') : (item.member?.member_id || '');
+                let baseName = item.user_type === 'employee' ? (item.employee?.full_name || 'N/A') : (item.member
+                    ?.member_name || item.member?.full_name || 'N/A');
+                let code = item.user_type === 'employee' ? (item.employee?.member_id || '') : (item.member
+                    ?.member_id || '');
                 let name = code ? `${baseName} (${code})` : baseName;
                 let typeSuffix = item.application_type === 'Short Leave' ? 'Hrs' : 'Days';
                 let durationStr = item.duration ? `${item.duration} ${typeSuffix}` : 'N/A';
@@ -1089,12 +1254,13 @@
                     }
                 }
 
-               let paidBadge = item.is_paid_leave ?
+                let paidBadge = item.is_paid_leave ?
                     '<span class="badge bg-success ms-1"><i class="fas fa-rupee-sign"></i> Paid</span>' : '';
 
                 let cDate = new Date(item.created_at);
                 let pad = (n) => n < 10 ? '0' + n : n;
-                let appliedOnStr = `${pad(cDate.getDate())}/${pad(cDate.getMonth() + 1)}/${cDate.getFullYear()} ${cDate.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}`;
+                let appliedOnStr =
+                    `${pad(cDate.getDate())}/${pad(cDate.getMonth() + 1)}/${cDate.getFullYear()} ${cDate.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}`;
 
                 let card = `<div class="card mb-2 border-0 shadow-sm">
                     <div class="card-body p-3">
@@ -1237,10 +1403,10 @@
                 $('#leaveApplicationForm')[0].reportValidity();
                 return;
             }
-            
+
             let form = $('#leaveApplicationForm')[0];
             let formData = new FormData(form);
-            
+
             // 🔥 NAYA HACK: Backend validation bypass for dummy date fields
             if ($('#is_custom_date').is(':checked') || $('#application_type').val() === 'Other') {
                 formData.set('start_datetime', '2026-01-01');
@@ -1254,15 +1420,15 @@
 
             $('#btnSaveLeave').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Submitting...');
             let url = id ? `/api/v1/leave-applications/${id}` : '/api/v1/leave-applications';
-            
+
             if (id) formData.append('_method', 'PUT');
 
             $.ajax({
                 url: url,
-                type: 'POST', 
+                type: 'POST',
                 data: formData,
-                processData: false, 
-                contentType: false, 
+                processData: false,
+                contentType: false,
                 success: function(res) {
                     if (res.success) {
                         Swal.fire('Success', res.message, 'success');
@@ -1274,7 +1440,9 @@
                     let errors = xhr.responseJSON?.errors;
                     let errorMsg = '';
                     if (errors) {
-                        for (let key in errors) { errorMsg += errors[key][0] + '<br>'; }
+                        for (let key in errors) {
+                            errorMsg += errors[key][0] + '<br>';
+                        }
                     } else {
                         errorMsg = xhr.responseJSON?.message || 'Something went wrong';
                     }
@@ -1286,11 +1454,18 @@
             });
         }
 
-        function openApproveModal(id, requestedDuration, type, startDt, endDt, resumeDt, remarks = '', isEdit = false, isCustom = 0, reqDatesEnc = '%5B%5D', appDatesEnc = '%5B%5D') {
+        function openApproveModal(id, requestedDuration, type, startDt, endDt, resumeDt, remarks = '', isEdit = false,
+            isCustom = 0, reqDatesEnc = '%5B%5D', appDatesEnc = '%5B%5D', reasonEnc = '') {
             $('#approve_leave_id').val(id);
             $('#approve_leave_type').val(type);
             $('#approve_duration').val(requestedDuration);
-            $('#approve_remarks').val(remarks);
+            // 🔥 NAYA FIX: Default remark logic
+            if (!isEdit) {
+                $('#approve_remarks').val('Ok Approved!'); // Default Text
+            } else {
+                $('#approve_remarks').val(remarks); // Purana text edit ke liye
+            }
+            $('#approve_applicant_reason').html(decodeURIComponent(reasonEnc).replace(/\n/g, '<br>'));
 
             $('#approveModalTitle').html(isEdit ? '<i class="fas fa-edit me-2"></i>Edit Approval' :
                 '<i class="fas fa-check-circle me-2"></i>Approve Request');
@@ -1304,13 +1479,17 @@
             if (isCustom === 1) {
                 $('#approve_date_area').hide();
                 $('.custom-approve-fields').show();
-                
+
                 let reqDates = JSON.parse(decodeURIComponent(reqDatesEnc));
                 let appDates = JSON.parse(decodeURIComponent(appDatesEnc));
 
                 let chkHtml = '';
                 reqDates.forEach(d => {
-                    let formatted = new Date(d).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+                    let formatted = new Date(d).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
                     let isChecked = (!isEdit || appDates.includes(d)) ? 'checked' : '';
                     chkHtml += `
                         <div class="form-check form-check-inline fs-6 bg-white p-2 border rounded shadow-sm m-0">
@@ -1356,7 +1535,9 @@
             }
 
             if (endDate < startDate) {
-                $('#approve_duration_warning').html('<i class="fas fa-exclamation-triangle"></i> End date/time cannot be before start date/time!').removeClass('d-none');
+                $('#approve_duration_warning').html(
+                        '<i class="fas fa-exclamation-triangle"></i> End date/time cannot be before start date/time!')
+                    .removeClass('d-none');
                 return;
             }
 
@@ -1386,7 +1567,8 @@
                 $('.admin-custom-chk:checked').each(function() {
                     approvedCustomDates.push($(this).val());
                 });
-                if (approvedCustomDates.length === 0) return Swal.fire('Error', 'You must approve at least one date, or reject the application.', 'error');
+                if (approvedCustomDates.length === 0) return Swal.fire('Error',
+                    'You must approve at least one date, or reject the application.', 'error');
             }
 
             if (!duration || duration <= 0 || (!isCustom && (!start || !end)) || !resume) {
@@ -1424,13 +1606,21 @@
             });
         }
 
-        function openRejectModal(id, remarks = '', isEdit = false) {
+        function openRejectModal(id, remarks = '', isEdit = false, reasonEnc = '') {
             $('#reject_leave_id').val(id);
-            $('#reject_remarks').val(remarks);
-            
-            let modalTitle = isEdit ? '<i class="fas fa-edit me-2"></i>Edit Rejection Remark' : '<i class="fas fa-times-circle me-2"></i>Reject Request';
-            let btnText = isEdit ? '<i class="fas fa-save"></i> Save Changes' : '<i class="fas fa-times"></i> Confirm Rejection';
-            
+            // 🔥 NAYA FIX: Default remark logic
+            if (!isEdit) {
+                $('#reject_remarks').val('Rejected'); // Default Text
+            } else {
+                $('#reject_remarks').val(remarks); // Purana text edit ke liye
+            }
+            $('#reject_applicant_reason').html(decodeURIComponent(reasonEnc).replace(/\n/g, '<br>'));
+
+            let modalTitle = isEdit ? '<i class="fas fa-edit me-2"></i>Edit Rejection Remark' :
+                '<i class="fas fa-times-circle me-2"></i>Reject Request';
+            let btnText = isEdit ? '<i class="fas fa-save"></i> Save Changes' :
+                '<i class="fas fa-times"></i> Confirm Rejection';
+
             $('#rejectModal .modal-title').html(modalTitle);
             $('#rejectModal .btn-danger').attr('onclick', 'submitReject()').html(btnText);
 
@@ -1463,9 +1653,10 @@
             });
         }
 
-        function openRemarkOnlyModal(id, remarks = '') {
+        function openRemarkOnlyModal(id, remarks = '', isEdit = false, reasonEnc = '') {
             $('#remark_only_leave_id').val(id);
             $('#remark_only_text').val(remarks);
+            $('#remark_applicant_reason').html(decodeURIComponent(reasonEnc).replace(/\n/g, '<br>'));
             $('#remarkOnlyModal').modal('show');
         }
 
@@ -1481,7 +1672,9 @@
             $.ajax({
                 url: `/api/v1/leave-applications/${id}/remark`,
                 type: 'POST',
-                data: { remarks: remarks },
+                data: {
+                    remarks: remarks
+                },
                 success: function(res) {
                     if (res.success) {
                         Swal.fire('Success!', res.message, 'success');
@@ -1496,15 +1689,20 @@
         }
 
         function formatAppDateRange(item) {
-            if(item.application_type === 'Other') return '<span class="text-muted">N/A</span>';
+            if (item.application_type === 'Other') return '<span class="text-muted">N/A</span>';
 
             if (item.is_custom_date) {
                 let reqDates = item.custom_dates || [];
                 let appDates = item.approved_custom_dates || [];
                 let isApproved = item.status === 'approved' || item.status === 'active';
-                let isModified = isApproved && (reqDates.length !== appDates.length || !reqDates.every(val => appDates.includes(val)));
-                
-                let formatArr = (arr) => arr.map(d => new Date(d).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'2-digit'})).join(', ');
+                let isModified = isApproved && (reqDates.length !== appDates.length || !reqDates.every(val => appDates
+                    .includes(val)));
+
+                let formatArr = (arr) => arr.map(d => new Date(d).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: '2-digit'
+                })).join(', ');
 
                 if (isModified) {
                     return `
@@ -1522,8 +1720,16 @@
             let rStart = new Date(item.start_datetime);
             let rEnd = new Date(item.end_datetime);
 
-            let optDate = { day: '2-digit', month: 'short', year: 'numeric' };
-            let optTime = { hour: '2-digit', minute: '2-digit', hour12: true };
+            let optDate = {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            };
+            let optTime = {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            };
 
             let reqSDate = !isNaN(rStart) ? rStart.toLocaleDateString('en-IN', optDate) : '';
             let reqEDate = !isNaN(rEnd) ? rEnd.toLocaleDateString('en-IN', optDate) : '';
@@ -1532,7 +1738,8 @@
             let aStart = isApproved && item.approved_start_datetime ? new Date(item.approved_start_datetime) : null;
             let aEnd = isApproved && item.approved_end_datetime ? new Date(item.approved_end_datetime) : null;
 
-            let isModified = isApproved && aStart && aEnd && (rStart.getTime() !== aStart.getTime() || rEnd.getTime() !== aEnd.getTime());
+            let isModified = isApproved && aStart && aEnd && (rStart.getTime() !== aStart.getTime() || rEnd.getTime() !==
+                aEnd.getTime());
 
             if (isModified) {
                 let appSDate = aStart.toLocaleDateString('en-IN', optDate);
@@ -1550,14 +1757,14 @@
                         <span class="fw-bold text-success mt-1" title="Approved">App: ${appSDate} ${aSTime} - ${appEDate} ${aETime}</span>
                     </div>`;
                 } else {
-                     return `
+                    return `
                     <div class="d-flex flex-column lh-1">
                         <small class="text-decoration-line-through text-danger" title="Requested">Req: ${reqSDate} - ${reqEDate}</small>
                         <span class="fw-bold text-success mt-1" title="Approved">App: ${appSDate} - ${appEDate}</span>
                     </div>`;
                 }
             } else {
-                 if(isShort) {
+                if (isShort) {
                     let sTime = rStart.toLocaleTimeString('en-IN', optTime);
                     let eTime = rEnd.toLocaleTimeString('en-IN', optTime);
                     return `<div class="small lh-sm"><b>From:</b> ${reqSDate} ${sTime}<br><b>To:</b> <span class="ms-3">${reqEDate} ${eTime}</span></div>`;
@@ -1571,12 +1778,12 @@
 
         $('#proof_attachments').on('change', function(e) {
             let errorDiv = $('#file_size_error');
-            errorDiv.addClass('d-none').text(''); 
+            errorDiv.addClass('d-none').text('');
             let hasError = false;
 
             if (e.target.files.length > 0 && e.target.files !== leaveAttachmentsDt.files) {
                 let newDt = new DataTransfer();
-                
+
                 Array.from(e.target.files).forEach(file => {
                     if (file.size > 2 * 1024 * 1024) {
                         hasError = true;
@@ -1588,7 +1795,9 @@
             }
 
             if (hasError) {
-                errorDiv.removeClass('d-none').html('<i class="fas fa-exclamation-circle"></i> Error: One or more files exceed the 2MB limit and have been removed from selection.');
+                errorDiv.removeClass('d-none').html(
+                    '<i class="fas fa-exclamation-circle"></i> Error: One or more files exceed the 2MB limit and have been removed from selection.'
+                );
             }
 
             let container = $('#attachment_previews');
@@ -1599,7 +1808,8 @@
                 let isImage = file.type.startsWith('image/');
                 let isPdf = file.type === 'application/pdf';
 
-                let removeBtn = `<button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle remove-file" data-index="${index}" style="z-index: 20; width: 22px; height: 22px; padding: 0; line-height: 1;" title="Remove this file"><i class="fas fa-times"></i></button>`;
+                let removeBtn =
+                    `<button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle remove-file" data-index="${index}" style="z-index: 20; width: 22px; height: 22px; padding: 0; line-height: 1;" title="Remove this file"><i class="fas fa-times"></i></button>`;
 
                 let previewHtml = '';
                 if (isImage) {
@@ -1617,7 +1827,7 @@
                     </div>`;
                 }
 
-                if(previewHtml) container.append(previewHtml);
+                if (previewHtml) container.append(previewHtml);
             });
 
             this.files = leaveAttachmentsDt.files;
@@ -1629,19 +1839,161 @@
 
             Array.from(leaveAttachmentsDt.files).forEach((file, index) => {
                 if (index !== indexToRemove) {
-                    newDt.items.add(file); 
+                    newDt.items.add(file);
                 }
             });
 
-            leaveAttachmentsDt = newDt; 
-            $('#proof_attachments')[0].files = leaveAttachmentsDt.files; 
-            $('#proof_attachments').trigger('change'); 
+            leaveAttachmentsDt = newDt;
+            $('#proof_attachments')[0].files = leaveAttachmentsDt.files;
+            $('#proof_attachments').trigger('change');
         });
 
+        // 🔥 NAYA: Export to Excel / CSV Function
+        function exportExcel() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            let rows = document.querySelectorAll("#leaveTable tr");
+
+            if (rows.length <= 2 && rows[1] && rows[1].innerText.includes('No records')) {
+                Swal.fire('Notice', 'No data available to export.', 'info');
+                return;
+            }
+
+            for (let i = 0; i < rows.length; i++) {
+                let row = [],
+                    cols = rows[i].querySelectorAll("td, th");
+
+                for (let j = 1; j < cols.length - 1; j++) {
+                    let text = cols[j].innerText.replace(/"/g, '""').replace(/\n/g, ' | ');
+                    row.push('"' + text + '"');
+                }
+                csvContent += row.join(",") + "\r\n";
+            }
+
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+
+            let today = new Date();
+            let dateStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, '0') + "-" + String(today
+                .getDate()).padStart(2, '0');
+            link.setAttribute("download", `Leave_Applications_${dateStr}.csv`);
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // ==========================================
+        // 🔥 ADVANCED FILTER CASCADING LOGIC 🔥
+        // ==========================================
+
+        function initAdvancedFilters() {
+            if (!globalProfile || !globalProfile.is_god) return; // ✅ Changed to globalProfile
+
+            $('#advancedFiltersBlock').removeClass('d-none'); // ✅ Unhide the filter block
+
+            // 1. Load Initial Companies
+            $.post('/api/v1/filters/companies', function(res) {
+                let opts = '<option value="">All Companies</option>';
+                res.data.forEach(c => opts += `<option value="${c.id}">${c.company_name}</option>`);
+                $('#filter_company').html(opts);
+                loadFilterEmployees(); // Bina filter ke saare employees le aao
+            });
+
+            // 2. On Company Change -> Load Branches & Depts & Emps
+            $('#filter_company').change(function() {
+                let compId = $(this).val();
+                $('#filter_branch').html('<option value="">All Branches</option>');
+                $('#filter_department').html('<option value="">All Departments</option>');
+                $('#filter_designation').html('<option value="">All Designations</option>');
+
+                if (compId) {
+                    $.post('/api/v1/filters/branches', {
+                        company_id: compId
+                    }, function(res) {
+                        let compName = $("#filter_company option:selected").text();
+                        let opts = '<option value="">All Branches</option>';
+                        opts +=
+                            `<option value="HO" class="fw-bold text-primary">${compName} (Head Office)</option>`;
+                        res.data.forEach(b => opts += `<option value="${b.id}">${b.branch_name}</option>`);
+                        $('#filter_branch').html(opts);
+                    });
+                }
+                loadFilterDepartments();
+                loadFilterEmployees();
+            });
+
+            // 3. On Branch Change -> Load Depts & Emps
+            $('#filter_branch').change(function() {
+                loadFilterDepartments();
+                loadFilterEmployees();
+            });
+
+            // 4. On Department Change -> Load Designations & Emps
+            $('#filter_department').change(function() {
+                let deptId = $(this).val();
+                $('#filter_designation').html('<option value="">All Designations</option>');
+                if (deptId) {
+                    $.post('/api/v1/filters/designations', {
+                        department_id: deptId
+                    }, function(res) {
+                        let opts = '<option value="">All Designations</option>';
+                        res.data.forEach(d => opts +=
+                            `<option value="${d.id}">${d.designation_name}</option>`);
+                        $('#filter_designation').html(opts);
+                    });
+                }
+                loadFilterEmployees();
+            });
+
+            // 5. On Designation Change -> Load Emps
+            $('#filter_designation').change(function() {
+                loadFilterEmployees();
+            });
+        }
+
+        // Shared function to load departments based on Company and Branch
+        function loadFilterDepartments() {
+            let compId = $('#filter_company').val();
+            let branchId = $('#filter_branch').val();
+
+            $.post('/api/v1/filters/departments', {
+                company_id: compId,
+                branch_id: branchId
+            }, function(res) {
+                let opts = '<option value="">All Departments</option>';
+                res.data.forEach(d => opts += `<option value="${d.id}">${d.department_name}</option>`);
+                $('#filter_department').html(opts);
+            });
+        }
+
+        // Shared function to load Employees based on all upper filters
+        function loadFilterEmployees() {
+            let payload = {
+                company_id: $('#filter_company').val(),
+                branch_id: $('#filter_branch').val(),
+                department_id: $('#filter_department').val(),
+                designation_id: $('#filter_designation').val()
+            };
+
+            $.post('/api/v1/filters/employees', payload, function(res) {
+                let opts = '<option value="">All Employees</option>';
+                res.data.forEach(e => opts += `<option value="${e.id}">${e.full_name} (${e.member_id})</option>`);
+                $('#filter_employee').html(opts);
+            });
+        }
+
+        function resetAdvancedFilters() {
+            $('#filter_company').val('').trigger('change');
+            $('#filter_month, #filter_start_date, #filter_end_date').val('');
+            loadLeaveData(1);
+        }
+
+        // Call init in document.ready
         $(document).ready(async function() {
             await fetchProfile();
+            initAdvancedFilters(); // 🔥 NAYA ADD KIYA
             loadLeaveData(1);
         });
     </script>
 @endpush
-

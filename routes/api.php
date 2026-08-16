@@ -38,6 +38,8 @@ use App\Http\Controllers\Api\V1\Admin\TaskTrackingModuleController;
 use App\Http\Controllers\Api\V1\Admin\TaskController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\Admin\BankDetailController;
+use App\Http\Controllers\Api\FaqController;
+use App\Http\Controllers\Api\ChatController;
 
 
 
@@ -55,6 +57,7 @@ Route::prefix('v1')->group(function () {
     // ==========================================================================
     Route::prefix('admin')->group(function () {
         Route::post('/auth/login-request', [AdminAuthController::class, 'requestLogin']);
+        Route::post('/auth/verify-passkey', [AdminAuthController::class, 'verifyPasskey']);
         // 🔥 Ye dono nayi line add karni hai CEO OTP Login ke liye
         Route::post('/auth/super-admin/request-otp', [AdminAuthController::class, 'superAdminRequestOtp']);
         Route::post('/auth/super-admin/verify-otp', [AdminAuthController::class, 'superAdminVerifyOtp']);
@@ -112,6 +115,9 @@ Route::prefix('v1')->group(function () {
                 $request->user()->currentAccessToken()->delete();
                 return response()->json(['status' => 'success', 'message' => 'Logged out successfully']);
             });
+
+
+
 
          
         });
@@ -391,12 +397,28 @@ Route::post('/ledgers/{id}/status', [LedgerController::class, 'updateStatus']);
         Route::post('interested-customers/filter-reports', [InterestedCustomerController::class, 'filterReports']);
         Route::post('interested-customers/{id}/status', [InterestedCustomerController::class, 'updateEntryStatus']);
         Route::post('interested-customers/import', [InterestedCustomerController::class, 'import']);
-Route::apiResource('interested-customers', InterestedCustomerController::class);
+        Route::apiResource('interested-customers', InterestedCustomerController::class);
         // --- Operations & Utilities ---
 
-        Route::get('/letterheads/next-ref', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'getNextRefNo']);
-        Route::apiResource('letterheads', LetterheadController::class);
-        Route::post('letterheads/upload-image', [LetterheadController::class, 'uploadImage']);
+    // =======================================================
+// 🔥 LETTERHEAD MODULE API ROUTES 🔥
+// =======================================================
+Route::prefix('letterheads')->group(function () {
+    Route::get('/next-ref', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'getNextRefNo']);
+    Route::get('/search-entities', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'searchEntities']);
+    Route::post('/upload-image', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'uploadImage']);
+    
+    // Action Modifiers & Bulk Utilities
+    Route::post('/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'bulkDelete']);
+    Route::post('/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'approve']);
+    Route::post('/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'reject']);
+    
+    // 🔥 NAYA: Send to Notice Board Route
+    Route::post('/send', [\App\Http\Controllers\Api\V1\Admin\LetterheadController::class, 'sendToNoticeBoard']);
+});
+
+Route::apiResource('letterheads', \App\Http\Controllers\Api\V1\Admin\LetterheadController::class);
+
         Route::get('/id-cards/staff-list', [IdCardController::class, 'getStaffList']);
         Route::post('/media/upload', [MediaController::class, 'upload']);
 
@@ -444,17 +466,25 @@ Route::apiResource('interested-customers', InterestedCustomerController::class);
         Route::post('travel-allowances/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'reject']);
         Route::post('travel-allowances/{id}/remarks', [\App\Http\Controllers\Api\V1\Admin\TravelAllowanceApiController::class, 'updateRemarks']);
 
-        // --- Leave, Short Leave & Other Applications ---
-        Route::apiResource('leave-applications', \App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class);
+        
         // --- Leave Applications API ---
+
+        Route::post('filters/companies', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getFilterCompanies']);
+    Route::post('filters/branches', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getFilterBranches']);
+    Route::post('filters/departments', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getFilterDepartments']);
+    Route::post('filters/designations', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getFilterDesignations']);
+    Route::post('filters/employees', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getFilterEmployees']);
+
+
         Route::get('leave-applications/dropdown/users', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getUsersByDesignation']);
-        Route::apiResource('leave-applications', \App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class);
+       
         Route::post('leave-applications/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'approve']);
         Route::get('leave-applications/dropdown/apply-to', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'getApplyToOptions']);
         Route::post('leave-applications/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'reject']);
         // 🔥 NAYA ROUTE: Sirf Remark add karne ke liye (Other application type)
         Route::post('leave-applications/{id}/remark', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'addRemark']);
         Route::get('leave-applications/{id}/view', [\App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class, 'viewHtml']);
+         Route::apiResource('leave-applications', \App\Http\Controllers\Api\V1\Admin\LeaveApplicationApiController::class);
         // Fine Penalty Module
         Route::apiResource('fine-penalties', \App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class);
         Route::post('fine-penalties/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\FinePenaltyApiController::class, 'bulkDelete']);
@@ -606,7 +636,243 @@ Route::delete('salaries/{id}', [\App\Http\Controllers\Api\V1\Admin\SalaryApiCont
         // 4. Base API Resource (Ise hamesha last me rakhein taaki conflicts na ho)
         Route::apiResource('incentives', \App\Http\Controllers\Api\V1\Admin\IncentiveApiController::class);
 
+
+        // =======================================================
+        // 🔥 SITE VISIT MODULE API ROUTES 🔥
+        // =======================================================
+        
+        // 1. Custom Routes HAMESHA Upar Rahenge
+        Route::prefix('site-visits')->group(function () {
+            Route::get('/search-branch', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'searchBranchForSV']);
+            Route::get('/search-employee', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'searchEmployeeForSV']);
+            Route::get('/search-phase', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'searchPhaseForSV']);
+            
+            // Stats & Scheduled Customers
+            Route::post('/fetch-scheduled-customers', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'fetchScheduledCustomers']);
+            Route::post('/calculate-stats', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'calculateStats']);
+            
+            // 🟢 Action Modifiers & Bulk Utilities (Must be before apiResource)
+            Route::post('/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'bulkDelete']);
+            
+            Route::post('/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'approve']);
+            Route::post('/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'reject']);
+            Route::delete('/image/{id}', [\App\Http\Controllers\Api\V1\Admin\SiteVisitController::class, 'deleteImage']);
+        });
+        
+        // 2. Base API Resources HAMESHA Custom Routes ke Niche Rahenge
+        Route::apiResource('site-visits', \App\Http\Controllers\Api\V1\Admin\SiteVisitController::class);
+        Route::apiResource('site-visit-settings', \App\Http\Controllers\Api\V1\Admin\SiteVisitSettingController::class);
+        
+Route::post('/fix-allocation-blunder', [\App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'fixBlunder']);
+
+
+
+// =======================================================
+        // 🔥 VISITOR MANAGEMENT API ROUTES 🔥
+        // =======================================================
+        
+    Route::prefix('visitors')->group(function () {
+            Route::get('/directory', [\App\Http\Controllers\Api\V1\Admin\VisitorController::class, 'directory']);
+            Route::get('/export', [\App\Http\Controllers\Api\V1\Admin\VisitorController::class, 'export']);
+            Route::get('/history', [\App\Http\Controllers\Api\V1\Admin\VisitorController::class, 'history']);
+            Route::get('/search-host', [\App\Http\Controllers\Api\V1\Admin\VisitorController::class, 'searchHost']); // 🔥 NAYA ROUTE
+            Route::post('/add-general-lead', [\App\Http\Controllers\Api\V1\Admin\VisitorController::class, 'addGeneralLead']);
+            Route::post('/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\VisitorController::class, 'destroy']);
+        });
+        
+        Route::apiResource('visitors', \App\Http\Controllers\Api\V1\Admin\VisitorController::class);
+
+
+        // =======================================================
+// 🔥 PROPERTY MODULE API ROUTES (Cascading & Shared) 🔥
+// =======================================================
+
+Route::prefix('property-dependencies')->group(function () {
+    Route::get('/types/{phase_id}', [\App\Http\Controllers\Api\V1\Admin\PropertyDependencyApiController::class, 'getTypes']);
+    Route::get('/categories/{type_id}', [\App\Http\Controllers\Api\V1\Admin\PropertyDependencyApiController::class, 'getCategories']);
+    Route::get('/areas/{category_id}', [\App\Http\Controllers\Api\V1\Admin\PropertyDependencyApiController::class, 'getAreas']);
+});
+
+// Property Type Modifiers & Bulk Actions
+Route::post('/property-types/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PropertyTypeApiController::class, 'bulkDelete']);
+Route::post('/property-types/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PropertyTypeApiController::class, 'approve']);
+Route::post('/property-types/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PropertyTypeApiController::class, 'reject']);
+
+// Base Resource API (Keep at the bottom of the block)[cite: 5]
+Route::apiResource('property-types', \App\Http\Controllers\Api\V1\Admin\PropertyTypeApiController::class);
+
+
+Route::post('/property-categories/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PropertyCategoryApiController::class, 'bulkDelete']);
+Route::post('/property-categories/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PropertyCategoryApiController::class, 'approve']);
+Route::post('/property-categories/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PropertyCategoryApiController::class, 'reject']);
+Route::apiResource('property-categories', \App\Http\Controllers\Api\V1\Admin\PropertyCategoryApiController::class);
+
+Route::post('/property-areas/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PropertyAreaApiController::class, 'bulkDelete']);
+Route::post('/property-areas/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PropertyAreaApiController::class, 'approve']);
+Route::post('/property-areas/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PropertyAreaApiController::class, 'reject']);
+Route::apiResource('property-areas', \App\Http\Controllers\Api\V1\Admin\PropertyAreaApiController::class);
+
+Route::post('/property-rates/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PropertyRateApiController::class, 'bulkDelete']);
+Route::post('/property-rates/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PropertyRateApiController::class, 'approve']);
+Route::post('/property-rates/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PropertyRateApiController::class, 'reject']);
+Route::apiResource('property-rates', \App\Http\Controllers\Api\V1\Admin\PropertyRateApiController::class);
+
+Route::post('/property-emi-plans/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PropertyEmiPlanApiController::class, 'bulkDelete']);
+Route::post('/property-emi-plans/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PropertyEmiPlanApiController::class, 'approve']);
+Route::post('/property-emi-plans/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PropertyEmiPlanApiController::class, 'reject']);
+Route::apiResource('property-emi-plans', \App\Http\Controllers\Api\V1\Admin\PropertyEmiPlanApiController::class);
+
+
+Route::post('/property-charges/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PropertyChargeApiController::class, 'bulkDelete']);
+Route::post('/property-charges/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PropertyChargeApiController::class, 'approve']);
+Route::post('/property-charges/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PropertyChargeApiController::class, 'reject']);
+Route::apiResource('property-charges', \App\Http\Controllers\Api\V1\Admin\PropertyChargeApiController::class);
+
+
+Route::get('/property-dependencies/charges/{phase_id}', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'getPhaseCharges']);
+Route::post('/property-units/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'bulkDelete']);
+Route::post('/property-units/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'approve']);
+Route::post('/property-units/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'reject']);
+Route::apiResource('property-units', \App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class);
+
+Route::get('/property-units/phase-map/{phase_id}', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'getPhaseMapData']);
+
+Route::get('/property-dependencies/phase-areas/{phase_id}', [\App\Http\Controllers\Api\V1\Admin\PropertyUnitApiController::class, 'getPhaseAreas']);
+
+Route::post('/property-units/save-layout-map', [\App\Http\Controllers\Api\V1\Admin\PhaseApiController::class, 'saveCanvasAsBaseMap']);
+
+// =======================================================
+// 🔥 STOCK MANAGEMENT API ROUTES 🔥
+// =======================================================
+
+Route::prefix('stocks')->group(function () {
+
+   // ⚠️ SARE CUSTOM ROUTES apiResource SE UPAR RAHENGE
+    Route::get('/search-companies', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'searchCompanies']);
+    Route::get('/search-branches', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'searchBranches']);
+    Route::get('/filters', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'getFilterOptions']); // 🔥 Ye yahan hona chahiye
+    
+    // Action Modifiers
+    Route::post('/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'bulkDelete']);
+    Route::post('/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'approve']);
+    Route::post('/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'reject']);
+    Route::post('/{id}/lost', [\App\Http\Controllers\Api\V1\Admin\StockApiController::class, 'markAsLost']);
+});
+
+// ⚠️ RESOURCE ROUTE HAMESHA SABSE LAST MEIN!
+Route::apiResource('stocks', \App\Http\Controllers\Api\V1\Admin\StockApiController::class);
+
+Route::prefix('stocks/masters')->group(function () {
+    // Categories
+    Route::get('/categories', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'indexCategories']);
+    Route::post('/categories', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'storeCategory']);
+    Route::put('/categories/{id}', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'updateCategory']);
+    Route::post('/categories/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'bulkDeleteCategories']);
+    Route::post('/categories/{id}/status', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'statusCategory']);
+
+    // Types
+    Route::get('/types', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'indexTypes']);
+    Route::post('/types', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'storeType']);
+    Route::put('/types/{id}', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'updateType']);
+    Route::post('/types/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'bulkDeleteTypes']);
+    Route::post('/types/{id}/status', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'statusType']);
+
+    // Brands
+    Route::get('/brands', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'indexBrands']);
+    Route::post('/brands', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'storeBrand']);
+    Route::put('/brands/{id}', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'updateBrand']);
+    Route::post('/brands/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'bulkDeleteBrands']);
+    Route::post('/brands/{id}/status', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'statusBrand']);
+
+    // Specifications (Attributes)
+    Route::get('/attributes', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'indexAttributes']);
+    Route::post('/attributes', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'storeAttribute']);
+    Route::put('/attributes/{id}', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'updateAttribute']);
+    Route::post('/attributes/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'bulkDeleteAttributes']);
+    Route::post('/attributes/{id}/status', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'statusAttribute']);
+
+    // Public API for dropdowns (Filtered active only)
+    Route::get('/dropdown-categories', [\App\Http\Controllers\Api\V1\Admin\StockMasterController::class, 'getDropdownCategories']);
+});
+
+// ==========================================
+    // DAILY STOCK ENTRY ROUTES
+    // ==========================================
+    Route::prefix('entry')->group(function () {
+        Route::get('/employees', [\App\Http\Controllers\Api\V1\Admin\StockEntryApiController::class, 'getActiveEmployees']);
+        Route::get('/category-dependencies/{category_id}', [\App\Http\Controllers\Api\V1\Admin\StockEntryApiController::class, 'getCategoryDependencies']);
+        Route::post('/store', [\App\Http\Controllers\Api\V1\Admin\StockEntryApiController::class, 'storeStockEntry']);
+        Route::post('/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\StockEntryApiController::class, 'bulkDelete']);
+        
+        // 🟢 Naye Routes for DataTable & Actions 🟢
+        Route::get('/today', [\App\Http\Controllers\Api\V1\Admin\StockEntryApiController::class, 'getTodayEntries']);
+        Route::post('/{id}/status', [\App\Http\Controllers\Api\V1\Admin\StockEntryApiController::class, 'updateStatus']);
     });
+
+
+
+    // ==========================================
+        // 🔐 HIERARCHICAL SIGNATORY MASTER APIS
+        // ==========================================
+        // Dropdowns ke liye filtering APIs
+       // 🔐 HIERARCHICAL SIGNATORY MASTER APIS (Inhe yahan andar rakhna hai)
+    Route::post('/signatory-master/hierarchies/bulk-delete', [\App\Http\Controllers\Api\V1\Admin\SignatoryMasterApiController::class, 'bulkDeleteHierarchies']);
+    Route::get('/signatory-master/get-branches', [\App\Http\Controllers\Api\V1\Admin\SignatoryMasterApiController::class, 'getBranches']);
+    Route::get('/signatory-master/get-departments', [\App\Http\Controllers\Api\V1\Admin\SignatoryMasterApiController::class, 'getDepartments']);
+    Route::get('/signatory-master/get-persons', [\App\Http\Controllers\Api\V1\Admin\SignatoryMasterApiController::class, 'getPersons']);
+    Route::get('/signatory-master/hierarchies', [\App\Http\Controllers\Api\V1\Admin\SignatoryMasterApiController::class, 'getHierarchies']);
+    Route::post('/signatory-master/hierarchies', [\App\Http\Controllers\Api\V1\Admin\SignatoryMasterApiController::class, 'saveHierarchy']);
+    Route::delete('/signatory-master/hierarchies/{id}', [\App\Http\Controllers\Api\V1\Admin\SignatoryMasterApiController::class, 'deleteHierarchy']);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    });
+
+
+
+//ends here
+
+
+
+
+
+
+
+
+
+// FAQ Admin Routes 
+Route::apiResource('faqs', FaqController::class);
+
+// Neha AI Chatbot Routes
+Route::prefix('chat')->group(function () {
+    Route::post('/capture-lead', [ChatController::class, 'captureLead']);
+    Route::post('/send-message', [ChatController::class, 'handleMessage']);
+});
 
     
 // Promotion Templates API
@@ -756,3 +1022,6 @@ Route::get('/cleanup-bad-allocations', function() {
     }
 });
 
+Route::get('/telecalling/today-stats', [App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'getTodayStats']);
+
+Route::get('/sync-legacy-allocations', [App\Http\Controllers\Api\V1\Employee\TelecallingController::class, 'syncLegacyData']);

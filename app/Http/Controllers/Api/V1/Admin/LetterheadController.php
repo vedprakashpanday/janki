@@ -4,83 +4,87 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Letterhead;
-use App\Models\Branch;
+use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class LetterheadController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $query = Letterhead::with('branch')->orderBy('id', 'desc');
+        $context = $this->getGlobalContext();
+        $query = Letterhead::with('branch', 'company')->orderBy('id', 'desc');
 
         // ==========================================
-        // 🛡️ 1. DATA FILTER LOGIC
+        // 🛡️ 1. DATA FILTER LOGIC (Daily vs Directory)
         // ==========================================
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-
-        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
-            // Employee ko sirf apni branch ke letterheads dikhenge
-            $query->where('branch_id', $user->branch_id);
+        if ($request->query('filter') === 'daily') {
+            $query->whereDate('created_at', today());
         }
+
         // ==========================================
+        // 🛡️ 2. SMART SCOPING (Master HO vs Sub HO vs Branch)
+        // ==========================================
+        $isMasterHO = false;
+        if ($context->is_employee && empty($context->branch_id) && !empty($context->company_id)) {
+            $comp = Company::find($context->company_id);
+            if ($comp && empty($comp->parent_id)) {
+                $isMasterHO = true;
+            }
+        }
+
+        if (!$context->is_god && !$context->is_director && !$isMasterHO) {
+            if ($context->company_id) {
+                $query->where('company_id', $context->company_id);
+            }
+            if ($context->branch_id) {
+                $query->where('branch_id', $context->branch_id);
+            }
+        }
 
         return response()->json(['status' => 'success', 'data' => $query->get()]);
     }
 
-    public function uploadImage(Request $request)
+    public function store(Request $request)
     {
-        // TinyMCE default upload field name 'file' use karta hai
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('uploads/letterheads/images'), $filename);
-
-            // 🔥 TINYMCE UPDATE: Response must be a JSON object with 'location' key
-            return response()->json(['location' => asset('uploads/letterheads/images/' . $filename)]);
-        }
-
-        return response()->json(['error' => 'No file uploaded'], 400);
-    }
-
-   public function store(Request $request)
-    {
-        // 1. Validations (ref_no ki direct uniqueness hata di kyunki backend format banayega)
+        $context = $this->getGlobalContext();
+        
         $request->validate([
-            'ref_no' => 'required', // Ye wo series (53) hai jo frontend se aayegi
+            'ref_no' => 'required',
             'ref_year' => 'required',
             'letter_date' => 'required',
             'message' => 'required'
         ]);
 
-        // 2. Extract Company & Branch
+        // 🔥 PERMISSION CHECK: Direct ya Request
+        $hasDirect = $context->is_god || $context->is_director;
+        if (!$hasDirect && method_exists(auth()->user(), 'getAllPermissions')) {
+            $userPerms = auth()->user()->getAllPermissions()->pluck('name')->toArray();
+            if (in_array('letterhead_add_direct', $userPerms) || in_array('letterhead_dir_add_direct', $userPerms)) {
+                $hasDirect = true;
+            }
+        }
+
         $companyId = ($request->company_id === 'global' || empty($request->company_id)) ? null : $request->company_id;
         $branchId = ($request->branch_id === 'all' || empty($request->branch_id)) ? null : $request->branch_id;
 
-        $company = $companyId ? \App\Models\Company::find($companyId) : \App\Models\Company::whereNull('parent_id')->first();
-        if (!$company) $company = \App\Models\Company::find(1); // Master Fallback
+        $company = $companyId ? Company::find($companyId) : Company::whereNull('parent_id')->first();
+        if (!$company) $company = Company::find(1);
 
-        // 3. Setup Default Codes
         $compCode = $company ? strtoupper($company->company_code) : 'COMP';
-        $stateCode = 'ST';
-        $distCode = 'DIST';
-        $branchSeq = 'HO';
+        $stateCode = 'ST'; $distCode = 'DIST'; $branchSeq = 'HO';
 
-        // 4. Branch Hai Toh Uske Data Se Code Nikalo
         if ($branchId) {
             $branch = \App\Models\Branch::find($branchId);
             if ($branch && $branch->branch_id) {
-                // Branch ID (e.g. COMP/ST/DIST/01/2026) me se hisse nikalo
                 $bParts = explode('/', $branch->branch_id);
                 $compCode = $bParts[0] ?? $compCode;
                 $stateCode = $bParts[1] ?? 'ST';
                 $distCode = $bParts[2] ?? 'DIST';
-                $branchSeq = $bParts[3] ?? '01'; // Branch Number (e.g., 01, 02)
+                $branchSeq = $bParts[3] ?? '01';
             }
         } else {
-            // Head Office (HO) Logic: Company ke state/district se map karo
             $branchSeq = 'HO';
-            
             if ($company) {
                 $stateLower = strtolower(trim($company->state));
                 $stateMap = ['bihar' => 'BIH', 'uttar pradesh' => 'UP', 'delhi' => 'DL', 'jharkhand' => 'JHA', 'west bengal' => 'WB'];
@@ -94,66 +98,45 @@ class LetterheadController extends Controller
             }
         }
 
-        // 5. Build Final Reference Number String
-        $series = $request->ref_no; // Frontend se aayi series (e.g., 53)
-        $year = $request->ref_year;
+        $fullRefNo = "{$compCode}/{$stateCode}/{$distCode}/{$branchSeq}/{$request->ref_no}/{$request->ref_year}";
 
-        // FORMAT: COMPANY_CODE / STATE_CODE / DIST_CODE / HO_OR_SEQ / SERIES / YEAR
-        $fullRefNo = "{$compCode}/{$stateCode}/{$distCode}/{$branchSeq}/{$series}/{$year}";
-
-        // Manual Uniqueness Check
-        if (\App\Models\Letterhead::where('ref_no', $fullRefNo)->exists()) {
-            return response()->json(['status' => 'error', 'message' => "Reference Number '$fullRefNo' is already generated. Please refresh to get a new ID."], 400);
+        if (Letterhead::where('ref_no', $fullRefNo)->exists()) {
+            return response()->json(['status' => 'error', 'message' => "Reference Number '$fullRefNo' is already generated."], 400);
         }
 
-        // 6. Data Preparation
         $data = $request->except(['_token', 'company_id', 'branch_id']);
-        
-        // Overwrite the simple series with the complex ref_no
         $data['ref_no'] = $fullRefNo; 
         $data['company_id'] = $companyId;
         $data['branch_id'] = $branchId;
+        $data['status'] = $hasDirect ? 'active' : 'pending';
 
         if (strtolower($data['emp_code'] ?? '') === 'all') {
             $data['emp_code'] = 'All';
         }
 
-        // 7. Security Checks
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-
-        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
-            if ($companyId != $user->company_id || $branchId != $user->branch_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized! You can only generate letterheads for your own company/branch.'], 403);
-            }
-        }
-
-        // 8. Save
-        $letterhead = \App\Models\Letterhead::create($data);
-        return response()->json(['status' => 'success', 'message' => "Letterhead Generated: {$letterhead->ref_no}"]);
+        $letterhead = Letterhead::create($data);
+        
+        $msg = $hasDirect ? "Letterhead Saved Successfully!" : "Letterhead Request Sent for Approval!";
+        return response()->json(['status' => 'success', 'message' => $msg]);
     }
-
 
     public function show($id)
     {
-        $letterhead = Letterhead::findOrFail($id);
+        $context = $this->getGlobalContext();
+        $letterhead = Letterhead::with('branch')->findOrFail($id);
 
-        // ==========================================
-        // 🛡️ 3. OWNERSHIP CHECK
-        // ==========================================
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
-            if ($letterhead->branch_id != $user->branch_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot access letterheads of another branch.'], 403);
+        if (!$context->is_god && !$context->is_director) {
+            if ($context->branch_id && $letterhead->branch_id != $context->branch_id) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope!'], 403);
             }
         }
 
-        return response()->json(['status' => 'success', 'data' => Letterhead::with('branch')->findOrFail($id)]);
+        return response()->json(['status' => 'success', 'data' => $letterhead]);
     }
 
     public function update(Request $request, $id)
     {
+        $context = $this->getGlobalContext();
         $data = $request->except(['_token', 'ref_no', '_method']);
 
         if (strtolower($data['emp_code'] ?? '') === 'all') {
@@ -162,60 +145,276 @@ class LetterheadController extends Controller
 
         $letterhead = Letterhead::findOrFail($id);
 
-        // ==========================================
-        // 🛡️ 3. OWNERSHIP CHECK
-        // ==========================================
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
-            if ($letterhead->branch_id != $user->branch_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot access letterheads of another branch.'], 403);
+        $hasDirect = $context->is_god || $context->is_director;
+        if (!$hasDirect && method_exists(auth()->user(), 'getAllPermissions')) {
+            $userPerms = auth()->user()->getAllPermissions()->pluck('name')->toArray();
+            if (in_array('letterhead_add_direct', $userPerms) || in_array('letterhead_dir_add_direct', $userPerms)) {
+                $hasDirect = true;
             }
         }
 
-        // Validation se theek pehle ya data extract karne ke baad:
-if ($request->company_id === 'global') {
-    $request->merge(['company_id' => null]);
-}
-if ($request->branch_id === 'all' || empty($request->branch_id)) {
-    $request->merge(['branch_id' => null]); 
-}
+        if ($request->company_id === 'global') $request->merge(['company_id' => null]);
+        if ($request->branch_id === 'all' || empty($request->branch_id)) $request->merge(['branch_id' => null]); 
 
-        // Update the record
+        if (!$hasDirect) {
+            $data['status'] = 'pending';
+        }
+
         $letterhead->update($data);
-
         return response()->json(['status' => 'success', 'message' => 'Letterhead Updated Successfully']);
+    }
+
+    // ========================================================
+    // 🔥 APPROVE / REJECT / BULK DELETE
+    // ========================================================
+    public function approve($id)
+    {
+        $letterhead = Letterhead::findOrFail($id);
+        $letterhead->update(['status' => 'active']);
+        return response()->json(['status' => 'success', 'message' => 'Letterhead Approved!']);
+    }
+
+    public function reject($id)
+    {
+        $letterhead = Letterhead::findOrFail($id);
+        $letterhead->update(['status' => 'inactive']);
+        return response()->json(['status' => 'success', 'message' => 'Letterhead Rejected!']);
     }
 
     public function destroy($id)
     {
-        $letterhead = Letterhead::findOrFail($id);
-
-        // ==========================================
-        // 🛡️ 3. OWNERSHIP CHECK
-        // ==========================================
-        $user = auth()->user();
-        $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
-        if (!$user->hasRole(['CEO', 'Director']) && !in_array($user->email, $developerEmails)) {
-            if ($letterhead->branch_id != $user->branch_id) {
-                return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope! You cannot access letterheads of another branch.'], 403);
-            }
-        }
-
-        $letterhead->delete();
+        Letterhead::findOrFail($id)->delete();
         return response()->json(['status' => 'success', 'message' => 'Deleted successfully']);
     }
 
-   // ========================================================
-    // PRINT PREVIEW LOGIC
+    public function bulkDelete(Request $request)
+    {
+        $ids = $request->ids;
+        if (empty($ids)) {
+            return response()->json(['status' => 'error', 'message' => 'No letterheads selected!'], 400);
+        }
+
+        Letterhead::whereIn('id', $ids)->delete();
+        return response()->json(['status' => 'success', 'message' => 'Selected letterheads deleted successfully!']);
+    }
+
     // ========================================================
+    // 🔥 7 TABLES SEARCH (WITH DIRECTORS & CEOS)
+    // ========================================================
+    public function searchEntities(Request $request)
+    {
+        $search = $request->get('q');
+        if (strlen($search) < 3) return response()->json([]);
+
+        $emps = DB::table('adm_regist')->where('full_name', 'like', "%{$search}%")->orWhere('member_id', 'like', "%{$search}%")
+            ->select('member_id as id', 'full_name as name', DB::raw("'Employee' as type"))->get();
+        $mems = DB::table('members')->where('member_name', 'like', "%{$search}%")->orWhere('member_id', 'like', "%{$search}%")
+            ->select('member_id as id', DB::raw("COALESCE(member_name) as name"), DB::raw("'Member' as type"))->get();
+        $custs = DB::table('customers')->where('customer_name', 'like', "%{$search}%")->orWhere('customer_id', 'like', "%{$search}%")
+            ->select('customer_id as id', DB::raw("COALESCE(customer_name) as name"), DB::raw("'Customer' as type"))->get();
+        $vens = DB::table('vendors')->where('full_name', 'like', "%{$search}%")->orWhere('vendor_id', 'like', "%{$search}%")
+            ->select('vendor_id as id', DB::raw("COALESCE(full_name) as name"), DB::raw("'Vendor' as type"))->get();
+        $lands = DB::table('landowners')->where('land_owner_name', 'like', "%{$search}%")->orWhere('land_owner_id', 'like', "%{$search}%")->orWhere('land_owner_id', 'like', "%{$search}%")
+            ->select(DB::raw("COALESCE(land_owner_id) as id"), DB::raw("COALESCE(land_owner_name) as name"), DB::raw("'Land Owner' as type"))->get();
+        $dirs = DB::table('directors')->where('full_name', 'like', "%{$search}%")->orWhere('director_id', 'like', "%{$search}%")
+            ->select('director_id as id', 'full_name as name', DB::raw("'Director' as type"))->get();
+        $ceos = DB::table('super_admins')->where('full_name', 'like', "%{$search}%")->orWhere('ceo_id', 'like', "%{$search}%")
+            ->select('ceo_id as id', 'full_name as name', DB::raw("'CEO' as type"))->get();
+
+        $all = $emps->concat($mems)->concat($custs)->concat($vens)->concat($lands)->concat($dirs)->concat($ceos);
+        $formatted = $all->map(function($item) {
+            return ['id' => $item->id, 'text' => $item->name . ' (' . $item->id . ') - [' . $item->type . ']'];
+        });
+
+        return response()->json($formatted);
+    }
+
+    public function uploadImage(Request $request)
+    {
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/letterheads/images'), $filename);
+            return response()->json(['location' => asset('uploads/letterheads/images/' . $filename)]);
+        }
+        return response()->json(['error' => 'No file uploaded'], 400);
+    }
+
+    public function getNextRefNo()
+    {
+        $lastRecord = Letterhead::orderBy('id', 'desc')->first();
+        $nextRef = 53; 
+
+        if ($lastRecord && $lastRecord->ref_no) {
+            $parts = explode('/', $lastRecord->ref_no);
+            if (count($parts) >= 5) {
+                $seriesPart = $parts[count($parts) - 2]; 
+                if (is_numeric($seriesPart)) $nextRef = intval($seriesPart) + 1;
+            } elseif (is_numeric($lastRecord->ref_no)) {
+                $nextRef = intval($lastRecord->ref_no) + 1;
+            }
+        }
+        return response()->json(['status' => 'success', 'next_ref_no' => $nextRef]);
+    }
+
+  // ========================================================
+    // 🔥 SEND TO NOTICE BOARD & SMART NOTIFICATION ROUTING
+    // ========================================================
+    public function sendToNoticeBoard(Request $request)
+    {
+        try {
+            $ids = $request->ids;
+            // Frontend se aane wala reply choice (default 0 agar na aaye toh)
+            $requiresReply = $request->input('requires_reply', 0); 
+
+            if (empty($ids)) {
+                return response()->json(['status' => 'error', 'message' => 'No letterheads selected!'], 400);
+            }
+
+            $letterheads = \App\Models\Letterhead::whereIn('id', $ids)->get();
+            $sentCount = 0;
+
+            foreach ($letterheads as $letterhead) {
+                $empCode = strtolower(trim($letterhead->emp_code));
+                
+                // Skip if Manual (no specific target)
+                if ($empCode === 'manual') continue;
+
+                $targetAudience = 'individual';
+                $entityType = null;
+                $entityId = null;
+                $notifyUsers = collect();
+
+                // 1. Audience & User Mapping Logic 
+                if ($empCode === 'all employees' || $empCode === 'all') {
+                    $targetAudience = 'employee';
+                    $notifyUsers = \App\Models\Employee::where('emp_status', 'active')->get();
+                } elseif ($empCode === 'all members') {
+                    $targetAudience = 'member';
+                    $notifyUsers = \App\Models\Member::where('status', 'active')->get();
+                } elseif ($empCode === 'all directors') {
+                    $targetAudience = 'director'; 
+                    $notifyUsers = \App\Models\Director::where('status', 'active')->get();
+                } elseif ($empCode === 'all ceos') {
+                    $targetAudience = 'super_admin';
+                    $notifyUsers = \App\Models\SuperAdmin::where('status', 'active')->get();
+                } else {
+                    // Specific Individual
+                    $targetAudience = 'individual';
+                    $entityId = $letterhead->emp_code;
+                    
+                    // Cascade search to find Exact User Model & assign entity_type
+                    $user = \App\Models\Employee::where('member_id', $letterhead->emp_code)->first();
+                    if ($user) {
+                        $entityType = 'employee';
+                        $notifyUsers->push($user);
+                    } else {
+                        $user = \App\Models\Member::where('member_id', $letterhead->emp_code)->first();
+                        if ($user) {
+                            $entityType = 'member';
+                            $notifyUsers->push($user);
+                        } else {
+                            $user = \App\Models\Customer::where('customer_id', $letterhead->emp_code)->first();
+                            if ($user) {
+                                $entityType = 'customer';
+                                $notifyUsers->push($user);
+                            } else {
+                                $user = \App\Models\Director::where('director_id', $letterhead->emp_code)->first();
+                                if ($user) {
+                                    $entityType = 'director';
+                                    $notifyUsers->push($user);
+                                } else {
+                                    $user = \App\Models\SuperAdmin::where('ceo_id', $letterhead->emp_code)->first();
+                                    if ($user) {
+                                        $entityType = 'super_admin';
+                                        $notifyUsers->push($user);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Create Notice Record
+                $notice = \App\Models\Notice::create([
+                    'title' => $letterhead->subject ?: 'Official Letterhead - ' . $letterhead->ref_no,
+                    'notice_date' => $letterhead->letter_date,
+                    'content' => $letterhead->message,
+                    'target_audience' => $targetAudience,
+                    'entity_type' => $entityType,
+                    'entity_id' => $entityId,
+                    'company_id' => $letterhead->company_id,
+                    'target_company_id' => $letterhead->company_id,
+                    'target_branch_id' => $letterhead->branch_id,
+                    'status' => 'active',
+                    'created_by' => auth()->id() ?? 1,
+                    // 🔥 DIALOG WALI VALUE YAHAN BIND HOGI
+                    'requires_reply' => $requiresReply 
+                ]);
+
+                // 3. Smart Notification Dispatcher (Direct DB insert)
+                $now = now();
+                $notificationsData = [];
+
+                foreach ($notifyUsers as $nu) {
+                    $modelType = get_class($nu);
+                    
+                    // SMART URL ROUTING BASED ON MODEL TYPE
+                    $userPortalUrl = '/admin/my-notices'; // Default Fallback
+                    if ($modelType === 'App\Models\Employee') {
+                        $userPortalUrl = '/employee/my-notices';
+                    } elseif ($modelType === 'App\Models\Member') {
+                        $userPortalUrl = '/member/my-notices';
+                    } elseif ($modelType === 'App\Models\Customer') {
+                        $userPortalUrl = '/customer/my-notices';
+                    } elseif ($modelType === 'App\Models\Director' || $modelType === 'App\Models\SuperAdmin') {
+                        $userPortalUrl = '/admin/my-notices';
+                    }
+
+                    $notificationsData[] = [
+                        'id' => \Illuminate\Support\Str::uuid()->toString(),
+                        'type' => 'App\Notifications\NoticePublished',
+                        'notifiable_type' => $modelType,
+                        'notifiable_id' => $nu->id,
+                        'data' => json_encode([
+                            'title' => 'New Official Notice',
+                            'message' => 'Ref: ' . $letterhead->ref_no . ' | Please check your notice board.',
+                            'url' => $userPortalUrl,
+                            'icon' => 'fa-envelope-open-text',
+                            'colorClass' => 'text-primary'
+                        ]),
+                        'read_at' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                if (!empty($notificationsData)) {
+                    $chunks = array_chunk($notificationsData, 500);
+                    foreach ($chunks as $chunk) {
+                        \Illuminate\Support\Facades\DB::table('notifications')->insert($chunk);
+                    }
+                }
+
+                $sentCount++;
+            }
+
+            return response()->json([
+                'status' => 'success', 
+                'message' => "Successfully sent {$sentCount} letterhead(s) to the Notice Board!"
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Backend Error: ' . $e->getMessage() . ' (Line: ' . $e->getLine() . ')'
+            ], 500);
+        }
+    }
     public function printPreview($id)
     {
         $letterhead = \App\Models\Letterhead::with('branch', 'company')->findOrFail($id);
-
-        // ==========================================
-        // 🛡️ PRINT OWNERSHIP CHECK (Web Route)
-        // ==========================================
+        
         $authUser = auth('sanctum')->user() ?? auth()->user();
         $developerEmails = ['admin@jankivilla.com', 'superadmin@example.com', 'vedprakash@infoera.in'];
 
@@ -224,10 +423,8 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
                 abort(403, 'Strict Security: You are not authorized to view or print letterheads of other branches.');
             }
         }
-        // ==========================================
-
+        
         $empCode = $letterhead->emp_code;
-
         $paid_to_name = null;
         $paid_to_id = null;
         $paid_to_mobile = null;
@@ -237,8 +434,6 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
         $paid_to_designation = null;
 
         if ($empCode && strtolower($empCode) !== 'all') {
-
-            // 1. Check in Employees Table (FIXED WITH DESIGNATION MAPPING)
             $emp = \Illuminate\Support\Facades\DB::table('adm_regist')->where('member_id', $empCode)->first();
             if ($emp) {
                 $paid_to_name = $emp->full_name ?? null;
@@ -248,17 +443,12 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
                 $paid_to_relation = $emp->father_spouse_name ?? null;
                 $paid_to_doj = $emp->doj ?? '-';
                 
-                // 🔥 NAYA FIX: designation_id se designations table se original naam nikalna
-                $paid_to_designation = 'Employee'; // Default Fallback
+                $paid_to_designation = 'Employee'; 
                 if (!empty($emp->designation_id)) {
                     $desg = \Illuminate\Support\Facades\DB::table('designations')->where('id', $emp->designation_id)->first();
-                    if ($desg) {
-                        $paid_to_designation = $desg->designation_name;
-                    }
+                    if ($desg) $paid_to_designation = $desg->designation_name;
                 }
             }
-
-            // 2. Check in Members Table
             if (!$paid_to_name) {
                 $mem = \Illuminate\Support\Facades\DB::table('members')->where('member_id', $empCode)->first();
                 if ($mem) {
@@ -271,8 +461,6 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
                     $paid_to_designation = $mem->designation ?? 'Member';
                 }
             }
-
-            // 3. Check in Customers Table
             if (!$paid_to_name) {
                 $cust = \Illuminate\Support\Facades\DB::table('customers')->where('customer_id', $empCode)->first();
                 if ($cust) {
@@ -285,8 +473,6 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
                     $paid_to_designation = 'Customer';
                 }
             }
-
-            // 4. Check in Vendors Table
             if (!$paid_to_name) {
                 $ven = \Illuminate\Support\Facades\DB::table('vendors')->where('vendor_id', $empCode)->first();
                 if ($ven) {
@@ -298,8 +484,6 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
                     $paid_to_designation = $ven->vendor_type ?? 'Vendor';
                 }
             }
-
-            // 5. Check in Landowners Table
             if (!$paid_to_name) {
                 $land = \Illuminate\Support\Facades\DB::table('landowners')
                     ->where('land_owner_id', $empCode)
@@ -331,44 +515,9 @@ if ($request->branch_id === 'all' || empty($request->branch_id)) {
             'paid_to_designation' => $paid_to_designation
         ];
 
-        // Header Component settings
-        if (empty($letterhead->company_id) || $letterhead->company_id === 'global') {
-            $companyForHeader = \App\Models\Company::whereNull('parent_id')->first() ?? \App\Models\Company::find(1);
-        } else {
-            $companyForHeader = \App\Models\Company::find($letterhead->company_id);
-        }
-
-        if (empty($letterhead->branch_id) || $letterhead->branch_id === 'all') {
-            $branchForHeader = null;
-        } else {
-            $branchForHeader = \App\Models\Branch::find($letterhead->branch_id);
-        }
+        $companyForHeader = (empty($letterhead->company_id) || $letterhead->company_id === 'global') ? (\App\Models\Company::whereNull('parent_id')->first() ?? \App\Models\Company::find(1)) : \App\Models\Company::find($letterhead->company_id);
+        $branchForHeader = (empty($letterhead->branch_id) || $letterhead->branch_id === 'all') ? null : \App\Models\Branch::find($letterhead->branch_id);
 
         return view('admin.print_letterhead', compact('records', 'companyForHeader', 'branchForHeader'));
-    }
-   // Frontend ko agla Number (Series) bhejne ke liye
-    public function getNextRefNo()
-    {
-        $lastRecord = \App\Models\Letterhead::orderBy('id', 'desc')->first();
-        $nextRef = 53; // Default starting series
-
-        if ($lastRecord && $lastRecord->ref_no) {
-            // Pattern check (e.g., ABDPL/BIH/PAT/HO/53/2026)
-            $parts = explode('/', $lastRecord->ref_no);
-            
-            // Agar full format me hai (kam se kam 5 hisse hain), to 2nd last item series hogi
-            if (count($parts) >= 5) {
-                $seriesPart = $parts[count($parts) - 2]; 
-                if (is_numeric($seriesPart)) {
-                    $nextRef = intval($seriesPart) + 1;
-                }
-            } 
-            // Agar purana record sirf number format me hai
-            elseif (is_numeric($lastRecord->ref_no)) {
-                $nextRef = intval($lastRecord->ref_no) + 1;
-            }
-        }
-
-        return response()->json(['status' => 'success', 'next_ref_no' => $nextRef]);
     }
 }

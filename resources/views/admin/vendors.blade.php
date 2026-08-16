@@ -584,7 +584,8 @@
 
     <script>
         $(document).ready(function() {
-            const apiToken = localStorage.getItem('admin_token');
+           // Jo bhi token LocalStorage me present hai, use uthao
+const apiToken = localStorage.getItem('emp_token') || localStorage.getItem('admin_token');
             let mode = 'add';
             let branchMap = {}; // Datalist Map
 

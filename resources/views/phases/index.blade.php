@@ -121,10 +121,14 @@
                     <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="text-center mb-3">
+              <div class="text-center mb-3">
                         <img id="modalPhaseImage" src="" class="img-fluid rounded shadow-sm d-none"
                             style="max-height: 200px;">
                     </div>
+                    <!-- NAYA: Button to view map -->
+                    <a href="#" id="modalKhatiyanMap" target="_blank" class="btn btn-outline-info btn-sm w-100 mb-3 d-none">
+                        <i class="fas fa-map"></i> View Base Map / Khatiyan
+                    </a>
                     <div class="row mb-2">
                         <div class="col-6"><small class="text-muted d-block">Company</small><strong
                                 id="modalComp"></strong></div>
@@ -180,6 +184,7 @@
                                 let safeLoc = (phase.phase_location || '').replace(/"/g,
                                     '&quot;');
                                 let safeMap = phase.phase_google_map_url || '';
+                                let mapUrl = phase.khatiyan_map ? `/${phase.khatiyan_map}` : '';
 
                                 // 1. Desktop Table Row
                                 let tr = `
@@ -192,12 +197,12 @@
                                     <td class="search-target"><span class="badge bg-light text-dark border">${branchName}</span></td>
                                     <td class="search-target text-truncate" style="max-width: 150px;">${phase.phase_location}</td>
                                     <td class="text-end pe-4">
-                                        <button class="btn btn-sm btn-light text-primary view-details-btn" 
-                                            data-name="${phase.phase_name}" data-loc="${safeLoc}" 
-                                            data-desc="${safeDesc}" data-img="${imageUrl}" data-map="${safeMap}" 
-                                            data-comp="${companyName}" data-branch="${branchName}">
-                                            <i class="fas fa-eye"></i> View
-                                        </button>
+                                        <button class="btn btn-sm btn-light text-primary view-details-btn p-1 px-2" 
+                                                data-name="${phase.phase_name}" data-loc="${safeLoc}" 
+                                                data-desc="${safeDesc}" data-img="${imageUrl}" data-map="${safeMap}"
+                                                data-comp="${companyName}" data-branch="${branchName}" data-kmap="${mapUrl}">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
                                         <a href="/${currentPortal}/phases/${phase.id}/edit" class="btn btn-sm btn-light text-warning me-1" title="Edit Phase">
     <i class="fas fa-edit"></i> Edit
 </a>
@@ -351,6 +356,13 @@
                     $('#modalPhaseMap').attr('href', map).removeClass('d-none');
                 } else {
                     $('#modalPhaseMap').addClass('d-none');
+                }
+                
+                let kmap = btn.data('kmap');
+                if (kmap) {
+                    $('#modalKhatiyanMap').attr('href', kmap).removeClass('d-none');
+                } else {
+                    $('#modalKhatiyanMap').addClass('d-none');
                 }
 
                 let modal = new bootstrap.Modal(document.getElementById('phaseDetailsModal'));

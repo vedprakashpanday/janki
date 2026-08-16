@@ -25,17 +25,19 @@ class EveningTaskSummary extends Command
 
         foreach ($tasks as $task) {
             
-            // 🔥 FIX: Sirf aaj "called_at" hone wali aur required status wali leads
+          // 🔥 FIX: Sirf wo leads jo SUBE "Hot" nahi thi, par AAJ "Hot" bani hain (Fresh Leads)
+            $hotStatuses = [
+                'Interested', 'Interested Call', 'Highly Interested',
+                'Site visit Scheduled', 'Site visit Scheduled Call',
+                'Site Visit Done', 'Site Visit Done Call'
+            ];
+
             $hotAllocations = TelecallerAllocation::with('customer')
                 ->where('task_id', $task->id)
-                ->whereDate('called_at', $today) // AAJ KA FILTER
-                ->where(function($q) {
-                    $q->whereIn('call_status', [
-                        'Interested', 'Interested Call', 'Highly Interested',
-                        'Site visit Scheduled', 'Site visit Scheduled Call',
-                        'Site Visit Done', 'Site Visit Done Call'
-                    ]);
-                })->get();
+                ->whereDate('called_at', $today)
+                ->whereNotIn('assigned_status', $hotStatuses) // Puraana status Hot NAHI hona chahiye
+                ->whereIn('call_status', $hotStatuses) // Naya status Hot hona chahiye
+                ->get();
 
             if ($hotAllocations->count() > 0) {
                 

@@ -66,7 +66,7 @@
                                 system request requires your administrative approval to proceed.</p>
 
                             <table border="0" cellpadding="0" cellspacing="0" width="100%"
-                                style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 30px;">
+                                style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px;">
                                 <tr>
                                     <td style="padding: 15px 20px;">
                                         <p style="margin: 0 0 8px 0; font-size: 14px;"><strong
@@ -78,6 +78,20 @@
                                     </td>
                                 </tr>
                             </table>
+
+                            <!-- 🔥 NAYA: Attractive Passkey Box 🔥 -->
+                            @if(isset($otp))
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px;">
+                                <tr>
+                                    <td align="center" style="background-color: #eff6ff; border: 2px dashed #3b82f6; border-radius: 8px; padding: 20px;">
+                                        <p style="margin: 0 0 8px 0; font-size: 12px; color: #2563eb; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Today's Secure Passkey</p>
+                                        <p style="margin: 0; font-size: 34px; font-weight: bold; color: #1e3a8a; letter-spacing: 6px;">{{ $otp }}</p>
+                                        <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b;">Use this 6-digit code via <b>"Try Another Way"</b> on the login screen if buttons don't work.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            @endif
+                            <!-- 🔥 END Passkey Box 🔥 -->
 
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>

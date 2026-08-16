@@ -72,7 +72,7 @@ class DebitVoucherWebController extends Controller
         return view('admin.debit_vouchers.index');
     }
 
-   public function print(Request $request, $id)
+  public function print(Request $request, $id)
     {
         $voucher = \App\Models\DebitVoucher::findOrFail($id);
         $context = $this->getGlobalContext(); 
@@ -83,19 +83,23 @@ class DebitVoucherWebController extends Controller
 
         $mode = $request->query('mode', 'print');
 
-        // 1. DV No Formatting (e.g. ABDPL-H/01 or ABDPL-JHA/02)
-        $compCode = $company ? ($company->company_code ?? 'COMP') : 'COMP';
-        
-        // Agar branch null hai to 'H' (Head Office), warna branch ka code
-        $branchCode = $branch ? ($branch->branch_code ?? 'BR') : 'H'; 
+        // 🔥 NAYA: User Permissions Fetch karna
+        $user = auth()->user();
+        $canApprove = false;
+        $canReject = false;
+        if ($user) {
+            $permissions = method_exists($user, 'getAllPermissions') ? $user->getAllPermissions()->pluck('name')->toArray() : [];
+            $canApprove = in_array('dv_appr', $permissions) || in_array('dv_dir_appr', $permissions);
+            $canReject = in_array('dv_rej', $permissions) || in_array('dv_dir_rej', $permissions);
+        }
 
-        // Naya Format: COMPANY_CODE-BRANCH_CODE/DV_NO
+        $compCode = $company ? ($company->company_code ?? 'COMP') : 'COMP';
+        $branchCode = $branch ? ($branch->branch_code ?? 'BR') : 'H'; 
         $formattedDvNo = $compCode . '-' . $branchCode . '/' . str_pad($voucher->dv_no, 2, '0', STR_PAD_LEFT);
-        // 2. Head of Account Name Mapping
+        
         $ledgerName = \Illuminate\Support\Facades\DB::table('ledgers')->where('ledger_code', $voucher->head_of_account)->value('ledger_name');
         $ledgerName = $ledgerName ? $ledgerName : $voucher->head_of_account; 
 
-        // 3. Paid To Name Mapping
         $pId = $voucher->paid_to;
         $paidToName = $pId; 
         $nameMatches = [
@@ -110,22 +114,16 @@ class DebitVoucherWebController extends Controller
         
         foreach ($nameMatches as $name) {
             if (!empty($name)) {
-                $paidToName = $name . ' (' . $pId . ')'; // Name with ID
+                $paidToName = $name . ' (' . $pId . ')'; 
                 break;
             }
         }
 
-        // 4. Prepared By & Verified By - Check in adm_regist (id or member_id)
         $approverName = '';
-        $employee = \Illuminate\Support\Facades\DB::table('adm_regist')
-            ->where('member_id', $voucher->approved_by)
-            ->orWhere('id', $voucher->approved_by)
-            ->first();
-            
+        $employee = \Illuminate\Support\Facades\DB::table('adm_regist')->where('member_id', $voucher->approved_by)->orWhere('id', $voucher->approved_by)->first();
         if ($employee) {
             $approverName = strtoupper($employee->full_name) . ' (' . $employee->member_id . ')';
         } else {
-            // Fallback for Admin
             $adminUser = \Illuminate\Support\Facades\DB::table('users')->where('id', $voucher->approved_by)->first();
             if ($adminUser && $adminUser->email === 'admin@jankivilla.com') {
                 $approverName = 'ACCOUNT(ABDPL)';
@@ -136,20 +134,14 @@ class DebitVoucherWebController extends Controller
             }
         }
 
-        // 5. Approved By (Director) - Check in super_admins (id or ceo_id)
         $signatoryName = '';
-        $superAdmin = \Illuminate\Support\Facades\DB::table('super_admins')
-            ->where('ceo_id', $voucher->authorized_signatory)
-            ->orWhere('id', $voucher->authorized_signatory)
-            ->first();
-            
+        $superAdmin = \Illuminate\Support\Facades\DB::table('super_admins')->where('ceo_id', $voucher->authorized_signatory)->orWhere('id', $voucher->authorized_signatory)->first();
         if ($superAdmin) {
             $signatoryName = strtoupper($superAdmin->full_name) . ' (' . $superAdmin->ceo_id . ')';
         } else {
             $signatoryName = $voucher->authorized_signatory; 
         }
 
-        // 6. Payment Details formatting
         $paymentRef = '';
         if (strtoupper($voucher->payment_mode) === 'UPI') {
             $paymentRef = $voucher->pay_upi ?? $voucher->transaction_id;
@@ -165,7 +157,8 @@ class DebitVoucherWebController extends Controller
         return view('admin.debit_vouchers.print', compact(
             'voucher', 'mode', 'company', 'branch', 
             'formattedDvNo', 'ledgerName', 'paidToName', 
-            'approverName', 'signatoryName', 'paymentRef', 'displayMode'
+            'approverName', 'signatoryName', 'paymentRef', 'displayMode',
+            'canApprove', 'canReject' // 🔥 Pass these permissions
         ));
     }
 }

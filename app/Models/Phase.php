@@ -9,14 +9,16 @@ class Phase extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'company_id',
-        'branch_id',
-        'phase_name',
-        'phase_location',
-        'phase_details',
+   protected $fillable = [
+        'company_id', 
+        'branch_id', 
+        'phase_name', 
+        'phase_location', 
+        'phase_details', 
         'phase_image',
-        'phase_google_map_url',
+        'khatiyan_map', // 🔥 YEH LINE ADD KARNI HAI 🔥
+        'phase_google_map_url', 
+        'status', 
         'created_by'
     ];
 

@@ -119,21 +119,37 @@
                 box-shadow: -4px 0 8px rgba(0, 0, 0, 0.1);
             }
 
-            .nav-scroll-wrapper {
-                flex: 1;
-                width: 100%;
-                padding: 0 35px;
-                position: relative;
-                overflow-x: clip;
-                overflow-y: visible;
-                background-color: var(--sidebar-bg);
-                border-radius: 8px;
-                min-height: 45px;
-                display: flex;
-                align-items: center;
-                cursor: grab;
-                user-select: none;
-            }
+ .nav-scroll-wrapper {
+    flex: 1;
+    width: 100%;
+    padding: 0 35px;
+    position: relative;
+    overflow-x: clip;    /* WAPAS CLIP KAR DEIN */
+    overflow-y: visible; /* ISSE DROPDOWN WAPAS DIKHNE LAGENGE */
+    background-color: var(--sidebar-bg);
+    border-radius: 8px;
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    cursor: grab;
+    user-select: none;
+}
+
+/* NAYA CODE: Scrollbar ko chhota aur visible banane ke liye */
+.nav-scroll-wrapper::-webkit-scrollbar {
+    height: 6px; /* Scrollbar ki motai */
+}
+.nav-scroll-wrapper::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.15); /* Track ka color */
+    border-radius: 4px;
+}
+.nav-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.4); /* Scrollbar ka color */
+    border-radius: 4px;
+}
+.nav-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.7); /* Hover karne par highlight */
+}
 
             .nav-scroll-wrapper:active {
                 cursor: grabbing;
@@ -187,25 +203,38 @@
                 box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
             }
 
-            .desktop-dropdown {
-                position: absolute;
-                top: 100%;
-                left: 0;
-                background: #ffffff;
-                min-width: 240px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-                border-radius: 6px;
-                border: 1px solid var(--border-color);
-                opacity: 0;
-                visibility: hidden;
-                transform: translateY(10px);
-                transition: all 0.2s ease;
-                display: block;
-                list-style: none;
-                padding: 8px 0;
-                margin: 0;
-                z-index: 1050;
-            }
+           .desktop-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #ffffff;
+    min-width: 240px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+    display: block;
+    list-style: none;
+    padding: 8px 0;
+    margin: 0;
+    z-index: 1050;
+    
+    /* NAYE CHANGES YAHAN HAIN */
+    max-height: calc(100vh - 100px); /* Screen ki height ke hisaab se adjust hoga */
+    overflow-y: auto; /* Lamba hone par vertical scroll aa jayega */
+}
+
+/* Dropdown ke scrollbar ko thoda patla aur stylish banane ke liye (Optional) */
+.desktop-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+.desktop-dropdown::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+}
 
             .desktop-nav li.has-sub {
                 position: relative;
@@ -1163,19 +1192,26 @@
                         });
                     });
 
-                    wrapper.addEventListener('wheel', function(e) {
-                        if (e.deltaY !== 0) {
-                            e.preventDefault();
-                            let maxScroll = navArea.scrollWidth - wrapper.clientWidth;
-                            currentNavScroll += e.deltaY > 0 ? 150 : -150;
-                            if (currentNavScroll < 0) currentNavScroll = 0;
-                            if (currentNavScroll > maxScroll) currentNavScroll = maxScroll;
-                            navArea.style.transform = `translateX(-${currentNavScroll}px)`;
-                            updateScrollButtons();
-                        }
-                    }, {
-                        passive: false
-                    });
+                   wrapper.addEventListener('wheel', function(e) {
+    // 🚀 NAYA CODE YAHAN SE SHURU HOTA HAI
+    // Check karna ki kya user dropdown menu ke andar scroll kar raha hai
+    if (e.target.closest('.desktop-dropdown')) {
+        return; // Agar haan, toh yahin se ruk jao aur horizontal scroll mat karo
+    }
+    // 🚀 NAYA CODE YAHAN KHATAM HOTA HAI
+
+    if (e.deltaY !== 0) {
+        e.preventDefault();
+        let maxScroll = navArea.scrollWidth - wrapper.clientWidth;
+        currentNavScroll += e.deltaY > 0 ? 150 : -150;
+        if (currentNavScroll < 0) currentNavScroll = 0;
+        if (currentNavScroll > maxScroll) currentNavScroll = maxScroll;
+        navArea.style.transform = `translateX(-${currentNavScroll}px)`;
+        updateScrollButtons();
+    }
+}, {
+    passive: false
+});
 
                     if (window.ResizeObserver) {
                         const resizeObserver = new ResizeObserver(() => {
@@ -1530,6 +1566,11 @@
                 $('.handle-logout').on('click', function(e) {
                     performNormalLogout();
                 });
+
+
+
+
+
             });
         })();
     </script>

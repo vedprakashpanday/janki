@@ -501,15 +501,24 @@ class EmployeeController extends Controller
             if (!$hasDirect) $updateData['emp_status'] = 'pending';
             if ($request->marital_status !== 'Married') $updateData['anniversary_date'] = null;
 
-            $fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'];
-            // 🔥 BUG FIX: Pehle file fields ko array se hata dein taaki purani file null se overwrite na ho
-            foreach ($fileFields as $field) {
-                unset($updateData[$field]); 
-                if ($request->hasFile($field)) {
-                    $updateData[$field] = $this->uploadFile($request->file($field), $field);
-                }
-            }
-            $employee->update($updateData);
+           $fileFields = ['passport_photo', 'signature_photo', 'aadhar_pdf', 'pan_pdf', 'bank_passbook_pdf', 'driving_license_pdf', 'passport_pdf', 'tenth_pdf', 'twelfth_pdf', 'graduation_pdf', 'pg_pdf', 'other_pdf', 'nom_passport_photo', 'nom_aadhar_pdf', 'nom_pan_pdf', 'nom_bank_passbook_pdf', 'nom_driving_license_pdf', 'nom_passport_pdf', 'nom_tenth_pdf', 'nom_twelfth_pdf', 'nom_graduation_pdf', 'nom_pg_pdf', 'nom_other_pdf'];
+
+// 🔥 BUG FIX: Pehle file fields ko array se hata dein taaki purani file null se overwrite na ho
+foreach ($fileFields as $field) {
+    unset($updateData[$field]); 
+    
+    if ($request->hasFile($field)) {
+        // 🔥 NAYA FIX: Nayi file upload karne se pehle purani file ko server se permanently delete karein
+        if (!empty($employee->$field) && \Illuminate\Support\Facades\File::exists(public_path($employee->$field))) {
+            \Illuminate\Support\Facades\File::delete(public_path($employee->$field));
+        }
+
+        // Nayi file upload karke path set karein
+        $updateData[$field] = $this->uploadFile($request->file($field), $field);
+    }
+}
+
+$employee->update($updateData);
             // 🔥 NAYA: Update Grade Role automatically
                         if ($request->filled('grade')) {
                             // syncRoles purane grade ko hata kar naya set kar dega

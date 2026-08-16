@@ -24,7 +24,7 @@
                                 <p class="text-muted small mt-2">Loading data...</p>
                             </div>
 
-                            <div class="row g-3 d-none" id="formContent">
+                           <div class="row g-3 d-none" id="formContent">
                                 <div class="col-md-6 col-12">
                                     <label class="form-label fw-semibold">Company</label>
                                     <select name="company_id" id="company_id" class="form-select shadow-none" disabled>
@@ -57,10 +57,26 @@
                                 <div class="col-md-6 col-12">
                                     <label class="form-label fw-semibold">Phase Image (Leave blank to keep old)</label>
                                     <input type="file" id="phase_image" name="phase_image" class="form-control shadow-none" accept="image/*">
+                                    <input type="hidden" name="remove_phase_image" id="remove_phase_image" value="0">
                                     
                                     <div id="imagePreviewContainer" class="mt-3 position-relative d-none" style="width: 150px;">
                                         <img id="imagePreview" src="" alt="Preview" class="img-thumbnail w-100 shadow-sm rounded">
                                         <button type="button" id="clearImageBtn" class="btn btn-danger btn-sm position-absolute top-0 start-100 translate-middle rounded-circle shadow" style="width: 25px; height: 25px; padding: 0;">
+                                            <i class="fas fa-times" style="font-size: 12px;"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6 col-12">
+                                    <label class="form-label fw-semibold">Base Map / Khatiyan (Optional)</label>
+                                    <input type="file" id="khatiyan_map" name="khatiyan_map" class="form-control shadow-none" accept="image/*">
+                                    <input type="hidden" name="remove_khatiyan_map" id="remove_khatiyan_map" value="0">
+                                    <small class="text-muted">Upload a new map to override the existing one.</small>
+                                    
+                                    <!-- NAYA: Map preview ke liye -->
+                                    <div id="mapPreviewContainer" class="mt-3 position-relative d-none" style="width: 150px;">
+                                        <img id="mapPreview" src="" alt="Map Preview" class="img-thumbnail w-100 shadow-sm rounded">
+                                        <button type="button" id="clearMapBtn" class="btn btn-danger btn-sm position-absolute top-0 start-100 translate-middle rounded-circle shadow" style="width: 25px; height: 25px; padding: 0;">
                                             <i class="fas fa-times" style="font-size: 12px;"></i>
                                         </button>
                                     </div>
@@ -120,6 +136,20 @@
             }
         });
 
+        $('#clearImageBtn').on('click', function() {
+            $('#phase_image').val('');
+            $('#imagePreviewContainer').addClass('d-none');
+            $('#remove_phase_image').val('1'); // NAYA FIX
+        });
+
+        $('#clearMapBtn').on('click', function() {
+            $('#khatiyan_map').val('');
+            $('#mapPreviewContainer').addClass('d-none'); 
+            $('#remove_khatiyan_map').val('1'); // NAYA FIX
+        });
+
+
+
         // 2. Specific Phase ka data load karna
         function loadPhaseData() {
             $.ajax({
@@ -143,10 +173,19 @@
                         loadBranches(phaseData.company_id, phaseData.branch_id);
 
                         // Image Preview
+                      // Image Preview (Existing Phase Image)
                         if(phaseData.phase_image) {
                             $('#imagePreview').attr('src', '/' + phaseData.phase_image);
                             $('#imagePreviewContainer').removeClass('d-none');
                         }
+                        
+                        // NAYA: Map Preview (Existing Map)
+                        if(phaseData.khatiyan_map) {
+                            $('#mapPreview').attr('src', '/' + phaseData.khatiyan_map);
+                            $('#mapPreviewContainer').removeClass('d-none');
+                        }
+
+
 
                         // Show Form
                         $('#loadingSpinner').addClass('d-none');
@@ -158,6 +197,23 @@
                 }
             });
         }
+
+        $('#khatiyan_map').on('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#mapPreview').attr('src', e.target.result);
+                    $('#mapPreviewContainer').removeClass('d-none');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        $('#clearMapBtn').on('click', function() {
+            $('#khatiyan_map').val('');
+            $('#mapPreviewContainer').addClass('d-none'); // Hide preview but don't delete from server yet
+        });
 
         // 3. Dependent Branch Dropdown Logic
         function loadBranches(companyId, selectedBranchId = null) {

@@ -371,6 +371,19 @@ class InterestedCustomerController extends Controller
         $data['entry_status'] = ($entryType === 'request') ? 'pending' : 'active';
 
 
+        // 🔥 NAYA CODE: Agar non-member lead already hai, toh use update karke member ka bana do
+        if ($request->is_member == 1) {
+            $existing = \App\Models\InterestedCustomer::where('mobile', $request->mobile)->first();
+            if ($existing && $existing->is_member != 1) {
+                $data['is_member'] = 1;
+                $data['entry_date'] = $request->entry_date ?? date('Y-m-d');
+                $existing->update($data);
+                return response()->json(['status' => 'success', 'message' => 'Lead saved successfully.']);
+            }
+        }
+
+
+
    // 🔥 YAHAN NAYA CODE DAALNA HAI: Duplicate Entry Check
     $isDuplicate = \App\Models\InterestedCustomer::where('assigned_telecaller', $request->assigned_telecaller)
         ->where('cust_name', $request->cust_name)
@@ -392,7 +405,7 @@ class InterestedCustomerController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Lead processed successfully']);
     }
 
-    public function show($id)
+   public function show($id)
     {
         $context = $this->getGlobalContext();
         $customer = InterestedCustomer::with(['branch', 'company'])->find($id);
@@ -403,9 +416,22 @@ class InterestedCustomerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthorized Scope'], 403);
         }
 
+        // 🔥 NAYA: History Nikalna
+        $historyRecords = \App\Models\TelecallerAllocation::where('customer_id', $id)
+            ->whereNotNull('called_at')
+            ->whereNotNull('remark')
+            ->orderBy('called_at', 'desc')
+            ->get();
+            
+        $historyText = "";
+        foreach ($historyRecords as $rec) {
+            $date = \Carbon\Carbon::parse($rec->called_at)->format('d-M-y');
+            $historyText .= "[{$date} | {$rec->call_status}]: {$rec->remark}\n";
+        }
+        $customer->remark_history = $historyText;
+
         return response()->json(['status' => 'success', 'data' => $customer]);
     }
-
     public function update(Request $request, $id)
     {
         $context = $this->getGlobalContext();
@@ -601,18 +627,21 @@ class InterestedCustomerController extends Controller
         ]);
     }
 public function checkMobile(Request $request)
-{
-    $query = \App\Models\InterestedCustomer::where('mobile', $request->mobile);
-    
-    // Agar hum edit kar rahe hain, toh same record ko duplicate na mane isliye exclude karenge
-    if ($request->has('exclude_id') && !empty($request->exclude_id)) {
-        $query->where('id', '!=', $request->exclude_id);
+    {
+        $query = \App\Models\InterestedCustomer::where('mobile', $request->mobile);
+        
+        if ($request->has('exclude_id') && !empty($request->exclude_id)) {
+            $query->where('id', '!=', $request->exclude_id);
+        }
+        
+        // 🔥 NAYA: Sirf tab check karega jab already kisi member ne lead banayi ho
+        $query->where('is_member', 1);
+        
+        $exists = $query->exists();
+        
+        return response()->json(['exists' => $exists]);
     }
-    
-    $exists = $query->exists();
-    
-    return response()->json(['exists' => $exists]);
-}
+
 
 // 🔥 UPDATED: adm_regist se data uthana
     public function getReportEmployees(Request $request)
@@ -748,36 +777,48 @@ public function checkMobile(Request $request)
         ]);
     }
 
- public function getMemberPortalLeads(Request $request)
-    {
-        // 🔥 STRICT SECURITY LOCK
-        if (empty($request->member_id)) {
-            return response()->json([
-                'success' => true,
-                'current_page' => 1,
-                'last_page' => 1,
-                'data' => []
-            ]);
-        }
+public function getMemberPortalLeads(Request $request)
+{
+    // 🔥 STRICT SECURITY LOCK (Yeh already sahi hai)
+    if (empty($request->member_id)) {
+        return response()->json([
+            'success' => true,
+            'current_page' => 1,
+            'last_page' => 1,
+            'data' => []
+        ]);
+    }
 
-        $query = \App\Models\InterestedCustomer::query()
-            ->where('member_id', $request->member_id)
-            ->where('is_member', 1);
+    // Ye confirm karta hai ki sirf isi member ka aur is_member=1 wala data aaye
+    $query = \App\Models\InterestedCustomer::query()
+        ->where('member_id', $request->member_id)
+        ->where('is_member', 1);
 
-        // 🔥 DYNAMIC FILTERS
-        if ($request->filled('mobile')) {
-            $query->where('mobile', 'like', '%' . $request->mobile . '%');
-        }
-        if ($request->filled('address')) {
-            $query->where('address', 'like', '%' . $request->address . '%');
-        }
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-        if ($request->filled('date')) {
-            $query->whereDate('created_at', $request->date); 
-        }
+  // 🔥 DYNAMIC FILTERS (Mobile logic upgraded)
+    if ($request->filled('mobile')) {
+        $searchMobile = trim($request->mobile);
+        $query->where(function($q) use ($searchMobile) {
+            $q->where('mobile', 'like', '%' . $searchMobile . '%')
+              ->orWhere('alternate_no', 'like', '%' . $searchMobile . '%');
+        });
+    }
 
+    // 🔥 NAYA: Name ka filter
+    if ($request->filled('name')) {
+        $query->where('cust_name', 'like', '%' . trim($request->name) . '%');
+    }
+    
+    if ($request->filled('address')) {
+        $query->where('address', 'like', '%' . trim($request->address) . '%');
+    }
+    
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+    
+    if ($request->filled('date')) {
+        $query->whereDate('created_at', $request->date); 
+    }
         // ========================================================
         // 🔥 TELECALLER-STYLE CUMULATIVE PRIORITY SORTING 🔥
         // ========================================================

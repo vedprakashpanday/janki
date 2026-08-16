@@ -375,26 +375,36 @@ class DebitVoucherApiController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Voucher Updated Successfully!']);
     }
 
-  // 🟢 Approve Action
-    public function approve($id)
+  
+// 🟢 Approve Action
+    public function approve(Request $request, $id)
     {
         $voucher = DebitVoucher::findOrFail($id);
         $user = auth()->user();
+        
         $voucher->update([
             'status' => 'approved',
-            'approved_by' => $user->member_id ?? $user->id
+            'approved_by' => $user->member_id ?? (string)$user->id,
+            'checker_remarks' => $request->checker_remarks // 🔥 Naya column update
         ]);
+        
         return response()->json(['status' => 'success', 'message' => 'Voucher Approved Successfully!']);
     }
 
     // 🔴 Reject Action
-    public function reject($id)
+    public function reject(Request $request, $id)
     {
         $voucher = DebitVoucher::findOrFail($id);
-        $voucher->update(['status' => 'rejected']);
+        
+        $voucher->update([
+            'status' => 'rejected',
+            'checker_remarks' => $request->checker_remarks // 🔥 Naya column update
+        ]);
+        
         return response()->json(['status' => 'success', 'message' => 'Voucher Rejected!']);
     }
 
+ 
     // 🟠 Cancel Action
     public function cancel($id)
     {
@@ -787,7 +797,6 @@ public function print(Request $request, $id)
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
-
 
 
 }

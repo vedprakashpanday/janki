@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body {
@@ -128,14 +128,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0.08;
+            opacity: 0.25;
             pointer-events: none;
             z-index: 0;
         }
 
         .watermark img {
-            width: 70%;
-            max-width: 600px;
+            width: 100%;
+            max-width: 700px;
         }
 
         /* =======================================================
@@ -274,41 +274,45 @@
             {{ $records['letter_title'] ?? 'LETTERHEAD' }}
         </div>
 
-        @if (strtolower($records['emp_code'] ?? '') === 'all' || empty($records['paid_to_id']))
-            <div class="mb-3">
-                <b>To,</b><br>
-                <b class="fs-6">{{ $records['emp_code'] ?? 'All' }}</b>
-            </div>
-        @else
-            <b>To,</b>
-            <table class="info-table mt-2">
-                <tr>
-                    <th>Name</th>
-                    <td>{{ $records['paid_to_name'] }}</td>
+        <!-- 🔥 NAYA FIX: AGAR MANUAL HOGA TOH YE PURA BLOCK HIDE HO JAYEGA 🔥 -->
+        @if (strtolower($records['emp_code'] ?? '') !== 'manual')
+            @if (strtolower($records['emp_code'] ?? '') === 'all' || empty($records['paid_to_id']))
+                <div class="mb-3">
+                    <b>To,</b><br>
+                    <b class="fs-6">{{ $records['emp_code'] ?? 'All' }}</b>
+                </div>
+            @else
+                <b>To,</b>
+                <table class="info-table mt-2">
+                    <tr>
+                        <th>Name</th>
+                        <td>{{ $records['paid_to_name'] }}</td>
 
-                    <th>Code</th>
-                    <td>{{ $records['paid_to_id'] }}</td>
+                        <th>Code</th>
+                        <td>{{ $records['paid_to_id'] }}</td>
 
-                    <th>Designation</th>
-                    <td>{{ $records['paid_to_designation'] }}</td>
-                </tr>
-                <tr>
-                    <th>Doj</th>
-                    <td>{{ $records['paid_to_doj'] !== '-' ? date('d/m/Y', strtotime($records['paid_to_doj'])) : '-' }}
-                    </td>
+                        <th>Designation</th>
+                        <td>{{ $records['paid_to_designation'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Doj</th>
+                        <td>{{ $records['paid_to_doj'] !== '-' ? date('d/m/Y', strtotime($records['paid_to_doj'])) : '-' }}
+                        </td>
 
-                    <th>Mobile</th>
-                    <td>{{ $records['paid_to_mobile'] }}</td>
+                        <th>Mobile</th>
+                        <td>{{ $records['paid_to_mobile'] }}</td>
 
-                    <th>S/O,D/O,W/O</th>
-                    <td>{{ $records['paid_to_relation'] }}</td>
-                </tr>
-                <tr>
-                    <th>Address</th>
-                    <td colspan="5">{{ $records['paid_to_address'] }}</td>
-                </tr>
-            </table>
+                        <th>S/O,D/O,W/O</th>
+                        <td>{{ $records['paid_to_relation'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Address</th>
+                        <td colspan="5">{{ $records['paid_to_address'] }}</td>
+                    </tr>
+                </table>
+            @endif
         @endif
+        <!-- BLOCK END -->
 
         <table class="main-print-table">
             <thead>

@@ -119,6 +119,27 @@
         </form>
 
         <div id="messageBox" class="mt-4 text-center d-none" style="font-size: 14px;"></div>
+
+        <!-- 🔥 NAYA: Action Links (Hidden initially) -->
+        <div id="actionLinks" class="mt-3 d-flex justify-content-between px-2 d-none" style="font-size: 13px;">
+            <a href="javascript:void(0)" id="resendBtn" class="text-decoration-none fw-bold" style="color: #0d6efd;">
+                <i class="fas fa-redo-alt me-1"></i> Resend Email
+            </a>
+            <a href="javascript:void(0)" id="tryAnotherWayBtn" class="text-decoration-none fw-bold text-secondary">
+                Try Another Way <i class="fas fa-chevron-right ms-1" style="font-size:10px;"></i>
+            </a>
+        </div>
+
+        <!-- 🔥 NAYA: Passkey Box (Hidden initially) -->
+        <div id="passkeySection" class="mt-3 p-3 rounded d-none" style="background: rgba(13, 110, 253, 0.05); border: 1px dashed #0d6efd;">
+            <label class="form-label small fw-medium text-primary">Enter Today's Passkey</label>
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="fas fa-key text-primary"></i></span>
+                <input type="text" class="form-control" id="passkeyInput" placeholder="6-digit Passkey">
+                <button class="btn btn-primary px-3" id="verifyPasskeyBtn">Verify</button>
+            </div>
+            <small class="text-muted d-block mt-2" style="font-size:11px;">Check any login email received today to find the Passkey.</small>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -127,45 +148,97 @@
         const currentLoginSessionId = 'jv_' + Math.random().toString(36).substr(2, 9);
 
         // --- FORM SUBMISSION LOGIC ---
+       // --- EXISTING LOGIN FORM SUBMIT ---
         $('#loginForm').on('submit', function(e) {
             e.preventDefault();
+            sendLoginRequest(); // Function me move kar diya taaki resend me bhi kaam aaye
+        });
 
+        function sendLoginRequest(isResend = false) {
             const data = {
                 email: $('#email').val(),
                 password: $('#password').val(),
                 session_id: currentLoginSessionId
             };
 
-            // UI ko waiting mode me daalo aur purane messages hatao
             $('#loginBtn').html('<i class="fas fa-spinner fa-spin me-2"></i> Requesting...').prop('disabled', true);
             $('#messageBox').addClass('d-none');
+            
+            if(isResend) {
+                $('#resendBtn').html('<i class="fas fa-spinner fa-spin"></i> Sending...');
+            }
 
-            // AJAX call with Success & Error handling
             $.ajax({
-                url: '/api/v1/admin/auth/login-request', // 🔥 FIXED: Aapke routing structure ke hisaab se
+                url: '/api/v1/admin/auth/login-request',
                 type: 'POST',
                 data: data,
                 success: function(response) {
-                    // Agar credentials sahi hain aur mail chala gaya
                     $('#messageBox').removeClass('d-none').html(
                         '<div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-warning-emphasis"><i class="fas fa-envelope-open-text me-2"></i>Waiting for Admin approval...</div>'
-                        );
+                    );
+                    
+                    // 🔥 Request jaane ke baad dono button dikhao
+                    $('#actionLinks').removeClass('d-none');
+                    $('#resendBtn').html('<i class="fas fa-redo-alt me-1"></i> Resend Email');
                 },
                 error: function(xhr) {
-                    // Agar email/password galat hai, toh button wapas normal karo
-                    $('#loginBtn').html('Secure Login <i class="fas fa-arrow-right ms-2"></i>').prop(
-                        'disabled', false);
+                    $('#loginBtn').html('Secure Login <i class="fas fa-arrow-right ms-2"></i>').prop('disabled', false);
+                    let errorMessage = xhr.responseJSON?.message || "Something went wrong.";
+                    $('#messageBox').removeClass('d-none').html(
+                        '<div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger"><i class="fas fa-exclamation-circle me-2"></i>' + errorMessage + '</div>'
+                    );
+                    $('#resendBtn').html('<i class="fas fa-redo-alt me-1"></i> Resend Email');
+                }
+            });
+        }
 
-                    // Backend se error message nikalo (e.g., "Invalid credentials")
-                    let errorMessage = "Something went wrong. Please try again.";
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
+        // --- 1. RESEND BUTTON CLICK ---
+        $('#resendBtn').on('click', function() {
+            sendLoginRequest(true);
+        });
+
+        // --- 2. TRY ANOTHER WAY CLICK ---
+        $('#tryAnotherWayBtn').on('click', function() {
+            $('#passkeySection').removeClass('d-none').hide().slideDown(); // Smoothly open
+            $('#passkeyInput').focus();
+        });
+
+        // --- 3. VERIFY PASSKEY CLICK ---
+        $('#verifyPasskeyBtn').on('click', function() {
+            let passkey = $('#passkeyInput').val();
+            let email = $('#email').val();
+
+            if(!passkey) {
+                alert("Please enter the Passkey"); return;
+            }
+
+            $(this).html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+
+            $.ajax({
+                url: '/api/v1/admin/auth/verify-passkey',
+                type: 'POST',
+                data: { email: email, passkey: passkey },
+                success: function(data) {
+                    $('#messageBox').removeClass('d-none').html(
+                        '<div class="alert alert-success border-0 bg-success bg-opacity-10 text-success"><i class="fas fa-check-circle me-2"></i>Passkey Verified! Redirecting...</div>'
+                    );
+                    
+                    // Token aur details save karo
+                    localStorage.setItem('admin_token', data.token);
+                    if (data.user) {
+                        localStorage.setItem('user_email', data.user.email || '');
+                        localStorage.setItem('user_role', data.user.role || '');
+                        localStorage.setItem('user_name', data.user.name || '');
                     }
 
-                    // Error message UI par dikhao
-                    $('#messageBox').removeClass('d-none').html(
-                        '<div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger"><i class="fas fa-exclamation-circle me-2"></i>' +
-                        errorMessage + '</div>');
+                    setTimeout(() => {
+                        window.location.href = '/admin/dashboard';
+                    }, 1000);
+                },
+                error: function(xhr) {
+                    $('#verifyPasskeyBtn').html('Verify').prop('disabled', false);
+                    let errorMessage = xhr.responseJSON?.message || "Invalid Passkey";
+                    alert(errorMessage);
                 }
             });
         });

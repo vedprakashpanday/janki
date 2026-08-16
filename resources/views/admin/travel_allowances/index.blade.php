@@ -68,8 +68,8 @@
             </button>
         </div>
 
-        <!-- 🔥 TOP FILTERS SECTION (Autocomplete Mode) 🔥 -->
-        <div class="card border-0 shadow-sm mb-4 bg-white" id="filterSection">
+  <!-- 🔥 TOP FILTERS SECTION (Zero Trust Compatible - Hidden by Default) 🔥 -->
+        <div class="card border-0 shadow-sm mb-4 bg-white" id="adminTopFilters" style="display: none;">
             <div class="card-body p-3">
                 <h6 class="fw-bold text-primary mb-3"><i class="fas fa-filter"></i> Advanced Filters (Type min 3 letters)</h6>
                 <div class="row g-2 align-items-end">
@@ -123,7 +123,7 @@
                 </div>
             </div>
         </div>
-
+        
         <!-- 🔥 DYNAMIC SUMMARY SECTION (Hidden by default) 🔥 -->
         <div class="row mb-4" id="summarySection" style="display: none;">
             <div class="col-md-6">
@@ -328,7 +328,16 @@
         $(document).ready(function() {
             loadData(1);
             setupDropdowns();
-            setupTopFilters();
+           // 🔥 NAYA: Zero Trust Client-Side Admin Check 🔥
+            let isSuperAdmin = window.userGodMode === true;
+            let hasApprovePerm = Array.isArray(window.userPerms) && window.userPerms.includes('ta_appr');
+            let isPortalAdmin = portal === 'admin'; // Portal URL based check
+
+            // Agar user ke paas rights hain toh hi filter section dikhayein aur uski JS load karein
+            if (isSuperAdmin || hasApprovePerm || isPortalAdmin) {
+                $('#adminTopFilters').show();
+                setupTopFilters(); 
+            }
 
             $('#taForm').on('submit', function(e) {
                 e.preventDefault();

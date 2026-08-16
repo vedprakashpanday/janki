@@ -43,6 +43,10 @@ Broadcast::channel('user.logout.{id}', function ($user, $id) {
 Broadcast::channel('task.{taskId}', function ($user, $taskId) {
     return true;
 });
+// Broadcast::channel('App.Models.Employee.{id}', function ($user, $id) {
+//     // Check karo ki user sahi se authenticate ho raha hai ya nahi
+//     return (int) $user->id === (int) $id;
+// }, ['guards' => ['sanctum', 'web']]); // Ensure correct guard is applied
 
 
 // 🔥 NAYA GLOBAL CHANNEL (Simple & Universal) 🔥

@@ -56,12 +56,13 @@ class TaskController extends Controller
         } 
         else {
             // Normal Employee / Assigned Member
-            // Agar employee ke paas dusro ke tasks dekhne ki permission hai:
             if (in_array('task_view_all', $context->permissions ?? [])) {
                  $query->where('branch_id', $context->branch_id);
             } else {
-                 // Warna sirf apna task dikhega
-                 $query->where('assignee_id', $user->id);
+                 $query->where(function($q) use ($user) {
+                     $q->where('assignee_id', $user->id)
+                       ->orWhere('assigner_id', $user->id); 
+                 });
             }
         }
         
@@ -141,7 +142,6 @@ class TaskController extends Controller
 
     public function store(Request $request, \App\Services\TelecallerAllocationService $allocationService)
     {
-        // 🔥 NAYA: phase_id ko validation me allow kiya
         $request->validate([
             'assignee_type' => 'required|string',
             'assignee_ids' => 'required|array|min:1',
@@ -149,8 +149,8 @@ class TaskController extends Controller
             'tasks.*.title' => 'required|string|max:255',
             'tasks.*.tracking_module_id' => 'nullable|exists:task_tracking_modules,id',
             'tasks.*.phase_id' => 'nullable|exists:phases,id',
-           'tasks.*.provider_id' => 'nullable|string',
-            'tasks.*.provider_percent' => 'nullable|integer|min:1|max:100', // 🔥 YAHAN ADD KAREIN
+            'tasks.*.provider_id' => 'nullable|string',
+            'tasks.*.provider_percent' => 'nullable|integer|min:1|max:100',
             'tasks.*.target_count' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
             'priority' => 'required|in:Low,Medium,High,Urgent',
@@ -218,8 +218,8 @@ class TaskController extends Controller
                         'title' => $taskItem['title'],
                         'tracking_module_id' => $taskItem['tracking_module_id'] ?? null,
                         'phase_id' => $taskItem['phase_id'] ?? null,
-                        'provider_id' => $taskItem['provider_id'] ?? null, // 🔥 YE ADD KAREIN
-                        'provider_percent' => $taskItem['provider_percent'] ?? null, // 🔥 YAHAN ADD KAREIN
+                        'provider_id' => $taskItem['provider_id'] ?? null, 
+                        'provider_percent' => $taskItem['provider_percent'] ?? null, 
                         'target_count' => $taskItem['target_count'] ?? 0,
                         'description' => $request->description,
                         'priority' => $request->priority,
@@ -228,20 +228,26 @@ class TaskController extends Controller
                     ]);
 
                     // ==========================================
-                    // 🔥 YEH NAYA LOGIC YAHAN ADD KARNA HAI 🔥
+                    // 🔥 NAYA ALLOCATION LOGIC WITH FALLBACK 🔥
                     // ==========================================
-                   if ($task->phase_id && $task->target_count > 0) {
-                        // Agar admin ne override checkbox select kiya hai
+                    if ($task->phase_id && $task->target_count > 0) {
+                        $remainingTarget = $task->target_count;
+                        
+                        // Step 1: Check Override Member Leads
                         if (isset($taskItem['is_member_override']) && $taskItem['is_member_override'] == '1') {
-                            $allocationService->allocateOverrideMemberLeads(
+                            $overrideCount = $allocationService->allocateOverrideMemberLeads(
                                 $task, 
                                 $taskItem['override_member_id'], 
                                 $taskItem['override_status'], 
-                                $task->target_count
+                                $remainingTarget
                             );
-                        } else {
-                            // Normal fresh leads
-                            $allocationService->allocateFreshCustomers($task, $task->target_count);
+                            
+                            $remainingTarget -= $overrideCount; // Target me se override leads minus kar do
+                        }
+
+                        // Step 2: Fallback (Bacha hua target normal Employee Quota (Point 1) se uthega)
+                        if ($remainingTarget > 0) {
+                            $allocationService->allocateFreshCustomers($task, $remainingTarget);
                         }
                     }
                     // ==========================================
@@ -272,40 +278,30 @@ class TaskController extends Controller
             foreach ($usersToNotify as $target) {
                 $assigneeRecord = $target['record'];
                 $count = $target['count'];
-
-                // JAB LOOP ME TASK CREATE HOTA HAI (Uske thik baad Notification bhejein)
         
-        // Check Portal Type
-        $portal = str_contains($request->assignee_type, 'Employee') ? 'employee' : 'member';
-        $assigneeRecord = $request->assignee_type::find($assigneeId);
+                $portal = str_contains($request->assignee_type, 'Employee') ? 'employee' : 'member';
 
-        if ($assigneeRecord) {
-            // 🔥 SMART NOTIFICATION SEGREGATION 🔥
-            if ($task->target_count > 0) {
-                // Target Based Task (Blue color, Bullseye icon)
-                $notifTitle = "🎯 New Target Task Assigned";
-                $notifIcon = "fa-bullseye";
-                $notifColor = "text-primary";
-            } else {
-                // Manual Task (Orange color, Pin icon)
-                $notifTitle = "📌 New Manual Task Assigned";
-                $notifIcon = "fa-thumbtack";
-                $notifColor = "text-warning";
-            }
+                if ($task->target_count > 0) {
+                    $notifTitle = "🎯 New Target Task Assigned";
+                    $notifIcon = "fa-bullseye";
+                    $notifColor = "text-primary";
+                } else {
+                    $notifTitle = "📌 New Manual Task Assigned";
+                    $notifIcon = "fa-thumbtack";
+                    $notifColor = "text-warning";
+                }
 
-            $notifMsg = "Task: " . $task->title . " \nPriority: " . $task->priority;
-            // 🔥 SMART ROUTING LOGIC 🔥
-        $taskRoute = str_contains($task->assignee_type, 'Employee') ? 'tasks/staff' : 'tasks/associates';
-        $targetUrl = "/{$portal}/{$taskRoute}";
+                $notifMsg = "Task: " . $task->title . " \nPriority: " . $task->priority;
+                $taskRoute = str_contains($task->assignee_type, 'Employee') ? 'tasks/staff' : 'tasks/associates';
+                $targetUrl = "/{$portal}/{$taskRoute}";
 
-            $assigneeRecord->notify(new \App\Notifications\SystemAlertNotification(
-                $notifTitle,
-                $notifMsg,
-               $targetUrl, // Link to open Tasks page
-                $notifIcon,
-                $notifColor
-            ));
-        }
+                $assigneeRecord->notify(new \App\Notifications\SystemAlertNotification(
+                    $notifTitle,
+                    $notifMsg,
+                    $targetUrl, 
+                    $notifIcon,
+                    $notifColor
+                ));
             }
 
             return response()->json([
@@ -328,7 +324,7 @@ class TaskController extends Controller
                 'assigner',
                 'assignee',
                 'trackingModule',
-                'phase', // 🔥 NAYA: Single view me bhi phase detail fetch ho
+                'phase', 
                 'attachments' => function ($q) {
                     $q->orderBy('created_at', 'desc');
                 },
@@ -460,14 +456,13 @@ class TaskController extends Controller
                 $truncatedTitle = \Illuminate\Support\Str::limit($task->title, 25);
                 $truncatedMsg = \Illuminate\Support\Str::limit($request->message_or_remark, 40);
 
-                // 🔥 SMART ROUTING LOGIC 🔥
-        $taskRoute = str_contains($task->assignee_type, 'Employee') ? 'tasks/staff' : 'tasks/associates';
-        $targetUrl = "/{$portal}/{$taskRoute}";
+                $taskRoute = str_contains($task->assignee_type, 'Employee') ? 'tasks/staff' : 'tasks/associates';
+                $targetUrl = "/{$portal}/{$taskRoute}";
 
                 $receiverRecord->notify(new SystemAlertNotification(
                     "Task Update: {$truncatedTitle}",
                     "New msg from {$senderName}: {$truncatedMsg}",
-                   $targetUrl,
+                    $targetUrl,
                     "fa-comments",
                     "text-info"
                 ));
@@ -498,28 +493,47 @@ class TaskController extends Controller
             \App\Models\TaskAttachment::where('task_id', $task->id)->delete();
             \App\Models\TaskProgressLog::where('task_id', $task->id)->delete();
 
-            $task->delete();
+         // 1. Is task se judi hui sirf 'Fresh Leads' (is_rollover = 0) ke customer_ids nikalna
+        $freshCustomerIds = \App\Models\TelecallerAllocation::where('task_id', $id)
+            ->where('is_rollover', 0)
+            ->pluck('customer_id')
+            ->toArray();
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Task has been deleted permanently.'
+        // 2. Agar is task me fresh leads thi, toh unhe wapas Master Pool (Godown) me bhej do
+        if (!empty($freshCustomerIds)) {
+            \App\Models\InterestedCustomer::whereIn('id', $freshCustomerIds)->update([
+                'is_assigned'         => 0,    // Wapas se 0 kar diya taaki doosra assign ho sake
+                'assigned_telecaller' => null, // Telecaller ka naam hata diya
+                'updated_at'          => now()
             ]);
-        } catch (\Exception $e) {
+        }
+
+        // 3. Purani allocations delete karna (Optional - agar aap clean rakhna chahte hain)
+        \App\Models\TelecallerAllocation::where('task_id', $id)->delete();
+
+        // 4. Finally Task ko delete karna
+        $task = \App\Models\Task::findOrFail($id);
+        $task->delete();
+
+        return response()->json([
+            'status' => 'success', 
+            'message' => 'Task deleted aur saari fresh leads wapas pool me bhej di gayi hain!'
+        ]);
+    } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
     public function update(Request $request, $id)
     {
-        // 🔥 NAYA: phase_id add kiya update ke time bhi
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'priority' => 'required|in:Low,Medium,High,Urgent',
             'tracking_module_id' => 'nullable|exists:task_tracking_modules,id',
             'phase_id' => 'nullable|exists:phases,id',
-          'provider_id' => 'nullable|string',
-            'provider_percent' => 'nullable|integer|min:1|max:100', // 🔥 YAHAN ADD KAREIN
+            'provider_id' => 'nullable|string',
+            'provider_percent' => 'nullable|integer|min:1|max:100',
             'target_count' => 'nullable|integer|min:0',
             'due_datetime' => 'nullable|date',
         ]);
@@ -540,8 +554,8 @@ class TaskController extends Controller
                 'priority' => $request->priority,
                 'tracking_module_id' => $request->tracking_module_id,
                 'phase_id' => $request->phase_id,
-                'provider_id' => $request->provider_id ?? null, // 🔥 YE ADD KAREIN
-                'provider_percent' => $request->provider_percent ?? null, // 🔥 YAHAN ADD KAREIN
+                'provider_id' => $request->provider_id ?? null,
+                'provider_percent' => $request->provider_percent ?? null,
                 'target_count' => $request->target_count ?? 0,
                 'due_datetime' => $request->due_datetime,
             ]);
@@ -572,7 +586,6 @@ class TaskController extends Controller
            $query = Task::with([
                 'assignee',
                 'progressLogs' => function ($q) {
-                    // 🔥 NAYA: 'attachments' add kiya gaya hai
                     $q->with(['actor', 'attachments'])->orderBy('created_at', 'asc');
                 }
             ]);
@@ -584,7 +597,6 @@ class TaskController extends Controller
                 ]);
             }
 
-          // 🔥 FIX 2: Handle Frontend's 'assignee_ids' array and other dropdown filters 🔥
             if ($request->filled('assignee_ids')) {
                 $assigneeIds = explode(',', $request->assignee_ids);
                 $query->whereIn('assignee_id', $assigneeIds);
@@ -594,7 +606,6 @@ class TaskController extends Controller
                 $query->where('assignee_id', $request->member_id)->where('assignee_type', 'App\Models\Member');
             }
 
-            // Report generation ke waqt baki Multi-Select parameters par bhi filter apply karna zaroori hai
             if ($request->filled('company_ids')) {
                 $query->whereIn('company_id', explode(',', $request->company_ids));
             }
@@ -654,7 +665,6 @@ class TaskController extends Controller
                         'actor' => $log->actor ? ($log->actor->full_name ?? $log->actor->member_name ?? $log->actor->name) : 'System',
                         'message' => $log->message_or_remark,
                         'type' => $log->log_type,
-                        // 🔥 NAYA: Frontend ko attachments bhejne ka code 🔥
                         'attachments' => $log->attachments ? $log->attachments->map(function ($file) {
                             return [
                                 'file_name' => $file->file_name,
@@ -691,7 +701,6 @@ class TaskController extends Controller
         }
     }
 
-// 🔥 Edit Chat Message (With 5-Min Strict Validation)
     public function editReply(\Illuminate\Http\Request $request, $log_id)
     {
         $request->validate(['message_or_remark' => 'required|string']);
@@ -701,14 +710,12 @@ class TaskController extends Controller
         $isOwner = ($log->actor_type === get_class($user) && $log->actor_id === $user->id);
         $context = $this->getGlobalContext();
         
-        // SuperUser Check (Developer, Admin, CEO, Director)
         $isSuperUser = $context->is_god || in_array(strtolower($context->role_level ?? ''), ['ceo', 'director', 'admin']);
 
         if (!$isOwner && !$isSuperUser) {
             return response()->json(['success' => false, 'message' => 'Unauthorized to edit this message'], 403);
         }
 
-        // 🔥 BACKEND FIX: 5 Minute Edit Limit for Regular Users
         if ($isOwner && !$isSuperUser) {
             $minutesPassed = $log->created_at->diffInMinutes(now());
             if ($minutesPassed > 5) {
@@ -729,7 +736,6 @@ class TaskController extends Controller
         return response()->json(['success' => true, 'message' => 'Message updated successfully']);
     }
 
-    // 🔥 Delete Chat Message (Soft Delete for Admins visibility)
     public function deleteReply(\Illuminate\Http\Request $request, $log_id)
     {
         $request->validate(['delete_type' => 'required|in:for_me,for_everyone']);
@@ -745,14 +751,12 @@ class TaskController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
             
-            // 🔥 BACKEND FIX: Do NOT overwrite text and Do NOT delete physical attachments. Just flag it!
             $log->is_deleted = 1;
             $log->save();
 
             broadcast(new \App\Events\TaskProgressUpdated($log->task_id, $log))->toOthers();
 
         } else {
-            // Delete for Me logic
             $deletedFor = $log->deleted_for ? (is_array($log->deleted_for) ? $log->deleted_for : json_decode($log->deleted_for, true)) : [];
             $userIdentifier = get_class($user) . '_' . $user->id;
             
@@ -765,6 +769,4 @@ class TaskController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Message deleted successfully']);
     }
-      
-
 }

@@ -242,6 +242,7 @@
                             <th>Dept & Role</th>
                             <th class="d-none">Department</th>
                             <th class="d-none">Role</th>
+                            <th class="d-none">Contact No</th>
                             <th>Joining Date</th>
                             <th>Stage</th>
                             <th>Sys Status</th>
@@ -1182,9 +1183,9 @@ if (!canViewTable) {
                     filename: function() {
                         return (currentUserData ? currentUserData.company_name : 'Jankivilla') + ' - Excel Report';
                     },
-                    exportOptions: {
-                        columns: [2, 3, 5, 6, 8, 9, 10, 11, 12] 
-                    },
+                   exportOptions: {
+    columns: [2, 3, 5, 6, 8, 9, 10, 11, 12, 13] 
+},
                     action: function (e, dt, button, config) {
                         var self = this;
                         var oldStart = dt.settings()[0]._iDisplayStart;
@@ -1216,7 +1217,7 @@ if (!canViewTable) {
                         let comp = $('#filter_company').val() || '';
                         let br = $('#filter_branch').val() || '';
                         let token = localStorage.getItem('admin_token') || localStorage.getItem('emp_token') || '';
-                        let timeScope = 'today';
+                        let timeScope = 'all_time';
                         
                         window.open(`/employee-print?company_id=${comp}&branch_id=${br}&token=${token}&time_scope=${timeScope}`, '_blank');
                     }
@@ -1310,6 +1311,13 @@ if (!canViewTable) {
                                 return row.designation ? (typeof row.designation === 'object' ? row.designation.designation_name : row.designation) : 'N/A';
                             }
                         },
+                        {
+    data: 'contact_no',          // <--- YEH NAYA OBJECT ADD KAREIN
+    className: 'd-none',
+    render: function(data, type) {
+        return data || 'N/A';
+    }
+},
                         {
                             data: 'doj',
                             render: function(data, type) {

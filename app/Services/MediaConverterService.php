@@ -27,29 +27,28 @@ class MediaConverterService
         return $this->processRawFile($file, $originalName, $extension);
     }
 
-    private function processImage($file, $originalName)
+   private function processImage($file, $originalName)
     {
         $fileName = time() . '_' . uniqid() . '.webp';
         $subFolder = 'uploads/images';
         $uploadPath = public_path($subFolder);
 
-        if (!File::exists($uploadPath)) {
-            File::makeDirectory($uploadPath, 0777, true);
+        if (!\Illuminate\Support\Facades\File::exists($uploadPath)) {
+            \Illuminate\Support\Facades\File::makeDirectory($uploadPath, 0777, true);
         }
 
-        // Image Processing to WebP with Heavy Compression
-        $img = Image::make($file->getRealPath());
+        $img = \Intervention\Image\Facades\Image::make($file->getRealPath());
         
-        // Agar image bohot badi hai, toh width max 1000px tak scale down karein (aspect ratio maintain karke)
-        if ($img->width() > 1000) {
-            $img->resize(1000, null, function ($constraint) {
+        // 🔥 Aggressive Resizing: Max width 400px (Mobile aur web view ke liye enough hai)
+        if ($img->width() > 400) {
+            $img->resize(400, null, function ($constraint) {
                 $constraint->aspectRatio();
                 $constraint->upsize();
             });
         }
 
-        // Save as WebP with 50-60% quality to bring size between 100kb-200kb
-        $img->encode('webp', 60)->save($uploadPath . '/' . $fileName);
+        // 🔥 Aggressive Compression: Quality 35% par WebP (15KB - 20KB target)
+        $img->encode('webp', 35)->save($uploadPath . '/' . $fileName);
 
         return $this->saveToDb($originalName, $subFolder . '/' . $fileName, 'image', 'webp', filesize($uploadPath . '/' . $fileName));
     }

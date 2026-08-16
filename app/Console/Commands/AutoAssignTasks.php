@@ -100,37 +100,41 @@ class AutoAssignTasks extends Command
                     'priority'           => $setting->priority,
                     'due_datetime'       => now()->endOfDay(),
                     'status'             => 'Pending',
-                    
-                    // 🔥 NAYI LINE YAHAN ADD KAREIN:
                     'provider_id'        => $setting->provider_id ?? null,
+                    'provider_percent'   => $setting->provider_percent ?? 50, 
                 ]);
 
-                // 🔥 FIX: Target vs Non-Target Logic
                 if ($task->phase_id && $task->target_count > 0) {
-                    $remainingTarget = $task->target_count;
+                    
+                    $remainingTarget = $task->target_count; // Daily Target (e.g., 200)
 
-                    $priorityCount = $allocationService->allocatePriorityCustomers($task);
+                    // 1. Leftovers (Kal ki uncalled leads) -> Ye target se minus nahi hongi, extra add hongi
+                    $leftoverCount = $allocationService->allocatePendingLeftovers($task);
+
+                    // 2. Follow-up Priority -> Target quota ko consume karega
+                    $priorityCount = $allocationService->allocatePriorityCustomers($task, $remainingTarget);
                     $remainingTarget -= $priorityCount;
 
-                    $leftoverCount = 0;
+                    // 3. Rollover (3-Days unreachable) -> Target quota consume karega
+                    $rolloverCount = 0;
                     if ($remainingTarget > 0) {
-                        $leftoverCount = $allocationService->allocatePendingLeftovers($task);
-                        $remainingTarget -= $leftoverCount;
+                        $rolloverCount = $allocationService->allocateRolloverCustomers($task, $remainingTarget);
+                        $remainingTarget -= $rolloverCount;
                     }
 
+                    // 4. Fresh Leads (Bache hue target ke liye)
                     $freshCount = 0;
                     if ($remainingTarget > 0) {
                         $freshCount = $allocationService->allocateFreshCustomers($task, $remainingTarget);
+                        $remainingTarget -= $freshCount;
                     }
 
-                    $rolloverCount = $allocationService->allocateRolloverCustomers($task);
-
-                    $totalAllocated = $priorityCount + $leftoverCount + $freshCount + $rolloverCount;
+                    // Total math: e.g., 50 Leftover + 200 (Priority + Rollover + Fresh) = 250
+                    $totalAllocated = $leftoverCount + $priorityCount + $rolloverCount + $freshCount;
                     $task->update(['target_count' => $totalAllocated]);
 
-                    $breakdownMsg = "Assigned {$totalAllocated} calls ({$priorityCount} Priority, {$freshCount} Fresh, {$leftoverCount} Leftover, {$rolloverCount} Rollover).";
+                    $breakdownMsg = "Assigned {$totalAllocated} calls ({$leftoverCount} Leftover Backlog, {$priorityCount} Priority, {$rolloverCount} Rollover, {$freshCount} Fresh).";
                 } else {
-                    // Agar phase_id nahi hai ya target_count 0 hai, toh simple notification do
                     $totalAllocated = $task->target_count ?? 0;
                     $breakdownMsg = "Aapko {$totalAllocated} calls ka general task assign kiya gaya hai. Kripya apna portal check karein.";
                 }

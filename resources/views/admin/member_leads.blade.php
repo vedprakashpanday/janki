@@ -73,22 +73,40 @@
                             placeholder="Number...">
                     </div>
                     <div class="col-md-2">
+                        <label class="small fw-bold text-muted mb-1">Name</label>
+                        <input type="text" id="filterName" class="form-control form-control-sm" placeholder="Search Name...">
+                    </div>
+                    <div class="col-md-2">
                         <label class="small fw-bold text-muted mb-1">Date</label>
                         <input type="date" id="filterDate" class="form-control form-control-sm">
                     </div>
                     <div class="col-md-3">
                         <label class="small fw-bold text-muted mb-1">Status</label>
                         <select id="filterStatus" class="form-select form-select-sm">
-                            <option value="">-- All Status --</option>
-                            <option value="Pending">Pending status</option>
-                            <option value="Connected">Connected Call</option>
-                            <option value="Interested">Interested Call</option>
-                            <option value="Not Interested">Not Interested Call</option>
-                            <option value="Not Answering Call">Not Answering Call</option>
-                            <option value="Not Reachable">Not Reachable call</option>
-                            <option value="Follow Up">FollowUp Required</option>
-                            <option value="Site visit Scheduled">Site visit Scheduled Call</option>
-                        </select>
+    <option value="">-- All Status --</option>
+    <option value="Pending">22. Pending status</option>
+    <option value="Connected">1. Connected Call</option>
+    <option value="Interested">2. Interested Call</option>
+    <option value="Not Interested">3. Not Interested Call</option>
+    <option value="Not Answering Call">4. Not Answering Call</option>
+    <option value="Not Reachable">5. Not Reachable call</option>
+    <option value="Number Doesn't Exists call">6. Number Doesn't Exists call</option>
+    <option value="Site visit Scheduled">7. Site visit Scheduled Call</option>
+    <option value="Site Visit Done Call">8. Site Visit Done Call</option>
+    <option value="Booking Done">9. Booking Done</option>
+    <option value="Lost Lead">10. Lost Lead</option>
+    <option value="Booking Confirm">11. Booking Confirm</option>
+    <option value="Follow Up">12. FollowUp Required</option>
+    <option value="Registry Completed">13. Registry Completed</option>
+    <option value="On Hold">14. On Hold</option>
+    <option value="Highly Interested">15. Highly Interested</option>
+    <option value="Call Back Requested">16. Call Back Requested</option>
+    <option value="Busy">17. Busy</option>
+    <option value="Switched Off">18. Switched Off</option>
+    <option value="DND/Call Rejected">19. DND/Call Rejected</option>
+    <option value="Price Discussion">20. Price Discussion</option>
+    <option value="Incoming Call Not Available">23. Incoming Call Not Available</option>
+</select>
                     </div>
                     <div class="col-md-3">
                         <label class="small fw-bold text-muted mb-1">Address/City</label>
@@ -143,6 +161,18 @@
                                     class="text-danger">*</span></label>
                             <input type="text" id="l_name" name="cust_name" class="form-control" required
                                 placeholder="Enter name">
+                        </div>
+
+                        <!-- Entry Date Box -->
+                        <div class="col-md-4">
+                            <label class="small fw-bold text-dark mb-1">Entry Date</label>
+                            <input type="date" id="l_entry_date" name="entry_date" class="form-control">
+                        </div>
+
+                        <!-- Remark History Box -->
+                        <div class="col-12 mt-2 d-none" id="remarkHistoryContainer">
+                            <label class="small fw-bold text-info mb-1"><i class="fas fa-history"></i> Remark History</label>
+                            <textarea id="l_rem_hist" class="form-control bg-light text-secondary" rows="4" readonly></textarea>
                         </div>
                         <div class="col-md-4">
                             <label class="small fw-bold text-dark mb-1">Mobile Number <span
@@ -378,11 +408,11 @@
 
             // 🔥 FILTER VALUES ADDED TO API CALL 🔥
             function loadLeads(page, append = false) {
+               let filterName = $('#filterName').val(); // 🔥 Naya
                 let filterDate = $('#filterDate').val();
                 let filterMobile = $('#filterMobile').val();
                 let filterStatus = $('#filterStatus').val();
                 let filterAddress = $('#filterAddress').val();
-
                 if (!append) {
                     $('#leadsContainer').html(
                         '<div class="col-12 text-center py-5"><i class="fas fa-spinner fa-spin fa-3x text-primary mb-3"></i><br>Fetching leads...</div>'
@@ -392,6 +422,7 @@
 
                 let params = new URLSearchParams({
                     page: page,
+                    name: filterName, // 🔥 Naya
                     date: filterDate,
                     mobile: filterMobile,
                     status: filterStatus,
@@ -479,7 +510,7 @@
                 loadLeads(1);
             });
 
-            // 🔥 POPULATE ALL NEW FIELDS ON EDIT 🔥
+           // 🔥 POPULATE ALL NEW FIELDS ON EDIT 🔥
             window.openLeadModal = function(mode, id = null) {
                 $('#leadForm')[0].reset();
                 $('#edit_id').val('');
@@ -489,6 +520,11 @@
 
                 if (mode === 'add') {
                     $('#leadModalTitle').text('Add New Lead');
+                    
+                    // 🔥 NAYA: Aaj ki date pre-fill karna & History hide karna
+                    $('#l_entry_date').val(new Date().toLocaleDateString('en-CA'));
+                    $('#remarkHistoryContainer').addClass('d-none');
+                    
                     $('#leadModal').modal('show');
                 } else {
                     $('#leadModalTitle').text('Update Lead Details');
@@ -508,8 +544,19 @@
                         $('#l_budget').val(d.budget);
                         $('#l_req').val(d.required_for);
                         $('#l_rem').val(d.remark);
-                        $('#l_provider_name').val(d.provider_name || '');
+                       $('#l_provider_name').val(d.provider_name || '');
                         $('#l_provider_id').val(d.provider_id || '');
+                        
+                        // 🔥 NAYA: Entry Date set karein aur History dikhayein
+                        $('#l_entry_date').val(d.entry_date || '');
+                        
+                        if(d.remark_history && d.remark_history.trim() !== '') {
+                            $('#l_rem_hist').val(d.remark_history);
+                            $('#remarkHistoryContainer').removeClass('d-none');
+                        } else {
+                            $('#remarkHistoryContainer').addClass('d-none');
+                        }
+
                         $('#leadModal').modal('show');
                     });
                 }

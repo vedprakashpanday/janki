@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,5 +34,15 @@ class AppServiceProvider extends ServiceProvider
         }
         return null; // Baki sabke liye normal Spatie rules chalenge
     });
+
+DB::listen(function ($query) {
+        // Sirf un queries ko log karega jo 50 milliseconds se zyada time le rahi hain
+        if ($query->time > 50) { 
+            Log::info('Time: ' . $query->time . 'ms | Query: ' . $query->sql);
+            Log::info('Bindings: ' . json_encode($query->bindings));
+            Log::info('-----------------------------------------');
+        }
+    });
+
 }
 }

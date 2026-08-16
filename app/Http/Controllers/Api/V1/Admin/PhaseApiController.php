@@ -72,6 +72,7 @@ class PhaseApiController extends Controller
             'phase_location' => 'required|string|max:255',
             'phase_details' => 'required|string',
             'phase_image' => 'nullable|image|mimes:jpeg,png,jpg,webp,bmp|max:5120', 
+            'khatiyan_map' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:5120', // Max 5MB
             'phase_google_map_url' => 'nullable|url'
         ];
 
@@ -108,6 +109,13 @@ class PhaseApiController extends Controller
             $media = $mediaService->uploadAndConvert($request->file('phase_image'));
             if ($media) {
                 $data['phase_image'] = $media->file_path; 
+            }
+        }
+
+        if ($request->hasFile('khatiyan_map')) {
+            $media = $mediaService->uploadAndConvert($request->file('khatiyan_map'));
+            if ($media) {
+                $data['khatiyan_map'] = $media->file_path; 
             }
         }
 
@@ -162,6 +170,7 @@ class PhaseApiController extends Controller
             'phase_location' => 'required|string|max:255',
             'phase_details' => 'required|string',
             'phase_image' => 'nullable|image|mimes:jpeg,png,jpg,webp,bmp|max:5120',
+            'khatiyan_map' => 'nullable|image|mimes:jpeg,png,jpg,svg|max:5120',
             'phase_google_map_url' => 'nullable|url'
         ];
 
@@ -174,7 +183,9 @@ class PhaseApiController extends Controller
 
         $request->validate($rules);
 
-        $data = $request->only(['phase_name', 'phase_location', 'phase_details', 'phase_google_map_url']);
+       $data = $request->only(['phase_name', 'phase_location', 'phase_details', 'phase_google_map_url']);
+
+       
 
         if ($context->is_god) {
             $data['company_id'] = $request->company_id;
@@ -191,6 +202,21 @@ class PhaseApiController extends Controller
                 // Agar purani image delete karni ho toh aap yahan File::delete(public_path($phase->phase_image)) laga sakte hain
                 $data['phase_image'] = $media->file_path; 
             }
+        }
+
+        if ($request->hasFile('khatiyan_map')) {
+            $media = $mediaService->uploadAndConvert($request->file('khatiyan_map'));
+            if ($media) {
+                $data['khatiyan_map'] = $media->file_path;
+            }
+        }
+
+         // 🔥 NAYA FIX: Agar user ne image clear ki hai, to null set karo
+        if ($request->has('remove_phase_image') && $request->remove_phase_image == '1') {
+            $data['phase_image'] = null;
+        }
+        if ($request->has('remove_khatiyan_map') && $request->remove_khatiyan_map == '1') {
+            $data['khatiyan_map'] = null;
         }
 
         $phase->update($data);
@@ -223,5 +249,41 @@ class PhaseApiController extends Controller
         return response()->json($result);
     }
 
+    public function saveCanvasAsBaseMap(Request $request)
+    {
+        $request->validate([
+            'phase_id' => 'required|integer',
+            'image_base64' => 'required|string'
+        ]);
+
+        $phase = \App\Models\Phase::findOrFail($request->phase_id);
+
+        // Base64 string ko decode karke image file banana
+        $image_parts = explode(";base64,", $request->image_base64);
+        $image_type_aux = explode("image/", $image_parts[0]);
+        $image_type = $image_type_aux[1];
+        $image_base64 = base64_decode($image_parts[1]);
+        
+        $fileName = 'generated_layout_phase_' . $phase->id . '_' . time() . '.png';
+        $filePath = public_path('uploads/maps/' . $fileName);
+        
+        // Ensure directory exists
+        if (!file_exists(public_path('uploads/maps'))) {
+            mkdir(public_path('uploads/maps'), 0777, true);
+        }
+
+        // Save file to public folder
+        file_put_contents($filePath, $image_base64);
+
+        // Update Phase table
+        $dbPath = 'uploads/maps/' . $fileName;
+        $phase->update(['khatiyan_map' => $dbPath]);
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'Layout saved as Base Map successfully!',
+            'map_url' => asset($dbPath)
+        ]);
+    }
 
 }
